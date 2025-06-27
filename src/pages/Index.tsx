@@ -45,9 +45,11 @@ const Index = () => {
       <header className="bg-black/20 backdrop-blur-sm border-b border-white/10">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-bold">A</span>
-            </div>
+            <img 
+              src="/lovable-uploads/b0d23229-5043-46b5-a029-b56932ceb4cf.png" 
+              alt="ALAYA Logo" 
+              className="w-10 h-10"
+            />
             <h1 className="text-xl font-bold text-white">ALAYA AI Platform</h1>
           </div>
           
