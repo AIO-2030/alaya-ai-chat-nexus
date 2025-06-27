@@ -37,9 +37,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <CardHeader className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <img 
-              src="/lovable-uploads/579fb870-8fc3-47f7-88ef-bc47f2a52931.png" 
+              src={`/lovable-uploads/579fb870-8fc3-47f7-88ef-bc47f2a52931.png?v=${Date.now()}`}
               alt="ALAYA Logo" 
               className="w-12 h-12 object-contain"
+              onError={(e) => {
+                console.error('Logo failed to load:', e);
+                // Fallback to show the current target src
+                console.log('Current src:', e.currentTarget.src);
+              }}
             />
           </div>
           <CardTitle className="text-2xl font-bold text-white">
