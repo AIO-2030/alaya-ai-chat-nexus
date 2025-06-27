@@ -35,8 +35,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         )}
         
         <CardHeader className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">A</span>
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <img 
+              src="/lovable-uploads/79cbf5bb-1293-48a6-ae17-7f3c67d59d44.png" 
+              alt="ALAYA Logo" 
+              className="w-12 h-12 object-contain"
+            />
           </div>
           <CardTitle className="text-2xl font-bold text-white">
             Welcome to ALAYA
