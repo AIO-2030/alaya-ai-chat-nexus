@@ -37,7 +37,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <CardHeader className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <img 
-              src="/lovable-uploads/025c991f-ac2a-4f32-be0b-bd4985a6e37f.png" 
+              src="/lovable-uploads/4c0b9cd0-ccd5-4f74-b97b-14d74d4179c0.png" 
               alt="ALAYA Logo" 
               className="w-12 h-12 object-contain"
             />
