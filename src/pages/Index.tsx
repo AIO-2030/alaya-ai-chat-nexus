@@ -46,7 +46,7 @@ const Index = () => {
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <img 
-              src="/lovable-uploads/de6888b8-7a90-4486-b301-3a414c1c3ef2.png" 
+              src="/lovable-uploads/579fb870-8fc3-47f7-88ef-bc47f2a52931.png" 
               alt="ALAYA Logo" 
               className="w-10 h-10"
             />
