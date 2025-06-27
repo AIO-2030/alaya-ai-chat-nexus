@@ -28,13 +28,15 @@ const Index = () => {
   }
 
   const handleWalletLogin = async () => {
-    await loginWithWallet();
+    const result = await loginWithWallet();
     setShowLoginModal(false);
+    return result;
   };
 
   const handleGoogleLogin = async () => {
-    await loginWithGoogle();
+    const result = await loginWithGoogle();
     setShowLoginModal(false);
+    return result;
   };
 
   return (
