@@ -1,12 +1,12 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, Mail } from 'lucide-react';
+import { User } from '../lib/auth';
 
 interface LoginScreenProps {
-  onWalletLogin: () => Promise<void>;
-  onGoogleLogin: () => Promise<void>;
+  onWalletLogin: () => Promise<User>;
+  onGoogleLogin: () => Promise<User>;
   loading?: boolean;
 }
 
