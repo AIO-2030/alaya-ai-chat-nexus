@@ -142,9 +142,9 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
           <div className="text-center py-12">
             <div className="text-gray-400 dark:text-gray-600 mb-4">
               <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-xl font-bold">A</span>
+                <span className="text-white text-xl font-bold">U</span>
               </div>
-              <h3 className="text-lg font-medium mb-2">Welcome to ALAYA AI</h3>
+              <h3 className="text-lg font-medium mb-2">Welcome to Univoice Agent</h3>
               <p className="text-sm">Start a conversation with our multimodal AI assistant</p>
             </div>
           </div>

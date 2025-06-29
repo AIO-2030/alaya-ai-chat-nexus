@@ -48,7 +48,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             />
           </div>
           <CardTitle className="text-2xl font-bold text-white">
-            Welcome to ALAYA
+            Welcome to Univoice
           </CardTitle>
           <CardDescription className="text-gray-300">
             Connect your wallet or sign in with Google to access enhanced features
