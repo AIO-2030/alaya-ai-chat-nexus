@@ -46,11 +46,11 @@ const Index = () => {
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <img 
-              src="/lovable-uploads/579fb870-8fc3-47f7-88ef-bc47f2a52931.png" 
+              src="univoicelogo.png" 
               alt="ALAYA Logo" 
               className="w-10 h-10"
             />
-            <h1 className="text-xl font-bold text-white">ALAYA AI Platform</h1>
+            <h1 className="text-xl font-bold text-white">Univoice</h1>
           </div>
           
           <div className="flex items-center gap-4">
