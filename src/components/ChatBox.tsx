@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { AudioRecorder } from './AudioRecorder';
@@ -29,7 +28,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
 
   const [inputValue, setInputValue] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [inputMode, setInputMode] = useState<'text' | 'voice' | 'file'>('text');
+  const [inputMode, setInputMode] = useState<'text' | 'voice' | 'file'>('voice');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
