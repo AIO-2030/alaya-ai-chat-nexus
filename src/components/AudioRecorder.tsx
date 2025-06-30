@@ -64,11 +64,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   };
 
-  const handleError = (error: any) => {
-    console.error('Recording error:', error);
-    setError('Recording failed. Please check your microphone and try again.');
-  };
-
   const handleStart = async () => {
     console.log('Starting recording...');
     setError(null);
@@ -92,9 +87,14 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
           sampleRate: 44100,
         }}
         onStop={handleStop}
-        onError={handleError}
         render={({ status, startRecording, stopRecording, error: recorderError }) => {
           console.log('Recorder status:', status, 'Error:', recorderError);
+          
+          // Handle recorder errors
+          if (recorderError && !error) {
+            console.error('Recording error:', recorderError);
+            setError('Recording failed. Please check your microphone and try again.');
+          }
           
           return (
             <>
