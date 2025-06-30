@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { ReactMediaRecorder } from 'react-media-recorder';
 import { Mic, Square, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioBlob: Blob, transcript?: string) => void;
@@ -80,13 +79,10 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             setError('Recording failed. Please check your microphone and try again.');
           }
 
-          const handleClick = async (e: React.MouseEvent) => {
-            console.log('🖱️ BUTTON CLICKED! Event:', e);
-            console.log('🖱️ Current status:', status);
-            console.log('🖱️ Permission status:', permissionStatus);
-            
-            e.preventDefault();
-            e.stopPropagation();
+          const handleRecordClick = async () => {
+            console.log('🎯 RECORD BUTTON CLICKED!');
+            console.log('🎯 Current status:', status);
+            console.log('🎯 Permission status:', permissionStatus);
             
             if (status === 'recording') {
               console.log('🛑 Stopping recording...');
@@ -119,19 +115,39 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
           
           return (
             <div className="flex flex-col items-center gap-3">
-              <div 
-                onClick={handleClick}
-                className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 rounded-md cursor-pointer ${
-                  status === 'recording' 
-                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
-                    : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105'
-                } ${status === 'acquiring_media' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                style={{ 
-                  pointerEvents: status === 'acquiring_media' ? 'none' : 'auto',
-                  userSelect: 'none'
+              <button
+                type="button"
+                onClick={handleRecordClick}
+                onMouseDown={() => console.log('🖱️ Mouse down detected')}
+                onMouseUp={() => console.log('🖱️ Mouse up detected')}
+                disabled={status === 'acquiring_media'}
+                style={{
+                  all: 'unset',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '16px 32px',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  borderRadius: '6px',
+                  cursor: status === 'acquiring_media' ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  background: status === 'recording' 
+                    ? 'linear-gradient(to right, #ef4444, #dc2626)' 
+                    : 'linear-gradient(to right, #06b6d4, #8b5cf6)',
+                  color: 'white',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                  opacity: status === 'acquiring_media' ? 0.5 : 1,
+                  animation: status === 'recording' ? 'pulse 2s infinite' : 'none'
                 }}
-                onMouseDown={() => console.log('🖱️ Mouse down on record button')}
-                onMouseUp={() => console.log('🖱️ Mouse up on record button')}
+                onMouseEnter={(e) => {
+                  if (status !== 'acquiring_media') {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
                 {status === 'recording' ? (
                   <>
@@ -144,7 +160,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
                     Start Recording
                   </>
                 )}
-              </div>
+              </button>
               
               {status === 'recording' && (
                 <div className="flex items-center gap-3 text-red-500 animate-pulse">
