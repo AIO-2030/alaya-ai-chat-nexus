@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ReactMediaRecorder } from 'react-media-recorder';
 import { Mic, Square, AlertCircle } from 'lucide-react';
@@ -81,26 +80,34 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
           }
 
           const handleButtonClick = async () => {
-            console.log('Button clicked, current status:', status);
+            console.log('🎯 BUTTON CLICK DETECTED! Current status:', status);
+            console.log('🎯 Permission status:', permissionStatus);
             
             if (status === 'recording') {
-              console.log('Stopping recording...');
+              console.log('🛑 Stopping recording...');
               stopRecording();
             } else {
-              console.log('Attempting to start recording...');
+              console.log('🎙️ Attempting to start recording...');
               setError(null);
               
               // Check if we need microphone permission
               if (permissionStatus !== 'granted') {
+                console.log('🔐 Requesting microphone access...');
                 const hasAccess = await requestMicrophoneAccess();
                 if (!hasAccess) {
-                  console.log('Microphone access denied, cannot start recording');
+                  console.log('❌ Microphone access denied, cannot start recording');
                   return;
                 }
               }
               
-              console.log('Starting recording now...');
-              startRecording();
+              console.log('🚀 Starting recording now...');
+              try {
+                startRecording();
+                console.log('✅ startRecording() called successfully');
+              } catch (err) {
+                console.error('❌ Error calling startRecording():', err);
+                setError('Failed to start recording. Please try again.');
+              }
             }
           };
           
@@ -109,7 +116,12 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
               <Button
                 variant={status === 'recording' ? "destructive" : "default"}
                 size="lg"
-                onClick={handleButtonClick}
+                onClick={(e) => {
+                  console.log('🖱️ Raw button onClick event triggered');
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleButtonClick();
+                }}
                 disabled={status === 'acquiring_media'}
                 className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 ${
                   status === 'recording' 
