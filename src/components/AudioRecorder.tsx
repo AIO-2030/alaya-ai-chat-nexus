@@ -17,7 +17,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
 
   useEffect(() => {
-    // Check microphone permission on component mount
     checkMicrophonePermission();
   }, []);
 
@@ -42,7 +41,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('Microphone access granted:', stream);
       setPermissionStatus('granted');
-      // Stop the stream immediately as we just needed to check permission
       stream.getTracks().forEach(track => track.stop());
       return true;
     } catch (err) {
@@ -64,20 +62,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   };
 
-  const handleStart = async () => {
-    console.log('Starting recording...');
-    setError(null);
-    
-    // Check if we have microphone permission
-    if (permissionStatus !== 'granted') {
-      const hasAccess = await requestMicrophoneAccess();
-      if (!hasAccess) {
-        return false;
-      }
-    }
-    return true;
-  };
-
   return (
     <div className={`flex flex-col items-center gap-3 ${className}`}>
       <ReactMediaRecorder
@@ -95,24 +79,37 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             console.error('Recording error:', recorderError);
             setError('Recording failed. Please check your microphone and try again.');
           }
+
+          const handleButtonClick = async () => {
+            console.log('Button clicked, current status:', status);
+            
+            if (status === 'recording') {
+              console.log('Stopping recording...');
+              stopRecording();
+            } else {
+              console.log('Attempting to start recording...');
+              setError(null);
+              
+              // Check if we need microphone permission
+              if (permissionStatus !== 'granted') {
+                const hasAccess = await requestMicrophoneAccess();
+                if (!hasAccess) {
+                  console.log('Microphone access denied, cannot start recording');
+                  return;
+                }
+              }
+              
+              console.log('Starting recording now...');
+              startRecording();
+            }
+          };
           
           return (
             <>
               <Button
                 variant={status === 'recording' ? "destructive" : "default"}
                 size="lg"
-                onClick={async () => {
-                  if (status === 'recording') {
-                    console.log('Stopping recording...');
-                    stopRecording();
-                  } else {
-                    console.log('Attempting to start recording...');
-                    const canStart = await handleStart();
-                    if (canStart) {
-                      startRecording();
-                    }
-                  }
-                }}
+                onClick={handleButtonClick}
                 disabled={status === 'acquiring_media'}
                 className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 ${
                   status === 'recording' 
