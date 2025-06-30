@@ -156,20 +156,22 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="relative z-10 flex h-[calc(100vh-73px)]">
-        {/* Chat Area */}
-        <div className="flex-1 flex">
+      {/* Main Content - Fixed Layout */}
+      <div className="relative z-10 flex h-[calc(100vh-73px)] overflow-hidden">
+        {/* Chat Area - Fixed width, takes remaining space */}
+        <div className="flex-1 min-w-0 flex">
           <div className="flex-1 m-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
             <ChatBox />
           </div>
         </div>
 
-        {/* Alignment Panel */}
-        <AlignmentPanel 
-          session={session} 
-          className="m-4 mr-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10" 
-        />
+        {/* Alignment Panel - Fixed width */}
+        <div className="w-80 flex-shrink-0">
+          <AlignmentPanel 
+            session={session} 
+            className="m-4 mr-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 h-full overflow-hidden" 
+          />
+        </div>
       </div>
 
       {/* Login Modal */}
