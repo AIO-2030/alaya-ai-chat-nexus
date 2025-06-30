@@ -80,9 +80,13 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             setError('Recording failed. Please check your microphone and try again.');
           }
 
-          const handleRecordingAction = async () => {
-            console.log('🎯 RECORDING ACTION TRIGGERED! Status:', status);
-            console.log('🎯 Permission status:', permissionStatus);
+          const handleClick = async (e: React.MouseEvent) => {
+            console.log('🖱️ BUTTON CLICKED! Event:', e);
+            console.log('🖱️ Current status:', status);
+            console.log('🖱️ Permission status:', permissionStatus);
+            
+            e.preventDefault();
+            e.stopPropagation();
             
             if (status === 'recording') {
               console.log('🛑 Stopping recording...');
@@ -104,24 +108,30 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             }
             
             console.log('🚀 Calling startRecording...');
-            startRecording();
-            console.log('✅ startRecording called');
+            try {
+              startRecording();
+              console.log('✅ startRecording called successfully');
+            } catch (error) {
+              console.error('❌ Error in startRecording:', error);
+              setError('Failed to start recording. Please try again.');
+            }
           };
           
           return (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  console.log('🖱️ BUTTON CLICKED - Native button event');
-                  handleRecordingAction();
-                }}
-                disabled={status === 'acquiring_media'}
-                className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 rounded-md ${
+            <div className="flex flex-col items-center gap-3">
+              <div 
+                onClick={handleClick}
+                className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 rounded-md cursor-pointer ${
                   status === 'recording' 
                     ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
                     : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105'
-                } ${status === 'acquiring_media' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                } ${status === 'acquiring_media' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                style={{ 
+                  pointerEvents: status === 'acquiring_media' ? 'none' : 'auto',
+                  userSelect: 'none'
+                }}
+                onMouseDown={() => console.log('🖱️ Mouse down on record button')}
+                onMouseUp={() => console.log('🖱️ Mouse up on record button')}
               >
                 {status === 'recording' ? (
                   <>
@@ -134,7 +144,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
                     Start Recording
                   </>
                 )}
-              </button>
+              </div>
               
               {status === 'recording' && (
                 <div className="flex items-center gap-3 text-red-500 animate-pulse">
@@ -168,7 +178,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
                   </p>
                 </div>
               )}
-            </>
+            </div>
           );
         }}
       />
