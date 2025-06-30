@@ -6,7 +6,7 @@ import { ChatBox } from '../components/ChatBox';
 import { AlignmentPanel } from '../components/AlignmentPanel';
 import { useChatSession } from '../hooks/useChatSession';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, LogIn, Sparkles, Brain, Zap } from 'lucide-react';
+import { LogOut, User, Wallet, Sparkles, Brain, Zap } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,17 +136,19 @@ const Index = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 border-cyan-400/30 text-white hover:from-cyan-400/30 hover:to-purple-400/30 backdrop-blur-sm"
+                    className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 border-cyan-400/30 text-white hover:from-cyan-400/30 hover:to-purple-400/30 backdrop-blur-sm px-4 py-2"
                   >
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Connect
+                    <Wallet className="h-4 w-4 mr-2" />
+                    Login & Connect Wallet
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-slate-900/95 backdrop-blur-xl border-white/10">
-                  <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10">
+                <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10">
+                  <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
+                    <Wallet className="h-4 w-4 mr-3" />
                     Connect with Plug Wallet
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10">
+                  <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
+                    <User className="h-4 w-4 mr-3" />
                     Sign in with Google
                   </DropdownMenuItem>
                 </DropdownMenuContent>
