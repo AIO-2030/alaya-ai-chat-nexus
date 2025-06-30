@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { AudioRecorder } from './AudioRecorder';
@@ -242,32 +241,32 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
         </div>
       )}
 
-      {/* Enhanced Input Area */}
+      {/* Enhanced Input Area with Better Text Visibility */}
       <div className="p-6 border-t border-white/10">
         <Tabs value={inputMode} onValueChange={(value: any) => setInputMode(value)}>
-          <TabsList className="grid w-full grid-cols-3 bg-white/5 backdrop-blur-sm border border-white/20 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/10 to-purple-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+          <TabsList className="grid w-full grid-cols-3 bg-white/10 backdrop-blur-sm border border-white/30 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
             <TabsTrigger 
               value="text" 
-              className="relative flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/20 data-[state=active]:to-purple-400/20 data-[state=active]:text-white text-white/60 transition-all duration-200 hover:text-white/80"
+              className="relative flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/30 data-[state=active]:to-purple-400/30 data-[state=active]:text-white data-[state=active]:font-semibold text-white/80 font-medium transition-all duration-200 hover:text-white hover:bg-white/10"
             >
               <Send className="h-4 w-4" />
-              <span>Text</span>
+              <span className="text-sm font-semibold">Text</span>
             </TabsTrigger>
             <TabsTrigger 
               value="voice" 
-              className="relative flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/20 data-[state=active]:to-purple-400/20 data-[state=active]:text-white text-white/60 transition-all duration-200 hover:text-white/80"
+              className="relative flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/30 data-[state=active]:to-purple-400/30 data-[state=active]:text-white data-[state=active]:font-semibold text-white/80 font-medium transition-all duration-200 hover:text-white hover:bg-white/10"
             >
               <Mic className="h-4 w-4" />
-              <span>Voice</span>
+              <span className="text-sm font-semibold">Voice</span>
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
             </TabsTrigger>
             <TabsTrigger 
               value="file" 
-              className="relative flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/20 data-[state=active]:to-purple-400/20 data-[state=active]:text-white text-white/60 transition-all duration-200 hover:text-white/80"
+              className="relative flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/30 data-[state=active]:to-purple-400/30 data-[state=active]:text-white data-[state=active]:font-semibold text-white/80 font-medium transition-all duration-200 hover:text-white hover:bg-white/10"
             >
               <Paperclip className="h-4 w-4" />
-              <span>Files</span>
+              <span className="text-sm font-semibold">Files</span>
             </TabsTrigger>
           </TabsList>
 
@@ -280,16 +279,16 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message..."
                   disabled={loading}
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/40 backdrop-blur-sm focus:border-cyan-400/50 focus:bg-white/10 transition-all duration-200 pr-12"
+                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 backdrop-blur-sm focus:border-cyan-400/70 focus:bg-white/15 transition-all duration-200 pr-16 font-medium text-base"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 text-xs">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 text-xs font-medium bg-white/10 px-2 py-1 rounded border border-white/20">
                   ⏎ Send
                 </div>
               </div>
               <Button
                 onClick={handleSendMessage}
                 disabled={loading || (!inputValue.trim() && uploadedFiles.length === 0)}
-                className="bg-gradient-to-r from-cyan-400 to-purple-400 hover:from-cyan-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                className="bg-gradient-to-r from-cyan-400 to-purple-400 hover:from-cyan-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 font-semibold"
               >
                 <Send className="h-4 w-4" />
               </Button>
