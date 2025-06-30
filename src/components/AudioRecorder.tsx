@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ReactMediaRecorder } from 'react-media-recorder';
 import { Mic, Square, AlertCircle } from 'lucide-react';
@@ -79,55 +80,48 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             setError('Recording failed. Please check your microphone and try again.');
           }
 
-          const handleButtonClick = async () => {
-            console.log('🎯 BUTTON CLICK DETECTED! Current status:', status);
+          const handleRecordingAction = async () => {
+            console.log('🎯 RECORDING ACTION TRIGGERED! Status:', status);
             console.log('🎯 Permission status:', permissionStatus);
             
             if (status === 'recording') {
               console.log('🛑 Stopping recording...');
               stopRecording();
-            } else {
-              console.log('🎙️ Attempting to start recording...');
-              setError(null);
-              
-              // Check if we need microphone permission
-              if (permissionStatus !== 'granted') {
-                console.log('🔐 Requesting microphone access...');
-                const hasAccess = await requestMicrophoneAccess();
-                if (!hasAccess) {
-                  console.log('❌ Microphone access denied, cannot start recording');
-                  return;
-                }
-              }
-              
-              console.log('🚀 Starting recording now...');
-              try {
-                startRecording();
-                console.log('✅ startRecording() called successfully');
-              } catch (err) {
-                console.error('❌ Error calling startRecording():', err);
-                setError('Failed to start recording. Please try again.');
+              return;
+            }
+            
+            console.log('🎙️ Starting recording process...');
+            setError(null);
+            
+            // Check microphone permission
+            if (permissionStatus !== 'granted') {
+              console.log('🔐 Requesting microphone access...');
+              const hasAccess = await requestMicrophoneAccess();
+              if (!hasAccess) {
+                console.log('❌ Microphone access denied');
+                return;
               }
             }
+            
+            console.log('🚀 Calling startRecording...');
+            startRecording();
+            console.log('✅ startRecording called');
           };
           
           return (
             <>
-              <Button
-                variant={status === 'recording' ? "destructive" : "default"}
-                size="lg"
-                onClick={(e) => {
-                  console.log('🖱️ Raw button onClick event triggered');
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleButtonClick();
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('🖱️ BUTTON CLICKED - Native button event');
+                  handleRecordingAction();
                 }}
                 disabled={status === 'acquiring_media'}
-                className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 ${
+                className={`flex items-center gap-3 px-8 py-4 text-lg font-semibold transition-all duration-200 rounded-md ${
                   status === 'recording' 
                     ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
                     : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105'
-                }`}
+                } ${status === 'acquiring_media' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {status === 'recording' ? (
                   <>
@@ -140,7 +134,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
                     Start Recording
                   </>
                 )}
-              </Button>
+              </button>
               
               {status === 'recording' && (
                 <div className="flex items-center gap-3 text-red-500 animate-pulse">
