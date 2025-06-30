@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { AudioRecorder } from './AudioRecorder';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, Paperclip, Mic, Video, Trash2 } from 'lucide-react';
+import { Send, Paperclip, Mic, Video, Trash2, Sparkles, Zap, Brain } from 'lucide-react';
 
 interface ChatBoxProps {
   className?: string;
@@ -105,22 +106,33 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
   };
 
   return (
-    <div className={`flex flex-col h-full bg-white dark:bg-gray-900 ${className}`}>
+    <div className={`flex flex-col h-full ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between p-6 border-b border-white/10">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-             Univoice Agent
-          </h2>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
+              <Brain className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+                Univoice Agent
+              </h2>
+              <div className="flex items-center gap-1 text-xs text-white/60">
+                <Zap className="h-3 w-3" />
+                <span>Neural Processing Active</span>
+              </div>
+            </div>
+          </div>
           
           <Select value={session.alignmentMode} onValueChange={(value: any) => setAlignmentMode(value)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-36 bg-white/5 border-white/20 text-white backdrop-blur-sm">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Relaxed">Relaxed</SelectItem>
-              <SelectItem value="Balanced">Balanced</SelectItem>
-              <SelectItem value="Strict">Strict</SelectItem>
+            <SelectContent className="bg-slate-900/95 backdrop-blur-xl border-white/10">
+              <SelectItem value="Relaxed" className="text-white hover:bg-white/10">Relaxed</SelectItem>
+              <SelectItem value="Balanced" className="text-white hover:bg-white/10">Balanced</SelectItem>
+              <SelectItem value="Strict" className="text-white hover:bg-white/10">Strict</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -129,22 +141,41 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
           variant="outline"
           size="sm"
           onClick={clearSession}
-          className="text-gray-600 hover:text-red-600"
+          className="bg-white/5 border-white/20 text-white/60 hover:text-red-400 hover:bg-red-400/10 backdrop-blur-sm"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {session.messages.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-400 dark:text-gray-600 mb-4">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-xl font-bold">U</span>
+            <div className="text-white/60 mb-6">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-cyan-400 via-purple-400 to-blue-400 rounded-full flex items-center justify-center relative">
+                <Sparkles className="text-white text-xl" />
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-400 via-purple-400 to-blue-400 animate-pulse"></div>
               </div>
-              <h3 className="text-lg font-medium mb-2">Welcome to Univoice Agent</h3>
-              <p className="text-sm">Start a conversation with our multimodal AI assistant</p>
+              <h3 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mb-3">
+                Welcome to Univoice Agent
+              </h3>
+              <p className="text-sm text-white/40 max-w-md mx-auto">
+                Your advanced AI assistant powered by neural networks. Start with voice, text, or file interactions.
+              </p>
+              <div className="flex items-center justify-center gap-6 mt-6">
+                <div className="flex items-center gap-2 text-xs text-white/30">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                  <span>Voice Ready</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-white/30">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse animation-delay-300"></div>
+                  <span>Neural Active</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-white/30">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse animation-delay-600"></div>
+                  <span>Learning Mode</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -159,14 +190,14 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
         
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
-              <div className="flex items-center gap-2">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl rounded-bl-md px-6 py-4 border border-white/20">
+              <div className="flex items-center gap-3">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
-                <span className="text-sm text-gray-500">AI is thinking...</span>
+                <span className="text-sm text-white/60">Neural processing...</span>
               </div>
             </div>
           </div>
@@ -177,7 +208,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
 
       {/* File previews */}
       {uploadedFiles.length > 0 && (
-        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-3 border-t border-white/10">
           <div className="flex gap-2 overflow-x-auto">
             {uploadedFiles.map((file, index) => (
               <div key={index} className="flex-shrink-0">
@@ -192,36 +223,46 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
       )}
 
       {/* Input Area */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="p-6 border-t border-white/10">
         <Tabs value={inputMode} onValueChange={(value: any) => setInputMode(value)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="text" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-3 bg-white/5 backdrop-blur-sm border border-white/20">
+            <TabsTrigger 
+              value="text" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/20 data-[state=active]:to-purple-400/20 data-[state=active]:text-white text-white/60"
+            >
               <Send className="h-4 w-4" />
               Text
             </TabsTrigger>
-            <TabsTrigger value="voice" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="voice" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/20 data-[state=active]:to-purple-400/20 data-[state=active]:text-white text-white/60"
+            >
               <Mic className="h-4 w-4" />
               Voice
             </TabsTrigger>
-            <TabsTrigger value="file" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="file" 
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-400/20 data-[state=active]:to-purple-400/20 data-[state=active]:text-white text-white/60"
+            >
               <Paperclip className="h-4 w-4" />
               Files
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="text" className="mt-4">
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
                 disabled={loading}
-                className="flex-1"
+                className="flex-1 bg-white/5 border-white/20 text-white placeholder:text-white/40 backdrop-blur-sm focus:border-cyan-400/50"
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={loading || (!inputValue.trim() && uploadedFiles.length === 0)}
+                className="bg-gradient-to-r from-cyan-400 to-purple-400 hover:from-cyan-500 hover:to-purple-500 text-white shadow-lg"
               >
                 <Send className="h-4 w-4" />
               </Button>
@@ -229,10 +270,12 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
           </TabsContent>
 
           <TabsContent value="voice" className="mt-4">
-            <AudioRecorder
-              onAudioRecorded={handleAudioRecorded}
-              className="w-full justify-center"
-            />
+            <div className="flex justify-center">
+              <AudioRecorder
+                onAudioRecorded={handleAudioRecorded}
+                className="w-full max-w-md"
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="file" className="mt-4">
