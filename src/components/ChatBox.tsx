@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Paperclip, Mic, Video, Trash2, Sparkles, Zap, Brain } from 'lucide-react';
 
 interface ChatBoxProps {
@@ -107,7 +108,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-white/10">
+      <div className="flex items-center justify-between p-6 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="relative w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
@@ -164,70 +165,72 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
         </Button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {session.messages.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-white/60 mb-6">
-              <div className="relative w-20 h-20 mx-auto mb-6">
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-purple-400 to-blue-400 rounded-full animate-spin opacity-20"></div>
-                <div className="absolute inset-2 bg-gradient-to-br from-cyan-400 via-purple-400 to-blue-400 rounded-full flex items-center justify-center">
-                  <Sparkles className="text-white text-xl animate-pulse" />
+      {/* Messages with ScrollArea */}
+      <ScrollArea className="flex-1">
+        <div className="p-6 space-y-4">
+          {session.messages.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-white/60 mb-6">
+                <div className="relative w-20 h-20 mx-auto mb-6">
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-purple-400 to-blue-400 rounded-full animate-spin opacity-20"></div>
+                  <div className="absolute inset-2 bg-gradient-to-br from-cyan-400 via-purple-400 to-blue-400 rounded-full flex items-center justify-center">
+                    <Sparkles className="text-white text-xl animate-pulse" />
+                  </div>
                 </div>
-              </div>
-              <h3 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mb-3">
-                Welcome to Univoice Agent
-              </h3>
-              <p className="text-sm text-white/40 max-w-md mx-auto">
-                Your advanced AI assistant powered by neural networks. Start with voice, text, or file interactions.
-              </p>
-              <div className="flex items-center justify-center gap-6 mt-6">
-                <div className="flex items-center gap-2 text-xs text-white/30">
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                  <span>Voice Ready</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-white/30">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
-                  <span>Neural Active</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-white/30">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
-                  <span>Learning Mode</span>
+                <h3 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mb-3">
+                  Welcome to Univoice Agent
+                </h3>
+                <p className="text-sm text-white/40 max-w-md mx-auto">
+                  Your advanced AI assistant powered by neural networks. Start with voice, text, or file interactions.
+                </p>
+                <div className="flex items-center justify-center gap-6 mt-6">
+                  <div className="flex items-center gap-2 text-xs text-white/30">
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                    <span>Voice Ready</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-white/30">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                    <span>Neural Active</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-white/30">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
+                    <span>Learning Mode</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {session.messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            onExecuteJsonRpc={executeJsonRpc}
-          />
-        ))}
-        
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl rounded-bl-md px-6 py-4 border border-white/20">
-              <div className="flex items-center gap-3">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          {session.messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onExecuteJsonRpc={executeJsonRpc}
+            />
+          ))}
+          
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl rounded-bl-md px-6 py-4 border border-white/20">
+                <div className="flex items-center gap-3">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-sm text-white/60">Neural processing...</span>
                 </div>
-                <span className="text-sm text-white/60">Neural processing...</span>
               </div>
             </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
 
       {/* File previews */}
       {uploadedFiles.length > 0 && (
-        <div className="px-6 py-3 border-t border-white/10">
+        <div className="px-6 py-3 border-t border-white/10 flex-shrink-0">
           <div className="flex gap-2 overflow-x-auto">
             {uploadedFiles.map((file, index) => (
               <div key={index} className="flex-shrink-0 animate-fade-in">
@@ -242,7 +245,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
       )}
 
       {/* Enhanced Input Area with Better Text Visibility */}
-      <div className="p-6 border-t border-white/10">
+      <div className="p-6 border-t border-white/10 flex-shrink-0">
         <Tabs value={inputMode} onValueChange={(value: any) => setInputMode(value)}>
           <TabsList className="grid w-full grid-cols-3 bg-white/10 backdrop-blur-sm border border-white/30 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
