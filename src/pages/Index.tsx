@@ -136,7 +136,7 @@ const Index = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 border-cyan-400/30 text-white hover:from-cyan-400/30 hover:to-purple-400/30 backdrop-blur-sm px-4 py-2"
+                    className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl"
                   >
                     <Wallet className="h-4 w-4 mr-2" />
                     Login & Connect Wallet
