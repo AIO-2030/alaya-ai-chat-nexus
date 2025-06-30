@@ -1,6 +1,5 @@
-
 import React from 'react';
-import ReactJson from 'react-json-view';
+import ReactJson from 'react18-json-view';
 import { Button } from '@/components/ui/button';
 
 interface JSONViewerProps {
@@ -36,16 +35,13 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({
       <div className="max-h-96 overflow-auto">
         <ReactJson
           src={data}
-          theme="monokai"
+          theme="vscode"
           style={{
             backgroundColor: 'transparent',
             fontSize: '12px'
           }}
           collapsed={2}
-          displayDataTypes={false}
-          displayObjectSize={false}
           enableClipboard={true}
-          name={false}
         />
       </div>
     </div>

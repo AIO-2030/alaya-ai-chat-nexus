@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ReactMediaRecorder } from 'react-media-recorder';
 import { Mic, Square, AlertCircle } from 'lucide-react';
@@ -72,6 +71,8 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
         onStop={handleStop}
         render={({ status, startRecording, stopRecording, error: recorderError }) => {
           console.log('Recorder status:', status, 'Error:', recorderError);
+          console.log('startRecording:', startRecording, 'stopRecording:', stopRecording);
+          console.log('typeof startRecording:', typeof startRecording);
           
           // Handle recorder errors
           if (recorderError && !error) {
@@ -83,28 +84,46 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
             console.log('🎯 RECORD BUTTON CLICKED!');
             console.log('🎯 Current status:', status);
             console.log('🎯 Permission status:', permissionStatus);
-            
+            console.log('typeof startRecording:', typeof startRecording);
             if (status === 'recording') {
               console.log('🛑 Stopping recording...');
               stopRecording();
               return;
             }
-            
-            console.log('🎙️ Starting recording process...');
             setError(null);
-            
-            // Check microphone permission
-            if (permissionStatus !== 'granted') {
+            // 兼容 navigator.permissions 不支持的情况
+            let perm = permissionStatus;
+            if (perm === 'unknown' && !navigator.permissions) {
+              // 直接尝试请求权限
+              const hasAccess = await requestMicrophoneAccess();
+              if (!hasAccess) {
+                console.log('❌ Microphone access denied (no permissions API)');
+                return;
+              }
+              perm = 'granted';
+            }
+            // 检查权限
+            if (perm !== 'granted') {
               console.log('🔐 Requesting microphone access...');
               const hasAccess = await requestMicrophoneAccess();
               if (!hasAccess) {
                 console.log('❌ Microphone access denied');
                 return;
               }
+              // 权限刚被授予，自动调用 startRecording
+              try {
+                console.log('即将调用 startRecording (after permission granted)');
+                startRecording();
+                console.log('✅ startRecording called after permission granted');
+              } catch (error) {
+                console.error('❌ Error in startRecording:', error);
+                setError('Failed to start recording. Please try again.');
+              }
+              return;
             }
-            
-            console.log('🚀 Calling startRecording...');
+            // 权限已授予，直接录音
             try {
+              console.log('即将调用 startRecording');
               startRecording();
               console.log('✅ startRecording called successfully');
             } catch (error) {
@@ -115,38 +134,40 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
           
           return (
             <div className="flex flex-col items-center gap-3">
+              <div className="text-xs text-gray-400 mb-1">Status: {status} | Permission: {permissionStatus}</div>
+              
               <button
                 type="button"
-                onClick={handleRecordClick}
-                onMouseDown={() => console.log('🖱️ Mouse down detected')}
-                onMouseUp={() => console.log('🖱️ Mouse up detected')}
+                onClick={(e) => {
+                  console.log('🎯 BUTTON CLICKED!!! Event:', e);
+                  handleRecordClick();
+                }}
+                onMouseDown={(e) => {
+                  console.log('🖱️ Mouse down detected', e);
+                  e.stopPropagation();
+                }}
+                onMouseUp={(e) => {
+                  console.log('🖱️ Mouse up detected', e);
+                  e.stopPropagation();
+                }}
+                onPointerDown={(e) => console.log('👆 Pointer down', e)}
+                onPointerUp={(e) => console.log('👆 Pointer up', e)}
                 disabled={status === 'acquiring_media'}
-                style={{
-                  all: 'unset',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '16px 32px',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  borderRadius: '6px',
-                  cursor: status === 'acquiring_media' ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s',
-                  background: status === 'recording' 
-                    ? 'linear-gradient(to right, #ef4444, #dc2626)' 
-                    : 'linear-gradient(to right, #06b6d4, #8b5cf6)',
-                  color: 'white',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                  opacity: status === 'acquiring_media' ? 0.5 : 1,
-                  animation: status === 'recording' ? 'pulse 2s infinite' : 'none'
-                }}
-                onMouseEnter={(e) => {
-                  if (status !== 'acquiring_media') {
-                    e.currentTarget.style.transform = 'scale(1.05)';
+                className={`
+                  flex items-center gap-3 px-8 py-4 text-lg font-semibold rounded-lg 
+                  cursor-pointer transition-all duration-200 border-none outline-none
+                  ${status === 'recording' 
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
+                    : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600'
                   }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
+                  text-white shadow-lg hover:shadow-xl hover:scale-105
+                  ${status === 'acquiring_media' ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${status === 'recording' ? 'animate-pulse' : ''}
+                `}
+                style={{
+                  pointerEvents: 'auto',
+                  position: 'relative',
+                  zIndex: 10
                 }}
               >
                 {status === 'recording' ? (
