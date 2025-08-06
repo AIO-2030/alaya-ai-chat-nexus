@@ -3,7 +3,6 @@ import React from 'react';
 import { useAuth } from '../lib/auth';
 import { LoginScreen } from '../components/LoginScreen';
 import { ChatBox } from '../components/ChatBox';
-import { AlignmentPanel } from '../components/AlignmentPanel';
 import { useChatSession } from '../hooks/useChatSession';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
@@ -177,20 +176,12 @@ const Index = () => {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 flex flex-col lg:flex-row min-w-0 overflow-hidden">
+          <div className="flex-1 min-w-0 overflow-hidden">
             {/* Chat Area */}
             <div className="flex-1 min-w-0 flex">
               <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
                 <ChatBox />
               </div>
-            </div>
-
-            {/* Alignment Panel - Hide on mobile, show on larger screens */}
-            <div className="hidden xl:block w-80 flex-shrink-0">
-              <AlignmentPanel 
-                session={session} 
-                className="m-4 mr-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 h-full overflow-hidden" 
-              />
             </div>
           </div>
         </div>
