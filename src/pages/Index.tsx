@@ -6,6 +6,7 @@ import { ChatBox } from '../components/ChatBox';
 import { AlignmentPanel } from '../components/AlignmentPanel';
 import { useChatSession } from '../hooks/useChatSession';
 import { AppSidebar } from '../components/AppSidebar';
+import { BottomNavigation } from '../components/BottomNavigation';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Wallet, Sparkles, Menu } from 'lucide-react';
 import {
@@ -170,7 +171,7 @@ const Index = () => {
         </header>
 
         <div className="flex h-[calc(100vh-65px)] w-full">
-          {/* Sidebar for desktop, drawer for mobile */}
+          {/* Sidebar for desktop only */}
           <div className="hidden lg:block">
             <AppSidebar />
           </div>
@@ -179,7 +180,7 @@ const Index = () => {
           <div className="flex-1 flex flex-col lg:flex-row min-w-0 overflow-hidden">
             {/* Chat Area */}
             <div className="flex-1 min-w-0 flex">
-              <div className="flex-1 m-2 md:m-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
+              <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
                 <ChatBox />
               </div>
             </div>
@@ -194,9 +195,9 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Mobile sidebar overlay */}
+        {/* Bottom Navigation - Mobile only */}
         <div className="lg:hidden">
-          <AppSidebar />
+          <BottomNavigation />
         </div>
 
         {/* Login Modal */}
