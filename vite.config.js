@@ -1,13 +1,13 @@
-
 import { fileURLToPath, URL } from 'url';
 import react from '@vitejs/plugin-react-swc';
 import { defineConfig } from 'vite';
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
+import { componentTagger } from "lovable-tagger";
 
 dotenv.config({ path: '../../.env' });
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
     emptyOutDir: true,
   },
@@ -19,6 +19,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: "::",
     port: 8080,
     proxy: {
       "/api": {
@@ -29,9 +30,10 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    mode === 'development' && componentTagger(),
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: [
       {
@@ -47,4 +49,4 @@ export default defineConfig({
     ],
     dedupe: ['@dfinity/agent', 'react', 'react-dom'],
   },
-});
+}));
