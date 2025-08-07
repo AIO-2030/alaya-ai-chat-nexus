@@ -177,10 +177,36 @@ const Index = () => {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            {/* Chat Area */}
-            <div className="flex-1 min-w-0 flex">
-              <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
-                <ChatBox />
+            <div className="h-full flex flex-col">
+              {/* My Wallet Section */}
+              {user && (
+                <div className="m-2 md:m-4 mb-2 p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-white">My Wallet</h2>
+                    <div className="text-sm text-white/60">
+                      {user.walletAddress ? `${user.walletAddress.slice(0, 8)}...` : 'Not Connected'}
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-r from-cyan-400/10 to-purple-400/10 rounded-xl p-4 border border-cyan-400/20">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">$127.50</div>
+                        <div className="text-sm text-white/60">Balance</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-cyan-400">3</div>
+                        <div className="text-sm text-white/60">Devices</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Chat Area */}
+              <div className="flex-1 min-w-0 flex">
+                <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
+                  <ChatBox />
+                </div>
               </div>
             </div>
           </div>
