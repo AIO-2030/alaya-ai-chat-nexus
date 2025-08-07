@@ -5,7 +5,7 @@ import { User, FileText, Smartphone, ShoppingBag } from 'lucide-react';
 const menuItems = [
   { title: "Profile", url: "/profile", icon: User },
   { title: "Contracts", url: "/contracts", icon: FileText },
-  { title: "My Devices", url: "/mydevices", icon: Smartphone },
+  { title: "My Devices", url: "/my-devices", icon: Smartphone },
   { title: "Shop", url: "/shop", icon: ShoppingBag },
 ];
 
