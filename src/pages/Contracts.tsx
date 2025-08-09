@@ -1,34 +1,31 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Eye, Download, MessageCircle, User, Send, Smile, Smartphone, X, LogOut, Wallet, Sparkles, Menu } from 'lucide-react';
+import { FileText, Plus, Eye, MessageCircle, User, Send, Smile, Smartphone, X, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '../lib/auth';
-import { LoginScreen } from '../components/LoginScreen';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { AppHeader } from '../components/AppHeader';
 import {
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
+import QRCode from 'react-qr-code';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const Contracts = () => {
-  const { user, loading: authLoading, loginWithWallet, loginWithGoogle, logout } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [selectedContract, setSelectedContract] = useState<any>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [newMessage, setNewMessage] = useState('');
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [messages, setMessages] = useState([
     { id: 1, sender: 'user', content: 'Hello, how are you today?', timestamp: '10:30 AM' },
     { id: 2, sender: 'friend', content: 'Hi! I\'m doing great, thanks for asking!', timestamp: '10:32 AM' },
   ]);
+  const [showQrDialog, setShowQrDialog] = useState(false);
 
   const contracts = [
     { 
@@ -85,22 +82,25 @@ const Contracts = () => {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'Active':
+        return t('common.statusActive');
+      case 'Pending':
+        return t('common.statusPending');
+      case 'Completed':
+        return t('common.statusCompleted');
+      default:
+        return status;
+    }
+  };
+
   const handleContractClick = (contract: any) => {
     setSelectedContract(contract);
     setShowDialog(true);
   };
 
-  const handleWalletLogin = async () => {
-    const result = await loginWithWallet();
-    setShowLoginModal(false);
-    return result;
-  };
 
-  const handleGoogleLogin = async () => {
-    const result = await loginWithGoogle();
-    setShowLoginModal(false);
-    return result;
-  };
 
   if (authLoading) {
     return (
@@ -109,8 +109,8 @@ const Contracts = () => {
           <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
           <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
           <div className="mt-4 text-center">
-            <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
-              Initializing AI...
+              <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+              {t('common.initializingAI')}
             </div>
           </div>
         </div>
@@ -155,85 +155,7 @@ const Contracts = () => {
         </div>
 
         {/* Header */}
-        <header className="relative z-10 backdrop-blur-xl bg-black/20 border-b border-white/10">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="text-white hover:bg-white/10 lg:hidden" />
-              <div className="relative">
-                <img 
-                  src="univoicelogo.png" 
-                  alt="ALAYA Logo" 
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg"
-                />
-                <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse"></div>
-              </div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-                  Univoice
-                </h1>
-                <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full border border-cyan-400/30">
-                  <Sparkles className="h-2 w-2 md:h-3 md:w-3 text-cyan-400" />
-                  <span className="text-xs font-medium text-cyan-400">AI</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 md:gap-4">
-              {user ? (
-                <>
-                  <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
-                    <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                      <User className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="text-white/90">
-                      <div className="text-sm font-medium">{user.name}</div>
-                      {user.walletAddress && (
-                        <div className="text-xs text-white/60">
-                          {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="md:hidden w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={logout}
-                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-3 md:px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl text-xs md:text-sm"
-                    >
-                      <Wallet className="h-4 w-4 mr-1 md:mr-2" />
-                      <span className="hidden md:inline">Login & Connect Wallet</span>
-                      <span className="md:hidden">Login</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10">
-                    <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                      <Wallet className="h-4 w-4 mr-3" />
-                      Connect with Plug Wallet
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                      <User className="h-4 w-4 mr-3" />
-                      Sign in with Google
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </header>
+        <AppHeader />
 
         <div className="flex h-[calc(100vh-65px)] w-full">
           {/* Sidebar for desktop only */}
@@ -244,30 +166,6 @@ const Contracts = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="h-full flex flex-col">
-              {/* My Wallet Section */}
-              {user && (
-                <div className="m-2 md:m-4 mb-2 p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-white">My Wallet</h2>
-                    <div className="text-sm text-white/60">
-                      {user.walletAddress ? `${user.walletAddress.slice(0, 8)}...` : 'Not Connected'}
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-r from-cyan-400/10 to-purple-400/10 rounded-xl p-4 border border-cyan-400/20">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-white">$127.50</div>
-                        <div className="text-sm text-white/60">Balance</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-cyan-400">3</div>
-                        <div className="text-sm text-white/60">Devices</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Contracts Content */}
               <div className="flex-1 min-w-0 flex">
                 <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
@@ -279,14 +177,14 @@ const Contracts = () => {
             </div>
             <div>
                           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-                            Contracts
+                            {t('common.contracts')}
                           </h1>
-              <p className="text-white/60">Manage your smart contracts and agreements</p>
+              <p className="text-white/60">{t('common.contractsSubtitle')}</p>
             </div>
           </div>
                       <Button className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl">
             <Plus className="h-4 w-4 mr-2" />
-            New Contract
+            {t('common.newContract')}
           </Button>
         </div>
 
@@ -315,13 +213,13 @@ const Contracts = () => {
                       {contract.type === 'friend' && <User className="h-4 w-4 text-cyan-400" />}
                     </div>
                     <p className="text-sm text-white/60">
-                      {contract.devices.length > 0 ? `${contract.devices.join(', ')}` : 'System Contract'}
+                      {contract.devices.length > 0 ? `${contract.devices.join(', ')}` : t('common.systemContract')}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                               <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(contract.status)} backdrop-blur-sm`}>
-                    {contract.status}
+                    {getStatusLabel(contract.status)}
                   </span>
                   <div className="flex gap-2">
                     <Button 
@@ -335,8 +233,16 @@ const Contracts = () => {
                     >
                       <MessageCircle className="h-4 w-4" />
                     </Button>
-                                <Button variant="outline" size="sm" className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
-                      <Download className="h-4 w-4" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowQrDialog(true);
+                      }}
+                    >
+                      <QrCode className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -396,7 +302,7 @@ const Contracts = () => {
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type your message..."
+                    placeholder={t('common.typeYourMessage') as string}
                     className="flex-1 bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   />
@@ -415,7 +321,7 @@ const Contracts = () => {
                     className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
                   >
                     <Smile className="h-4 w-4 mr-2" />
-                    Emoji
+                    {t('common.emoji')}
                   </Button>
                   <Button
                     variant="outline"
@@ -423,7 +329,7 @@ const Contracts = () => {
                     className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
                   >
                     <Smartphone className="h-4 w-4 mr-2" />
-                    To Device
+                    {t('common.toDevice')}
                   </Button>
                 </div>
               </div>
@@ -431,19 +337,36 @@ const Contracts = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Login Modal */}
-        {showLoginModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
-            <div onClick={(e) => e.stopPropagation()}>
-              <LoginScreen
-                onWalletLogin={handleWalletLogin}
-                onGoogleLogin={handleGoogleLogin}
-                loading={authLoading}
-                onClose={() => setShowLoginModal(false)}
-              />
+        {/* Share QR Dialog */}
+        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-sm mx-auto shadow-2xl">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-white flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-cyan-400" />
+                {t('common.shareQrTitle')}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-2">
+              {(() => {
+                const userId = (user as any)?.id || (user as any)?.userId || (user as any)?.walletAddress || 'guest';
+                const qrValue = `univoice://add-friend?uid=${encodeURIComponent(String(userId))}`;
+                return (
+                  <div className="p-4 bg-white rounded-lg">
+                    <QRCode value={qrValue} size={200} level="M" />
+                  </div>
+                );
+              })()}
+              <div className="text-xs text-white/70 text-center">
+                {t('common.shareQrHint')}
+                <span className="block break-all text-cyan-300 mt-1">
+                  {`univoice://add-friend?uid=${encodeURIComponent(String((user as any)?.id || (user as any)?.userId || (user as any)?.walletAddress || 'guest'))}`}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
+
+
       </div>
     </SidebarProvider>
   );

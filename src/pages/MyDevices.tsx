@@ -1,31 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Wifi, Battery, Settings, Bluetooth, Monitor, Plus, X, Check, LogOut, Wallet, Sparkles, Menu, User, Loader2, Signal, Shield } from 'lucide-react';
+import { Smartphone, Wifi, Battery, Settings, Bluetooth, Monitor, Plus, X, Check, User, Loader2, Signal, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '../lib/auth';
-import { LoginScreen } from '../components/LoginScreen';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { AppHeader } from '../components/AppHeader';
 import {
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const MyDevices = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, loginWithWallet, loginWithGoogle, logout } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [showWifiDialog, setShowWifiDialog] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<any>(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   
   // Device management hook
   const {
@@ -76,17 +71,7 @@ const MyDevices = () => {
     setShowWifiDialog(false);
   };
 
-  const handleWalletLogin = async () => {
-    const result = await loginWithWallet();
-    setShowLoginModal(false);
-    return result;
-  };
 
-  const handleGoogleLogin = async () => {
-    const result = await loginWithGoogle();
-    setShowLoginModal(false);
-    return result;
-  };
 
   if (authLoading) {
     return (
@@ -95,8 +80,8 @@ const MyDevices = () => {
           <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
           <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
           <div className="mt-4 text-center">
-            <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
-              Initializing AI...
+              <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+              {t('common.initializingAI')}
             </div>
           </div>
         </div>
@@ -106,7 +91,7 @@ const MyDevices = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-x-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
@@ -141,85 +126,7 @@ const MyDevices = () => {
         </div>
 
         {/* Header */}
-        <header className="relative z-10 backdrop-blur-xl bg-black/20 border-b border-white/10">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="text-white hover:bg-white/10 lg:hidden" />
-              <div className="relative">
-                <img 
-                  src="univoicelogo.png" 
-                  alt="ALAYA Logo" 
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg"
-                />
-                <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse"></div>
-              </div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-                  Univoice
-                </h1>
-                <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full border border-cyan-400/30">
-                  <Sparkles className="h-2 w-2 md:h-3 md:w-3 text-cyan-400" />
-                  <span className="text-xs font-medium text-cyan-400">AI</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 md:gap-4">
-              {user ? (
-                <>
-                  <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
-                    <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                      <User className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="text-white/90">
-                      <div className="text-sm font-medium">{user.name}</div>
-                      {user.walletAddress && (
-                        <div className="text-xs text-white/60">
-                          {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="md:hidden w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={logout}
-                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-3 md:px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl text-xs md:text-sm"
-                    >
-                      <Wallet className="h-4 w-4 mr-1 md:mr-2" />
-                      <span className="hidden md:inline">Login & Connect Wallet</span>
-                      <span className="md:hidden">Login</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10">
-                    <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                      <Wallet className="h-4 w-4 mr-3" />
-                      Connect with Plug Wallet
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                      <User className="h-4 w-4 mr-3" />
-                      Sign in with Google
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </header>
+        <AppHeader />
 
         <div className="flex h-[calc(100vh-65px)] w-full">
           {/* Sidebar for desktop only */}
@@ -228,32 +135,8 @@ const MyDevices = () => {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex-1 min-w-0 overflow-y-auto">
             <div className="h-full flex flex-col">
-              {/* My Wallet Section */}
-              {user && (
-                <div className="m-2 md:m-4 mb-2 p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-white">My Wallet</h2>
-                    <div className="text-sm text-white/60">
-                      {user.walletAddress ? `${user.walletAddress.slice(0, 8)}...` : 'Not Connected'}
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-r from-cyan-400/10 to-purple-400/10 rounded-xl p-4 border border-cyan-400/20">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-white">$127.50</div>
-                        <div className="text-sm text-white/60">Balance</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-cyan-400">3</div>
-                        <div className="text-sm text-white/60">Devices</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Devices Content */}
               <div className="flex-1 min-w-0 flex">
                 <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
@@ -265,9 +148,9 @@ const MyDevices = () => {
                         </div>
                         <div>
                           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-                            My Devices
+                            {t('common.myDevices')}
                           </h1>
-                          <p className="text-white/60">Manage your connected devices and their status</p>
+                          <p className="text-white/60">{t('common.myDevicesSubtitle')}</p>
                         </div>
                       </div>
                       <Button 
@@ -275,7 +158,7 @@ const MyDevices = () => {
                         className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Device
+                        {t('common.addDevice')}
                       </Button>
                     </div>
 
@@ -290,8 +173,8 @@ const MyDevices = () => {
                                 <p className="text-sm text-white/60">{device.type}</p>
                               </div>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(device.status)} backdrop-blur-sm`}>
-                              {device.status}
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(device.status)} backdrop-blur-sm`}>
+                              {t(`common.device${device.status}` as any)}
                             </span>
                           </div>
 
@@ -303,7 +186,7 @@ const MyDevices = () => {
                             
                             <div className="flex items-center gap-2">
                               <Battery className={`h-4 w-4 ${getBatteryColor(device.battery)}`} />
-                              <span className="text-sm text-white/80">Battery: {device.battery}%</span>
+                               <span className="text-sm text-white/80">Battery: {device.battery}%</span>
                             </div>
 
                             <div className="w-full bg-white/10 rounded-full h-2 mt-2">
@@ -317,7 +200,7 @@ const MyDevices = () => {
                           <div className="flex gap-2 mt-4">
                             <Button variant="outline" size="sm" className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
                               <Settings className="h-4 w-4 mr-2" />
-                              Manage
+                              {t('common.manage')}
                             </Button>
                             <Button 
                               variant="outline" 
@@ -351,13 +234,13 @@ const MyDevices = () => {
             <DialogHeader className="pb-4">
               <DialogTitle className="text-white flex items-center gap-3">
                 <Wifi className="h-5 w-5 text-cyan-400" />
-                Link to WiFi
+                {t('common.linkToWifi')}
               </DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="text-white/60 text-sm">
-                Select WiFi network for: <span className="text-white font-medium">{selectedDevice?.name}</span>
+                {t('common.selectWifiFor')}: <span className="text-white font-medium">{selectedDevice?.name}</span>
               </div>
               
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -379,7 +262,7 @@ const MyDevices = () => {
                       onClick={() => handleWifiConnect(network)}
                       className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 text-xs"
                     >
-                      Connect
+                      {t('common.connect')}
                     </Button>
                   </div>
                 ))}
@@ -390,25 +273,13 @@ const MyDevices = () => {
                 variant="outline"
                 className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* Login Modal */}
-        {showLoginModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
-            <div onClick={(e) => e.stopPropagation()}>
-              <LoginScreen
-                onWalletLogin={handleWalletLogin}
-                onGoogleLogin={handleGoogleLogin}
-                loading={authLoading}
-                onClose={() => setShowLoginModal(false)}
-              />
-            </div>
-          </div>
-        )}
+
       </div>
     </SidebarProvider>
   );

@@ -106,7 +106,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
   };
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div className={`flex flex-col h-full max-h-[calc(100vh-145px)] lg:max-h-[calc(100vh-65px)] ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-4">
@@ -166,7 +166,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
       </div>
 
       {/* Messages with ScrollArea */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-6 space-y-4">
           {session.messages.length === 0 && (
             <div className="text-center py-12">
@@ -245,7 +245,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
       )}
 
       {/* Enhanced Input Area with Better Text Visibility */}
-      <div className="p-6 border-t border-white/10 flex-shrink-0">
+      <div className="p-6 border-t border-white/10 flex-shrink-0 pb-20 lg:pb-6">
         <Tabs value={inputMode} onValueChange={(value: any) => setInputMode(value)}>
           <TabsList className="grid w-full grid-cols-3 bg-white/10 backdrop-blur-sm border border-white/30 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>

@@ -1,19 +1,14 @@
 import React, { useState } from 'react';
-import { Smartphone, Wifi, Battery, Settings, Bluetooth, Monitor, Plus, X, Check, LogOut, Wallet, Sparkles, Menu, User, Loader2, Signal, Shield, ArrowLeft } from 'lucide-react';
+import { Smartphone, Wifi, Battery, Settings, Bluetooth, Monitor, Plus, X, Check, LogOut, Wallet, Sparkles, Menu, User, Loader2, Signal, Shield, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '../lib/auth';
-import { LoginScreen } from '../components/LoginScreen';
+import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { DeviceInitStep } from '../services/deviceInitManager';
@@ -21,8 +16,11 @@ import { useNavigate } from 'react-router-dom';
 
 const AddDevice = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, loginWithWallet, loginWithGoogle, logout } = useAuth();
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [selectedWifi, setSelectedWifi] = useState<any>(null);
+  const [wifiPassword, setWifiPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Device management hook
   const {
@@ -45,7 +43,27 @@ const AddDevice = () => {
   };
 
   const handleWifiSelected = async (wifi: any) => {
-    await selectWiFi(wifi);
+    setSelectedWifi(wifi);
+    setShowPasswordDialog(true);
+  };
+
+  const handleWifiPasswordSubmit = async () => {
+    if (!selectedWifi) return;
+    
+    try {
+      // Add password to WiFi network
+      const wifiWithPassword = {
+        ...selectedWifi,
+        password: wifiPassword
+      };
+      
+      await selectWiFi(wifiWithPassword);
+      setShowPasswordDialog(false);
+      setWifiPassword('');
+      setSelectedWifi(null);
+    } catch (error) {
+      console.error('Failed to select WiFi:', error);
+    }
   };
 
   const handleBluetoothDeviceSelected = async (device: any) => {
@@ -63,17 +81,7 @@ const AddDevice = () => {
     navigate('/my-devices');
   };
 
-  const handleWalletLogin = async () => {
-    const result = await loginWithWallet();
-    setShowLoginModal(false);
-    return result;
-  };
 
-  const handleGoogleLogin = async () => {
-    const result = await loginWithGoogle();
-    setShowLoginModal(false);
-    return result;
-  };
 
   if (authLoading) {
     return (
@@ -128,95 +136,21 @@ const AddDevice = () => {
         </div>
 
         {/* Header */}
-        <header className="relative z-10 backdrop-blur-xl bg-black/20 border-b border-white/10">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="text-white hover:bg-white/10 lg:hidden" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleGoBack}
-                className="text-white hover:bg-white/10 p-2"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="relative">
-                <img 
-                  src="univoicelogo.png" 
-                  alt="ALAYA Logo" 
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg"
-                />
-                <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse"></div>
-              </div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-                  Univoice
-                </h1>
-                <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full border border-cyan-400/30">
-                  <Sparkles className="h-2 w-2 md:h-3 md:w-3 text-cyan-400" />
-                  <span className="text-xs font-medium text-cyan-400">AI</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 md:gap-4">
-              {user ? (
-                <>
-                  <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
-                    <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                      <User className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="text-white/90">
-                      <div className="text-sm font-medium">{user.name}</div>
-                      {user.walletAddress && (
-                        <div className="text-xs text-white/60">
-                          {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="md:hidden w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={logout}
-                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-3 md:px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl text-xs md:text-sm"
-                    >
-                      <Wallet className="h-4 w-4 mr-1 md:mr-2" />
-                      <span className="hidden md:inline">Login & Connect Wallet</span>
-                      <span className="md:hidden">Login</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10">
-                    <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                      <Wallet className="h-4 w-4 mr-3" />
-                      Connect with Plug Wallet
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                      <User className="h-4 w-4 mr-3" />
-                      Sign in with Google
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </header>
+        <AppHeader showSidebarTrigger={false} />
+        
+        {/* Back Button */}
+        <div className="relative z-10 px-4 py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleGoBack}
+            className="text-white hover:bg-white/10 p-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </div>
 
-        <div className="flex h-[calc(100vh-65px)] w-full">
+        <div className="flex h-[calc(100vh-65px-80px)] lg:h-[calc(100vh-65px)] w-full">
           {/* Sidebar for desktop only */}
           <div className="hidden lg:block">
             <AppSidebar />
@@ -224,26 +158,26 @@ const AddDevice = () => {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="h-full flex flex-col">
+            <div className="h-full flex flex-col max-h-[calc(100vh-145px)] lg:max-h-[calc(100vh-65px)]">
               {/* Page Header */}
-              <div className="m-2 md:m-4 mb-2 p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center">
-                    <Plus className="h-6 w-6 text-white" />
+              <div className="m-2 md:m-4 mb-2 p-4 md:p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                <div className="flex items-center gap-3 md:gap-4 mb-4">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center">
+                    <Plus className="h-5 w-5 md:h-6 md:w-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
+                    <h1 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
                       Add New Device
                     </h1>
-                    <p className="text-white/60">Set up your new device with WiFi and Bluetooth</p>
+                    <p className="text-white/60 text-sm md:text-base">Set up your new device with WiFi and Bluetooth</p>
                   </div>
                 </div>
               </div>
 
               {/* Device Initialization Content */}
               <div className="flex-1 min-w-0 flex">
-                <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
-                  <div className="p-6">
+                <div className="flex-1 m-2 md:m-4 mb-4 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
+                  <div className="p-6 overflow-y-auto max-h-[calc(100vh-200px)] lg:max-h-[calc(100vh-120px)]">
                     {/* Step Progress */}
                     <div className="mb-6">
                       <div className="flex items-center justify-between mb-2">
@@ -270,43 +204,43 @@ const AddDevice = () => {
 
                     {/* Device Initialization Steps */}
                     {currentStep === DeviceInitStep.INIT && (
-                      <div className="space-y-6">
+                      <div className="space-y-4 md:space-y-6">
                         <div className="text-center">
-                          <div className="w-24 h-24 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Smartphone className="h-12 w-12 text-white" />
+                          <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
+                            <Smartphone className="h-10 w-10 md:h-12 md:w-12 text-white" />
                           </div>
-                          <h3 className="text-2xl font-semibold text-white mb-4">Device Initialization</h3>
-                          <p className="text-white/60 text-lg">We will help you set up your new device</p>
+                          <h3 className="text-xl md:text-2xl font-semibold text-white mb-3 md:mb-4">Device Initialization</h3>
+                          <p className="text-white/60 text-base md:text-lg">We will help you set up your new device</p>
                         </div>
                         
-                        <div className="space-y-4 max-w-md mx-auto">
-                          <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
-                            <div className="w-10 h-10 bg-cyan-400/20 rounded flex items-center justify-center">
-                              <Wifi className="h-5 w-5 text-cyan-400" />
+                        <div className="space-y-3 md:space-y-4 max-w-md mx-auto">
+                          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-white/5 rounded-lg">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-cyan-400/20 rounded flex items-center justify-center">
+                              <Wifi className="h-4 w-4 md:h-5 md:w-5 text-cyan-400" />
                             </div>
                             <div>
-                              <div className="text-white font-medium">1. Scan and select WiFi network</div>
-                              <div className="text-white/60 text-sm">Choose the WiFi network for your device</div>
+                              <div className="text-white font-medium text-sm md:text-base">1. Scan and select WiFi network</div>
+                              <div className="text-white/60 text-xs md:text-sm">Choose the WiFi network for your device</div>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
-                            <div className="w-10 h-10 bg-purple-400/20 rounded flex items-center justify-center">
-                              <Bluetooth className="h-5 w-5 text-purple-400" />
+                          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-white/5 rounded-lg">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-400/20 rounded flex items-center justify-center">
+                              <Bluetooth className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
                             </div>
                             <div>
-                              <div className="text-white font-medium">2. Scan Bluetooth devices</div>
-                              <div className="text-white/60 text-sm">Scan nearby Bluetooth devices</div>
+                              <div className="text-white font-medium text-sm md:text-base">2. Scan Bluetooth devices</div>
+                              <div className="text-white/60 text-xs md:text-sm">Scan nearby Bluetooth devices</div>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
-                            <div className="w-10 h-10 bg-green-400/20 rounded flex items-center justify-center">
-                              <Check className="h-5 w-5 text-green-400" />
+                          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-white/5 rounded-lg">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-400/20 rounded flex items-center justify-center">
+                              <Check className="h-4 w-4 md:h-5 md:w-5 text-green-400" />
                             </div>
                             <div>
-                              <div className="text-white font-medium">3. Auto-configure connection</div>
-                              <div className="text-white/60 text-sm">Configure device via Bluetooth</div>
+                              <div className="text-white font-medium text-sm md:text-base">3. Auto-configure connection</div>
+                              <div className="text-white/60 text-xs md:text-sm">Configure device via Bluetooth</div>
                             </div>
                           </div>
                         </div>
@@ -314,7 +248,7 @@ const AddDevice = () => {
                         <div className="text-center">
                           <Button
                             onClick={handleStartDeviceInit}
-                            className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 px-8 py-3 text-lg"
+                            className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 px-6 md:px-8 py-2 md:py-3 text-base md:text-lg"
                           >
                             Start Initialization
                           </Button>
@@ -358,10 +292,25 @@ const AddDevice = () => {
                                   <div className="text-white/60 flex items-center gap-2">
                                     <Shield className="h-4 w-4" />
                                     {network.security} • Signal: {network.strength} dBm
+                                    {network.frequency && (
+                                      <span> • {network.frequency > 5000 ? '5GHz' : '2.4GHz'}</span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
-                              <Signal className="h-6 w-6 text-cyan-400" />
+                              <div className="flex items-center gap-2">
+                                <div className="flex flex-col items-end">
+                                  <div className="text-white/60 text-xs">
+                                    {network.strength > -50 ? 'Excellent' : 
+                                     network.strength > -60 ? 'Good' : 
+                                     network.strength > -70 ? 'Fair' : 'Poor'}
+                                  </div>
+                                  <div className="text-cyan-400 text-xs">
+                                    {network.channel ? `Ch ${network.channel}` : ''}
+                                  </div>
+                                </div>
+                                <Signal className="h-6 w-6 text-cyan-400" />
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -528,19 +477,63 @@ const AddDevice = () => {
           <BottomNavigation />
         </div>
 
-        {/* Login Modal */}
-        {showLoginModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
-            <div onClick={(e) => e.stopPropagation()}>
-              <LoginScreen
-                onWalletLogin={handleWalletLogin}
-                onGoogleLogin={handleGoogleLogin}
-                loading={authLoading}
-                onClose={() => setShowLoginModal(false)}
-              />
+        {/* WiFi Password Dialog */}
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-md mx-auto shadow-2xl">
+            <DialogHeader className="pb-4">
+              <DialogTitle className="text-white flex items-center gap-3">
+                <Wifi className="h-5 w-5 text-cyan-400" />
+                Enter WiFi Password
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-white/60 text-sm">
+                Network: <span className="text-white font-medium">{selectedWifi?.name}</span>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-white text-sm font-medium">Password</label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={wifiPassword}
+                    onChange={(e) => setWifiPassword(e.target.value)}
+                    placeholder="Enter WiFi password"
+                    className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm pr-10"
+                    onKeyPress={(e) => e.key === 'Enter' && handleWifiPasswordSubmit()}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => setShowPasswordDialog(false)}
+                  variant="outline"
+                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleWifiPasswordSubmit}
+                  disabled={!wifiPassword.trim()}
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0"
+                >
+                  Connect
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarProvider>
   );

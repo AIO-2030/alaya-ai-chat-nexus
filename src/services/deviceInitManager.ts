@@ -1,5 +1,5 @@
 // Device Initialization Manager - Handle complete device setup process
-import { deviceService, WiFiNetwork, BluetoothDevice, DeviceRecord, ConnectionProgress } from './deviceService';
+import { realDeviceService, WiFiNetwork, BluetoothDevice, DeviceRecord, ConnectionProgress } from './realDeviceService';
 
 export enum DeviceInitStep {
   INIT = 'init',
@@ -55,7 +55,7 @@ export class DeviceInitManager {
       this.state.error = null;
 
       // Scan WiFi networks
-      const networks = await deviceService.scanWiFiNetworks();
+      const networks = await realDeviceService.scanWiFiNetworks();
       this.state.wifiNetworks = networks;
       this.state.isScanningWifi = false;
       this.state.step = DeviceInitStep.WIFI_SELECT;
@@ -75,7 +75,7 @@ export class DeviceInitManager {
       this.state.error = null;
 
       // Scan Bluetooth devices
-      const devices = await deviceService.scanBluetoothDevices();
+      const devices = await realDeviceService.scanBluetoothDevices();
       this.state.bluetoothDevices = devices;
       this.state.isScanningBluetooth = false;
       this.state.step = DeviceInitStep.BLUETOOTH_SELECT;
@@ -110,7 +110,7 @@ export class DeviceInitManager {
         throw new Error('No device or WiFi selected');
       }
 
-      const steps = await deviceService.getConnectionProgress();
+      const steps = await realDeviceService.getConnectionProgress();
       
       for (const step of steps) {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -118,10 +118,10 @@ export class DeviceInitManager {
       }
 
       // Establish Bluetooth connection
-      await deviceService.connectBluetooth(this.state.selectedBluetoothDevice);
+      await realDeviceService.connectBluetooth(this.state.selectedBluetoothDevice);
 
       // Configure WiFi via Bluetooth
-      await deviceService.configureWiFiViaBluetooth(
+      await realDeviceService.configureWiFiViaBluetooth(
         this.state.selectedBluetoothDevice,
         this.state.selectedWifi
       );
@@ -151,7 +151,7 @@ export class DeviceInitManager {
         connectedAt: new Date().toISOString()
       };
 
-      const success = await deviceService.submitDeviceRecord(record);
+      const success = await realDeviceService.submitDeviceRecord(record);
       
       if (success) {
         // Reset state after successful submission
