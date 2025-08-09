@@ -48,7 +48,7 @@ This app bridges user identity to ICP principals using Internet Identity (II).
     - Google login and auto-sync path call II to obtain `principalId`
     - Logout path also calls `logoutII()` and clears cached principal
   - `src/services/api/userApi.ts`
-    - Mock persistence for `UserInfo`; replace with real canister actor later
+    - call canister backend actor 
 
 - UserInfo unification
   - Unified shape: `userId`, `principalId`, `nickname`, `loginMethod`, `loginStatus`, `email?`, `picture?`, `walletAddress?`
