@@ -41,12 +41,16 @@ class RealDeviceService {
 
   // Check if Web Bluetooth API is available
   private isWebBluetoothSupported(): boolean {
-    return 'bluetooth' in navigator;
+    const supported = 'bluetooth' in navigator;
+    console.log('[BLE] Web Bluetooth supported:', supported);
+    return supported;
   }
 
   // Check if Web WiFi API is available (experimental)
   private isWebWiFiSupported(): boolean {
-    return 'wifi' in navigator || 'networkInformation' in navigator;
+    const supported = 'wifi' in navigator || 'networkInformation' in navigator;
+    console.log('[WiFi] Web WiFi/NetworkInformation supported:', supported);
+    return supported;
   }
 
   // Try to get WiFi networks using native APIs
@@ -167,6 +171,7 @@ class RealDeviceService {
     try {
       console.log('Starting real WiFi network scan...');
       this.isScanningWifi = true;
+      console.log('[WiFi] isScanningWifi set -> true');
 
       // Try to get real WiFi networks first
       let networks = await this.getNativeWiFiNetworks();
@@ -314,11 +319,12 @@ class RealDeviceService {
 
       this.wifiNetworks = networks;
       this.isScanningWifi = false;
-      
+      console.log('[WiFi] isScanningWifi set -> false');
       console.log('WiFi scan completed, found', networks.length, 'networks');
       return networks;
     } catch (error) {
       this.isScanningWifi = false;
+      console.log('[WiFi] isScanningWifi set -> false');
       console.error('WiFi scan failed:', error);
       throw new Error('WiFi scan failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
@@ -329,6 +335,7 @@ class RealDeviceService {
     try {
       console.log('Starting real Bluetooth device scan...');
       this.isScanningBluetooth = true;
+      console.log('[BLE] isScanningBluetooth set -> true');
 
       const devices: BluetoothDevice[] = [];
 
@@ -492,11 +499,12 @@ class RealDeviceService {
 
       this.bluetoothDevices = devices;
       this.isScanningBluetooth = false;
-      
+      console.log('[BLE] isScanningBluetooth set -> false');
       console.log('Bluetooth scan completed, found', devices.length, 'devices');
       return devices;
     } catch (error) {
       this.isScanningBluetooth = false;
+      console.log('[BLE] isScanningBluetooth set -> false');
       console.error('Bluetooth scan failed:', error);
       throw new Error('Bluetooth scan failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }

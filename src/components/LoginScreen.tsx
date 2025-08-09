@@ -3,11 +3,11 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, Mail, X } from 'lucide-react';
-import { User } from '../lib/auth';
+import type { UserInfo } from '../types/user';
 
 interface LoginScreenProps {
-  onWalletLogin: () => Promise<User>;
-  onGoogleLogin: () => Promise<User>;
+  onWalletLogin: () => Promise<UserInfo>;
+  onGoogleLogin: () => Promise<UserInfo>;
   loading?: boolean;
   onClose?: () => void;
 }

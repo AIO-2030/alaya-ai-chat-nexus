@@ -26,6 +26,47 @@ This document summarizes the latest changes implemented in the Chat Nexus fronte
   - `connect-src`: `https://accounts.google.com https://www.googleapis.com`
   - `img-src`: `https://lh3.googleusercontent.com`
 
+## Authentication (ICP Internet Identity – Principal Bridging)
+
+This app bridges user identity to ICP principals using Internet Identity (II).
+
+- Dependencies
+  - `@dfinity/auth-client@^2.1.3` (aligned with current `@dfinity/agent@^2.x`)
+
+- Modules
+  - `src/lib/ii.ts`
+    - `getAuthClient()`: lazy-create singleton AuthClient
+    - `getIIUrl()`: read II provider from `VITE_II_URL` or default `https://identity.ic0.app`
+    - `ensureIILogin()`: trigger II login if not authenticated
+    - `getPrincipalFromII()`: return principal text via II identity
+    - `logoutII()`: logout II session
+  - `src/lib/identity.ts`
+    - `generatePrincipalForNonPlug()`: now uses `getPrincipalFromII()` (real II flow)
+  - `src/lib/principal.ts`
+    - Cache and persist principal id for global access (`getPrincipalId`, `setPrincipalId`, `clearPrincipalId`, `ensurePrincipalId`)
+  - `src/lib/auth.ts`
+    - Google login and auto-sync path call II to obtain `principalId`
+    - Logout path also calls `logoutII()` and clears cached principal
+  - `src/services/api/userApi.ts`
+    - Mock persistence for `UserInfo`; replace with real canister actor later
+
+- UserInfo unification
+  - Unified shape: `userId`, `principalId`, `nickname`, `loginMethod`, `loginStatus`, `email?`, `picture?`, `walletAddress?`
+  - Stored under `localStorage['alaya_user']` and synced via `syncUserInfo()` (mock)
+
+- i18n
+  - Added keys in `src/i18n.ts`:
+    - `common.iiAuthFailed`
+    - `common.iiPrincipalFailed`
+
+- Environment
+  - Add to project root `.env` (Vite):
+    - `VITE_II_URL=https://identity.ic0.app`
+
+- Migration notes
+  - When backend canister API is ready, replace `src/services/api/userApi.ts` with real actor calls created from `src/declarations/aio-base-backend`
+
+
 ## Layout & Visibility Fixes
 
 - Prevented bottom navigation from covering content on mobile by using responsive `calc(100vh-...)` heights

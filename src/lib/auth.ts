@@ -1,6 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import { useGoogleAuth, GoogleUser } from '../hooks/useGoogleAuth';
+import i18n from '../i18n';
+import { connectPlugAndGetPrincipal } from './wallet';
+import { setPrincipalId, clearPrincipalId } from './principal';
+import { logoutII } from './ii';
+import { generatePrincipalForNonPlug } from './identity';
+import { syncUserInfo } from '../services/api/userApi';
+import type { UserInfo, LoginStatus } from '../types/user';
 
 export interface User {
   id: string;
@@ -12,7 +19,7 @@ export interface User {
 }
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Use Google OAuth hook
@@ -33,6 +40,8 @@ export const useAuth = () => {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
+        // Developer log for loaded user info from storage
+        console.log('[Auth] Loaded user info from storage:', parsedUser);
       } catch (err) {
         console.error('Failed to parse saved user:', err);
         localStorage.removeItem('alaya_user');
@@ -43,36 +52,49 @@ export const useAuth = () => {
 
   // Sync Google user status
   useEffect(() => {
-    if (googleUser) {
-      const userData: User = {
-        id: googleUser.id,
+    if (!googleUser) return;
+    // Avoid duplicate sync if already set from explicit login
+    if (user && user.loginMethod === 'google' && user.userId === `google_${googleUser.id}`) return;
+    (async () => {
+      const principalId = await generatePrincipalForNonPlug(googleUser.id);
+      setPrincipalId(principalId);
+      const userInfo: UserInfo = {
+        userId: `google_${googleUser.id}`,
+        principalId,
         name: googleUser.name,
+        nickname: googleUser.name,
+        loginMethod: 'google',
+        loginStatus: 'authenticated',
         email: googleUser.email,
         picture: googleUser.picture,
-        loginMethod: 'google'
       };
-      setUser(userData);
-      localStorage.setItem('alaya_user', JSON.stringify(userData));
-    }
-  }, [googleUser]);
+      const synced = await syncUserInfo(userInfo);
+      setUser(synced);
+      localStorage.setItem('alaya_user', JSON.stringify(synced));
+    })();
+  }, [googleUser, user]);
 
   const loginWithWallet = async () => {
     try {
-      // Simulate Plug wallet integration
-      console.log('Connecting to Plug wallet...');
-      
-      // Mock wallet connection - replace with actual Plug integration
-      const mockUser: User = {
-        id: 'wallet_' + Date.now(),
-        name: 'Wallet User',
-        walletAddress: '0x' + Math.random().toString(16).substring(2, 10),
-        loginMethod: 'wallet'
+      // Real Plug wallet integration
+      const principalText = await connectPlugAndGetPrincipal();
+      setPrincipalId(principalText);
+
+      const userInfo: UserInfo = {
+        userId: 'plug_' + principalText,
+        principalId: principalText,
+        name: 'Plug User',
+        nickname: 'Plug User',
+        loginMethod: 'wallet',
+        loginStatus: 'authenticated',
+        walletAddress: principalText,
       };
-      
-      setUser(mockUser);
-      localStorage.setItem('alaya_user', JSON.stringify(mockUser));
-      
-      return mockUser;
+      const synced = await syncUserInfo(userInfo);
+      console.log('[Auth] Wallet login synced user info:', synced);
+      setUser(synced);
+      localStorage.setItem('alaya_user', JSON.stringify(synced));
+
+      return synced;
     } catch (error) {
       console.error('Wallet login failed:', error);
       throw error;
@@ -84,19 +106,25 @@ export const useAuth = () => {
       // Use Google OAuth hook login method
       const googleUserData = await googleLogin();
       
-      // Convert to common user format
-      const userData: User = {
-        id: googleUserData.id,
+      // Convert to unified UserInfo and generate II principal (mock)
+      const principalId = await generatePrincipalForNonPlug(googleUserData.id);
+      setPrincipalId(principalId);
+      const userInfo: UserInfo = {
+        userId: `google_${googleUserData.id}`,
+        principalId,
         name: googleUserData.name,
+        nickname: googleUserData.name,
+        loginMethod: 'google',
+        loginStatus: 'authenticated',
         email: googleUserData.email,
         picture: googleUserData.picture,
-        loginMethod: 'google'
       };
+      const synced = await syncUserInfo(userInfo);
+      console.log('[Auth] Google login synced user info:', synced);
+      setUser(synced);
+      localStorage.setItem('alaya_user', JSON.stringify(synced));
       
-      setUser(userData);
-      localStorage.setItem('alaya_user', JSON.stringify(userData));
-      
-      return userData;
+      return synced;
     } catch (error) {
       console.error('Google login failed:', error);
       throw error;
@@ -109,15 +137,20 @@ export const useAuth = () => {
       if (user?.loginMethod === 'google') {
         await googleLogout();
       }
+      // Also logout from II when applicable
+      try { await logoutII(); } catch {}
       
       // Clear local state
       setUser(null);
       localStorage.removeItem('alaya_user');
+      clearPrincipalId();
     } catch (error) {
       console.error('Logout failed:', error);
       // Clear local state even if error occurs
       setUser(null);
       localStorage.removeItem('alaya_user');
+      clearPrincipalId();
+      try { await logoutII(); } catch {}
     }
   };
 

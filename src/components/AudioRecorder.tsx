@@ -13,6 +13,8 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [selectedMimeType, setSelectedMimeType] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     checkMicrophonePermission();
@@ -32,14 +34,38 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   };
 
+  const pickSupportedMimeType = (): string | undefined => {
+    // Prefer opus when available, fallback to browser defaults
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/aac',
+    ];
+    if (typeof window === 'undefined' || !(window as any).MediaRecorder) {
+      console.warn('[Recorder] MediaRecorder not available in this environment');
+      return undefined;
+    }
+    const isSupported = (mime: string) => (window as any).MediaRecorder.isTypeSupported?.(mime) === true;
+    const chosen = candidates.find((m) => isSupported(m));
+    console.log('[Recorder] Chosen mimeType:', chosen ?? '(browser default)');
+    return chosen;
+  };
+
   const requestMicrophoneAccess = async () => {
     try {
       console.log('Requesting microphone access...');
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('Microphone access granted:', stream);
+      console.log('Microphone access granted:', {
+        tracks: stream.getTracks().length,
+        audioTracks: stream.getAudioTracks().length,
+      });
       setPermissionStatus('granted');
-      stream.getTracks().forEach(track => track.stop());
+      // Keep the stream for ReactMediaRecorder to use directly
+      setMediaStream(stream);
+      // Decide mime type once we have environment
+      setSelectedMimeType(pickSupportedMimeType());
       return true;
     } catch (err) {
       console.error('Microphone access denied:', err);
@@ -68,6 +94,11 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
           noiseSuppression: true,
           sampleRate: 44100,
         }}
+        // Provide stream proactively to avoid stuck in idle
+        customMediaStream={mediaStream as any}
+        askPermissionOnMount={!!mediaStream}
+        stopStreamsOnStop={true}
+        mediaRecorderOptions={selectedMimeType ? { mimeType: selectedMimeType } : undefined}
         onStop={handleStop}
         render={({ status, startRecording, stopRecording, error: recorderError }) => {
           console.log('Recorder status:', status, 'Error:', recorderError);
