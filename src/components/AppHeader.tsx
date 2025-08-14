@@ -13,6 +13,7 @@ import {
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface AppHeaderProps {
   showSidebarTrigger?: boolean;
@@ -64,6 +65,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
+            {/* 添加多语言选择控件 */}
+            <LanguageSwitcher />
+            
             {user ? (
               <>
                 <div 

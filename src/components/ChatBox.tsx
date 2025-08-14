@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
-import { AudioRecorder } from './AudioRecorder';
 import { FileUpload, FilePreview } from './FileUpload';
 import { useChatSession } from '../hooks/useChatSession';
 import { Button } from '@/components/ui/button';
@@ -79,21 +78,6 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
-    }
-  };
-
-  const handleAudioRecorded = async (audioBlob: Blob, transcript?: string) => {
-    const audioUrl = URL.createObjectURL(audioBlob);
-    
-    addMessage({
-      role: 'user',
-      content: transcript || '[Audio message]',
-      type: 'audio',
-      metadata: { audioUrl }
-    });
-
-    if (transcript) {
-      await sendMessage(transcript);
     }
   };
 
@@ -300,12 +284,15 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ className = "" }) => {
 
           <TabsContent value="voice" className="mt-4">
             <div className="flex justify-center">
-              <div className="relative">
-                <AudioRecorder
-                  onAudioRecorded={handleAudioRecorded}
-                  className="w-full max-w-md"
-                />
-                <div className="absolute -inset-4 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full blur-xl opacity-50 animate-pulse"></div>
+              <div className="text-center p-6 bg-white/5 rounded-lg border border-white/20">
+                <Mic className="h-12 w-12 text-cyan-400 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-white mb-2">Voice Chat Available</h3>
+                <p className="text-white/70 text-sm mb-4">
+                  Voice chat functionality is now integrated with ElevenLabs AI above.
+                </p>
+                <div className="text-xs text-white/50">
+                  Use the ElevenLabs voice chat component for real-time AI conversations.
+                </div>
               </div>
             </div>
           </TabsContent>

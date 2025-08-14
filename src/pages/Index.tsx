@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { ChatBox } from '../components/ChatBox';
 import { useChatSession } from '../hooks/useChatSession';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { AppHeader } from '../components/AppHeader';
+import ElevenLabsVoiceChat from '../components/ElevenLabsVoiceChat';
 import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
@@ -13,6 +14,31 @@ import {
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { session } = useChatSession();
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+
+  // Debug: Check if component is rendering
+  console.log('🚀 Index component rendering');
+  console.log('🚀 ElevenLabsVoiceChat import check:', typeof ElevenLabsVoiceChat);
+
+  // Handle messages from ElevenLabs voice chat
+  const handleVoiceMessageReceived = (message: string) => {
+    console.log('📨 Voice message received:', message);
+    // Here you can integrate voice messages into the existing chat system
+    // Or trigger other processing logic
+  };
+
+  // Handle AI agent responses from ElevenLabs
+  const handleAgentMessage = (message: string) => {
+    console.log('🤖 AI agent response:', message);
+    // Here you can handle AI agent responses
+    // For example, display them in the chat interface or trigger other operations
+  };
+
+  // Handle voice mode changes
+  const handleVoiceModeChange = (isVoice: boolean) => {
+    setIsVoiceMode(isVoice);
+    console.log('🎤 Voice mode changed:', isVoice);
+  };
 
   if (authLoading) {
     return (
@@ -78,9 +104,39 @@ const Index = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="h-full flex flex-col">
+              {/* ElevenLabs Voice Chat Integration - Outside overflow container */}
+              <div className="m-2 md:m-4 mb-4" style={{ 
+                backgroundColor: 'rgba(255, 0, 0, 0.1)', 
+                border: '2px solid red',
+                minHeight: '200px',
+                position: 'relative',
+                zIndex: 1000,
+                borderRadius: '16px',
+                padding: '16px'
+              }}>
+                {/* Debug: Component rendering check */}
+                <div className="bg-red-500 text-white p-2 mb-4 text-center font-bold text-lg">
+                  🧪 DEBUG: About to render ElevenLabsVoiceChat component
+                </div>
+                
+                {/* Debug: Layout test */}
+                <div className="bg-yellow-500 text-black p-4 mb-4 text-center font-bold text-xl border-4 border-black">
+                  🚨 LAYOUT TEST: This should be VERY visible!
+                </div>
+                
+                <ElevenLabsVoiceChat
+                  agentId="agent_01jz8rr062f41tsyt56q8fzbrz"
+                  onMessageReceived={handleVoiceMessageReceived}
+                  onAgentMessage={handleAgentMessage}
+                  isVoiceMode={isVoiceMode}
+                  onVoiceModeChange={handleVoiceModeChange}
+                />
+              </div>
+              
               {/* Chat Area */}
               <div className="flex-1 min-w-0 flex">
                 <div className="flex-1 m-2 md:m-4 mb-4 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
+                  {/* Existing ChatBox */}
                   <ChatBox />
                 </div>
               </div>

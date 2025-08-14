@@ -10,7 +10,7 @@
   "scripts": {
     "setup": "npm i && dfx canister create alaya-chat-nexus-backend && dfx generate alaya-chat-nexus-backend && dfx deploy",
     "start": "vite --port 3000",
-    "prebuild": "dfx generate",
+    "prebuild": "dfx generate alaya-chat-nexus-frontend",
     "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
     "format": "prettier --write \"src/**/*.{json,js,jsx,ts,tsx,css,scss}\"",
