@@ -20,6 +20,7 @@ interface ElevenLabsVoiceChatProps {
   className?: string;
   onMessageReceived?: (message: string) => void;
   onAgentMessage?: (message: string) => void;
+  onTextMessageReceived?: (message: string) => void;
   isVoiceMode?: boolean;
   onVoiceModeChange?: (isVoice: boolean) => void;
 }
@@ -29,6 +30,7 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
   className,
   onMessageReceived,
   onAgentMessage,
+  onTextMessageReceived,
   isVoiceMode = false,
   onVoiceModeChange
 }) => {
@@ -250,9 +252,9 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
       addMessage('user', textMessage);
       setTextMessage('');
       
-      // Notify parent component
-      if (onMessageReceived) {
-        onMessageReceived(textMessage.trim());
+      // Notify parent component with correct message type (text)
+      if (onTextMessageReceived) {
+        onTextMessageReceived(textMessage.trim());
       }
     }
   };
@@ -274,11 +276,6 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
 
   return (
     <div className={cn("w-full", className)}>
-      {/* Test Marker - Remove after debugging */}
-      <div className="bg-red-500 text-white p-2 mb-4 text-center font-bold">
-        🧪 ElevenLabsVoiceChat Component is RENDERING! 🧪
-      </div>
-      
       {/* Voice Controls */}
       <Card className="mb-4 p-4 bg-white/5 border-white/20">
         <div className="flex items-center justify-between">
