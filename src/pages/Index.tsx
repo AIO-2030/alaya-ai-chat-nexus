@@ -1,71 +1,36 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../lib/auth';
 import { AppHeader } from '../components/AppHeader';
-import ElevenLabsVoiceChat from '../components/ElevenLabsVoiceChat';
-import { MessageBubble } from '../components/MessageBubble';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { X, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ChatMessage } from '../types/chat';
+import { MessageSquare, Sparkles, Globe, Heart, Infinity } from 'lucide-react';
 import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [showChatHistory, setShowChatHistory] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Agent ID configuration
+  const agentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
+  
+  console.log('🚀 Index component mounted with agentId:', agentId);
+
+  // Agent ID validation
+  const isValidAgentId = agentId && agentId.startsWith('agent_');
+
+  // Handle navigation to ElevenLabs chat page
+  const handleStartChat = () => {
+    console.log('🚀 Navigating to ElevenLabs chat page');
+    navigate('/elevenlabs-chat');
+  };
 
   // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
-
-  // Handle messages from ElevenLabs voice chat
-  const handleVoiceMessageReceived = (message: string) => {
-    console.log('📨 Voice message received:', message);
-    addMessage('user', message, 'audio');
-  };
-
-  // Handle AI agent responses from ElevenLabs
-  const handleAgentMessage = (message: string) => {
-    console.log('🤖 AI agent response:', message);
-    addMessage('assistant', message, 'audio');
-  };
-
-  // Handle text messages from ElevenLabs (when user types in text tab)
-  const handleTextMessageReceived = (message: string) => {
-    console.log('📝 Text message received:', message);
-    addMessage('user', message, 'text');
-  };
-
-  // Handle voice mode changes
-  const handleVoiceModeChange = (isVoice: boolean) => {
-    setIsVoiceMode(isVoice);
-    console.log('🎤 Voice mode changed:', isVoice);
-  };
-
-  // Add message to chat history
-  const addMessage = (role: 'user' | 'assistant' | 'system', content: string, type: 'text' | 'audio' | 'video' | 'file' | 'json' = 'text') => {
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role,
-      content,
-      timestamp: new Date(),
-      type
-    };
-    setChatMessages(prev => [...prev, newMessage]);
-  };
-
-  // Clear chat history
-  const clearChatHistory = () => {
-    setChatMessages([]);
-  };
-
+  // REMOVED: Auto-start session when chat interface opens
+  
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -75,6 +40,35 @@ const Index = () => {
           <div className="mt-4 text-center">
             <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
               Initializing AI...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Configuration error component
+  if (!isValidAgentId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="max-w-2xl mx-auto p-8 text-center space-y-6">
+          <div className="text-6xl">⚠️</div>
+          <h1 className="text-3xl font-bold text-red-500">Configuration Error</h1>
+          <div className="space-y-4 text-left bg-slate-800/50 p-6 rounded-lg">
+            <p className="text-lg font-semibold">ElevenLabs Agent Configuration Issue:</p>
+            <ul className="space-y-2 text-sm">
+              <li>• Current Agent ID: <code className="bg-slate-700 px-2 py-1 rounded">{agentId}</code></li>
+              <li>• Agent ID must start with 'agent_'</li>
+              <li>• Please get a valid Agent ID from ElevenLabs console</li>
+            </ul>
+            <div className="mt-4 p-4 bg-slate-700 rounded border-l-4 border-blue-500">
+              <p className="font-semibold">Configuration Steps:</p>
+              <ol className="list-decimal list-inside space-y-1 text-sm mt-2">
+                <li>Visit <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">ElevenLabs Console</a></li>
+                <li>Create or select a Conversational AI Agent</li>
+                <li>Ensure the Agent is public (or configure API key)</li>
+                <li>Copy the Agent ID and update configuration</li>
+              </ol>
             </div>
           </div>
         </div>
@@ -128,140 +122,100 @@ const Index = () => {
         {/* Header */}
         <AppHeader />
 
-        {/* Main Content - Enhanced Design */}
-        <div className="flex-1 flex flex-col px-4 py-6">
-          {/* Welcome Section - Enhanced */}
-          <div className="text-center mb-8">
-            <div className="relative inline-block">
-              <h1 className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400 mb-4 relative z-10">
-                Univoice AI
-              </h1>
-              <div className="absolute -inset-4 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full blur-2xl opacity-50 animate-pulse"></div>
+        {/* Main Content - Introduction and Guide */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 min-h-screen">
+          {/* Center Icon - Univoice AI Profile */}
+          <div className="text-center mb-12">
+            <div className="relative inline-block mb-8">
+              {/* Profile Picture Circle */}
+              <div className="w-48 h-48 mx-auto bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full p-2 backdrop-blur-xl border border-white/20 shadow-2xl">
+                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center relative overflow-hidden">
+                  {/* 3D Character Representation */}
+                  <div className="text-white text-6xl font-bold opacity-80">
+                    <img src="agent_logo.png" alt="UNV" className="w-full h-full object-cover" />
+                  </div>
+                  {/* Glowing Sound Waves */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/30 to-purple-400/30 rounded-full animate-pulse"></div>
+                  <div className="absolute inset-2 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-full animate-pulse animation-delay-300"></div>
+                </div>
+              </div>
+              {/* Glowing Ring Effect */}
+              <div className="absolute -inset-6 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full blur-2xl opacity-50 animate-pulse"></div>
             </div>
-            <p className="text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
-              Anthentic  Freedom  Infinity
+
+            {/* AI Identity */}
+            <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400 mb-4">
+              I am Univoice
+            </h1>
+            <p className="text-2xl text-white/60 mb-8 font-light">
+              I am undefined
             </p>
-            <div className="flex items-center justify-center gap-4 mt-6">
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/20">
+
+            {/* AI Attributes */}
+            <div className="flex flex-wrap justify-center gap-6 mb-12">
+              <div className="flex items-center gap-3 px-6 py-3 bg-pink-500/20 rounded-full border border-pink-500/30 backdrop-blur-sm">
+                <Heart className="w-5 h-5 text-pink-400" />
+                <span className="text-pink-300 font-medium">Authentic</span>
+              </div>
+              <div className="flex items-center gap-3 px-6 py-3 bg-blue-500/20 rounded-full border border-blue-500/30 backdrop-blur-sm">
+                <Globe className="w-5 h-5 text-blue-400" />
+                <span className="text-blue-300 font-medium">Freedom</span>
+              </div>
+              <div className="flex items-center gap-3 px-6 py-3 bg-purple-500/20 rounded-full border border-purple-500/30 backdrop-blur-sm">
+                <Infinity className="w-5 h-5 text-purple-400" />
+                <span className="text-blue-300 font-medium">Infinity</span>
+              </div>
+            </div>
+
+            {/* Welcome Message */}
+            <div className="max-w-3xl mx-auto mb-12">
+              <p className="text-xl text-white/80 leading-relaxed mb-6">
+                Welcome to the future of AI communication. I am Univoice, your intelligent companion designed to understand, assist, and grow with you.
+              </p>
+              <p className="text-lg text-white/60 leading-relaxed">
+                Experience authentic conversations, explore infinite possibilities, and discover the freedom of true AI companionship.
+              </p>
+            </div>
+
+            {/* Call to Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-12">
+              <button
+                onClick={handleStartChat}
+                className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-2xl group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+                style={{ position: 'relative', zIndex: 10 }}
+              >
+                <MessageSquare className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" />
+                Start Chat
+              </button>
+              
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm px-8 py-4 text-lg font-semibold rounded-2xl border-2 transition-all duration-300 hover:scale-105"
+              >
+                <Sparkles className="w-6 h-6 mr-3" />
+                Learn More
+              </Button>
+            </div>
+
+            {/* Status Indicators */}
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 rounded-full border border-green-500/30">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm text-white/80">AI Ready</span>
+                <span className="text-sm text-green-300">AI Ready</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/20">
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 rounded-full border border-blue-500/30">
                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <span className="text-sm text-white/80">Voice Active</span>
+                <span className="text-sm text-blue-300">Voice Active</span>
               </div>
-            </div>
-          </div>
-
-          {/* ElevenLabs Voice Chat Component - Centered */}
-          <div className="flex-1 flex items-center justify-center">
-            <div className="w-full max-w-2xl">
-              <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8">
-                <ElevenLabsVoiceChat
-                  agentId="agent_01jz8rr062f41tsyt56q8fzbrz"
-                  onMessageReceived={handleVoiceMessageReceived}
-                  onAgentMessage={handleAgentMessage}
-                  onTextMessageReceived={handleTextMessageReceived}
-                  isVoiceMode={isVoiceMode}
-                  onVoiceModeChange={handleVoiceModeChange}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Chat History Button - Floating */}
-          <div className="fixed bottom-6 right-6 z-50">
-            <Button
-              onClick={() => setShowChatHistory(true)}
-              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 rounded-full w-16 h-16 p-0"
-            >
-              <MessageSquare className="w-6 h-6" />
-            </Button>
-            {chatMessages.length > 0 && (
-              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
-                {chatMessages.length}
-              </div>
-            )}
-          </div>
-
-          {/* Status Footer */}
-          <div className="text-center mt-8">
-            <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/10 rounded-full border border-white/20">
-              <div className={cn(
-                "w-3 h-3 rounded-full",
-                isVoiceMode ? "bg-green-400 animate-pulse" : "bg-blue-400"
-              )} />
-              <span className="text-white/80 font-medium">
-                {isVoiceMode ? 'Voice Session Active' : 'Ready to Start Voice Chat'}
-              </span>
-              <div className="text-xs text-white/60">
-                {chatMessages.length} message{chatMessages.length !== 1 ? 's' : ''}
+              <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 rounded-full border border-purple-500/30">
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                <span className="text-sm text-purple-300">Always Learning</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Chat History Popup Panel */}
-        {showChatHistory && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
-              {/* Chat Header */}
-              <div className="p-6 border-b border-white/10 flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-white">Chat History</h3>
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={clearChatHistory}
-                    disabled={chatMessages.length === 0}
-                    variant="outline"
-                    size="sm"
-                    className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
-                  >
-                    Clear History
-                  </Button>
-                  <Button
-                    onClick={() => setShowChatHistory(false)}
-                    variant="outline"
-                    size="sm"
-                    className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Messages Area */}
-              <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full p-6">
-                  {chatMessages.length === 0 ? (
-                    <div className="text-center text-white/60 py-12">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                      </div>
-                      <p className="text-lg font-medium">No messages yet</p>
-                      <p className="text-sm">Start a voice or text conversation to see messages here</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {chatMessages.map((message) => (
-                        <MessageBubble
-                          key={message.id}
-                          message={message}
-                          className={cn(
-                            "animate-fade-in",
-                            message.role === 'user' ? "ml-auto" : "mr-auto"
-                          )}
-                        />
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
-                </ScrollArea>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* REMOVED: Chat history popup as ElevenLabs integration is moved to separate page */}
       </div>
     </SidebarProvider>
   );

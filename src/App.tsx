@@ -11,6 +11,7 @@ import Contracts from "./pages/Contracts";
 import MyDevices from "./pages/MyDevices";
 import AddDevice from "./pages/AddDevice";
 import Shop from "./pages/Shop";
+import ElevenLabsChat from "./pages/ElevenLabsChat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/my-devices" element={<MyDevices />} />
               <Route path="/add-device" element={<AddDevice />} />
               <Route path="/shop" element={<Shop />} />
+              <Route path="/elevenlabs-chat" element={<ElevenLabsChat />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
