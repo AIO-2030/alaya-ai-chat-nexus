@@ -10,8 +10,8 @@ const ElevenLabsChat = () => {
   const navigate = useNavigate();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Agent ID configuration
-  const agentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
+  // Agent ID configuration - use useMemo to prevent recreation
+  const agentId = React.useMemo(() => "agent_01jz8rr062f41tsyt56q8fzbrz", []);
   
   console.log('🚀 ElevenLabsChat page mounted with agentId:', agentId);
 
@@ -126,39 +126,15 @@ const ElevenLabsChat = () => {
 
       {/* Chat Interface */}
       <div className="relative z-10 flex items-center justify-center p-4">
-        <div className="bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col">
-          {/* Chat Header */}
-          <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-purple-400 rounded-full flex items-center justify-center">
-                <Mic className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Univoice AI</h3>
-                <p className="text-xs text-slate-400">Voice AI Assistant</p>
-                {/* ElevenLabs Status Indicator */}
-                <div className="flex items-center gap-1 mt-1">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    isValidAgentId ? "bg-green-400" : "bg-red-400"
-                  )} />
-                  <span className="text-xs text-slate-400">
-                    {isValidAgentId ? 'ElevenLabs Ready' : 'ElevenLabs Not Configured'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {/* Clear button removed - handled by ElevenLabsVoiceChat component */}
-          </div>
-
+        <div className="bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-4xl h-[75vh] flex flex-col">
           {/* ElevenLabs Voice Chat Component */}
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-8">
             <ElevenLabsVoiceChat 
               agentId={agentId}
               className="h-full"
-              onVoiceModeChange={(isVoice) => {
+              onVoiceModeChange={React.useCallback((isVoice: boolean) => {
                 console.log('Voice mode changed:', isVoice);
-              }}
+              }, [])}
             />
           </div>
         </div>

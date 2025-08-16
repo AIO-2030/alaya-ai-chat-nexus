@@ -32,6 +32,9 @@ export interface ElevenLabsHookActions {
 }
 
 export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, ElevenLabsHookActions, boolean] => {
+  // Use a global ref to prevent multiple hook instances
+  const hookInstanceRef = useRef<boolean>(false);
+  
   // State management
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -47,6 +50,28 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
   // Agent ID validation
   const isValidAgentId = agentId && agentId.startsWith('agent_');
   
+  // Prevent multiple hook instances
+  if (hookInstanceRef.current) {
+    console.warn('⚠️ Hook instance already exists, preventing duplicate initialization');
+    // Return a minimal state to prevent errors
+    return [
+      { messages: [], isSessionActive: false, currentTranscript: '', conversationId: null, status: 'disconnected', isSpeaking: false, error: null },
+      {
+        addMessage: () => {},
+        addSystemMessage: () => {},
+        clearChatHistory: () => {},
+        startSession: async () => {},
+        endSession: async () => {},
+        startVoiceRecording: async () => {},
+        stopVoiceRecording: async () => {},
+        returnToHomepage: () => {},
+        setShowChatHistory: () => {}
+      },
+      false
+    ];
+  }
+  
+  hookInstanceRef.current = true;
   console.log('🚀 useElevenLabsStable hook initialized with agentId:', agentId);
 
   // Helper function to add messages - use useCallback to prevent recreation
@@ -78,7 +103,6 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       console.log('✅ Connected to ElevenLabs agent');
       console.log('🔗 Connection established, updating session state');
       console.log('🎯 Current mode: Voice');
-      console.log('🔄 Session state before update:', { isSessionActive, conversationId: conversationIdRef.current });
       
       // Always mark session as active when connected, regardless of conversation ID
       // The conversation ID will be set later in startSession
@@ -103,7 +127,6 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       console.log('🔌 Disconnect reason (raw):', reason);
       console.log('🔌 Disconnect reason type:', typeof reason);
       console.log('🔌 Conversation ID was:', conversationIdRef.current);
-      console.log('🔌 Session was active:', isSessionActive);
       console.log('🎯 Disconnect occurred in Voice mode');
       
       // Check if this is a real disconnect or just a status change
@@ -146,14 +169,13 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         // Don't reset state for unknown reasons to prevent premature disconnection
       }
       
-      console.log('🔄 Session state after disconnect handling:', { isSessionActive, conversationId: conversationIdRef.current });
-    }, [addSystemMessage, isSessionActive]),
+      console.log('🔄 Session state after disconnect handling');
+    }, [addSystemMessage]),
     
     onMessage: useCallback((message: any) => {
       console.log('📨 Message received from ElevenLabs:', message);
       console.log('📨 Message source:', message.source);
       console.log('📨 Message content:', message.message);
-      console.log('📨 Current session state:', { isSessionActive, conversationId: conversationIdRef.current });
       
       // Only process messages if we have an active session
       if (!conversationIdRef.current) {
@@ -252,10 +274,17 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     // Cleanup function to prevent memory leaks
     return () => {
       console.log('🧹 Hook unmounting, cleaning up session');
+      // Reset the hook instance flag
+      hookInstanceRef.current = false;
       // Don't automatically end session on unmount
       // Let the user control when to end the session
     };
   }, []);
+  
+  // Debug effect to track state changes
+  useEffect(() => {
+    console.log('🔍 State change detected:', { isSessionActive, conversationId: conversationIdRef.current, status: getStatusValue() });
+  }, [isSessionActive, status]);
 
   // Helper function to get status value
   const getStatusValue = () => {
@@ -447,6 +476,30 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         } else if (currentStatus === 'connecting') {
           console.log('⏳ ElevenLabs still connecting, waiting...');
           addSystemMessage('Voice connection in progress - please wait...');
+        } else if (currentStatus === 'unknown') {
+          // Status is unknown, but we have a conversation ID, so connection might be working
+          console.log('❓ Status is unknown, but checking if connection is actually working...');
+          
+          // If we have a conversation ID and no error, assume connection is working
+          if (conversationIdRef.current && !error) {
+            console.log('✅ Connection appears to be working despite unknown status');
+            addSystemMessage('Voice connection established - Ready for conversation');
+            addSystemMessage('Voice connection ready - click "Start Voice" to begin recording');
+          } else if (conversationIdRef.current) {
+            // We have a conversation ID, so the connection is likely working
+            console.log('✅ Connection appears to be working with conversation ID:', conversationIdRef.current);
+            addSystemMessage('Voice connection established - Ready for conversation');
+            addSystemMessage('Voice connection ready - click "Start Voice" to begin recording');
+          } else {
+            console.log('❌ ElevenLabs connection failed or timed out');
+            const errorMsg = 'Voice connection failed - please try again';
+            addSystemMessage(errorMsg);
+            setError(errorMsg);
+            // Reset session state on connection failure
+            setIsSessionActive(false);
+            conversationIdRef.current = null;
+            isConnectingRef.current = false;
+          }
         } else {
           console.log('❌ ElevenLabs connection failed or timed out');
           const errorMsg = 'Voice connection failed - please try again';

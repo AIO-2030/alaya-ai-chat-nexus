@@ -201,7 +201,7 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
           )}
           
           {/* Chat Messages Display */}
-          {messages.length > 0 && (
+          {messages && messages.length > 0 && (
             <div className="space-y-4 max-h-64 overflow-y-auto">
               <div className="text-center mb-3">
                 <span className="text-xs text-white/40 uppercase tracking-wide">Chat History</span>
@@ -255,7 +255,7 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
           variant="outline"
           size="sm"
           onClick={handleClearChatHistory}
-          disabled={messages.length === 0}
+          disabled={!messages || messages.length === 0}
           className="text-xs"
         >
           Clear History
@@ -269,4 +269,5 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
   );
 };
 
-export default ElevenLabsVoiceChat; 
+// Memoize the component to prevent unnecessary re-renders
+export default React.memo(ElevenLabsVoiceChat); 
