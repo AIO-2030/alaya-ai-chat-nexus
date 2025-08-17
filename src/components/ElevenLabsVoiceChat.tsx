@@ -144,8 +144,29 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
   const safeMessages = Array.isArray(messages) ? messages : [];
   const hasMessages = safeMessages.length > 0;
 
-  // Show error if there's an error state
-  if (error) {
+  // Determine the actual button state based on real conditions
+  const getButtonState = () => {
+    // If session is active, show Stop Voice
+    if (isSessionActive && conversationId) {
+      return 'active';
+    }
+    
+    // If we're in the middle of starting a session, show Connecting
+    if (status === 'connecting' && !isSessionActive) {
+      return 'connecting';
+    }
+    
+    // Default state - show Start Voice
+    return 'inactive';
+  };
+
+  const buttonState = getButtonState();
+
+  // Show error if there's an error state AND it's not a user-initiated stop
+  // Also don't show errors on initial page load if session is not active
+  if (error && 
+      !error.includes('ended by user request') && 
+      (isSessionActive || error.includes('connection failed') || error.includes('failed to start'))) {
     return (
       <div className={cn("w-full", className)}>
         <Card className="p-6 bg-red-500/10 border-red-500/30">
@@ -170,14 +191,14 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
             <div className="flex items-center gap-2">
               <div className={cn(
                 "w-3 h-3 rounded-full",
-                isSessionActive ? "bg-green-400 animate-pulse" : "bg-gray-400"
+                buttonState === 'active' ? "bg-green-400 animate-pulse" : "bg-gray-400"
               )} />
               <span className="text-sm text-white/80">
-                {isSessionActive ? 'Voice Active' : 'Voice Inactive'}
+                {buttonState === 'active' ? 'Voice Active' : 'Voice Inactive'}
               </span>
             </div>
             
-            {isSessionActive && (
+            {buttonState === 'active' && (
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-2 h-2 rounded-full",
@@ -192,17 +213,17 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
           
           <Button
             onClick={handleVoiceModeToggle}
-            disabled={status === 'connecting' || (isSessionActive && status === 'disconnected')}
-            variant={isSessionActive ? "destructive" : "default"}
+            disabled={buttonState === 'connecting' || (isSessionActive && status === 'disconnected')}
+            variant={buttonState === 'active' ? "destructive" : "default"}
             size="sm"
             className="gap-2"
           >
-            {status === 'connecting' ? (
+            {buttonState === 'connecting' ? (
               <>
                 <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
                 Connecting...
               </>
-            ) : isSessionActive ? (
+            ) : buttonState === 'active' ? (
               <>
                 <MicOff className="h-4 w-4" />
                 Stop Voice
@@ -287,7 +308,21 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
                       {message.content}
                     </p>
                     <p className="text-xs opacity-60 mt-2">
-                      {message.timestamp.toLocaleTimeString()}
+                      {(() => {
+                        try {
+                          if (message.timestamp instanceof Date) {
+                            return message.timestamp.toLocaleTimeString();
+                          } else if (message.timestamp) {
+                            // Try to convert string timestamp to Date
+                            return new Date(message.timestamp).toLocaleTimeString();
+                          } else {
+                            return new Date().toLocaleTimeString();
+                          }
+                        } catch (error) {
+                          console.warn('Failed to format timestamp:', error);
+                          return new Date().toLocaleTimeString();
+                        }
+                      })()}
                     </p>
                   </div>
                 </div>

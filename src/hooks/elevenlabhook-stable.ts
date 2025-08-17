@@ -59,16 +59,70 @@ class ElevenLabsGlobalState {
         status: 'disconnected',
         isSpeaking: false,
         error: null,
-        lastUpdated: Date.now()
+        lastUpdated: new Date()
       });
     }
-    return this.state.get(agentId);
+    
+    const state = this.state.get(agentId);
+    
+    // Ensure messages have correct timestamp types
+    if (state.messages && Array.isArray(state.messages)) {
+      state.messages = state.messages.map((message: any) => {
+        if (message && typeof message === 'object') {
+          return {
+            ...message,
+            timestamp: message.timestamp instanceof Date ? message.timestamp : 
+                      message.timestamp ? new Date(message.timestamp) : new Date()
+          };
+        }
+        return message;
+      });
+    }
+    
+    // No automatic state consistency fixes - preserve user's state as-is
+    // Only user actions should modify the state
+    
+    return state;
+  }
+  
+  // Clear stale state for a specific agent
+  clearStaleState(agentId: string): void {
+    console.log('🧹 Clearing stale state for agent:', agentId);
+    
+    // Reset to default state
+    const defaultState = {
+      messages: [],
+      isSessionActive: false,
+      currentTranscript: '',
+      conversationId: null,
+      status: 'disconnected',
+      isSpeaking: false,
+      error: null,
+      lastUpdated: new Date()
+    };
+    
+    this.state.set(agentId, defaultState);
+    
+    // Clear from localStorage
+    try {
+      const key = `elevenlabs_state_${agentId}`;
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.warn('Failed to clear localStorage:', error);
+    }
+    
+    // Notify listeners
+    this.notifyListeners(agentId);
   }
   
   // Update state for a specific agent
   updateState(agentId: string, updates: Partial<any>): void {
     const currentState = this.getState(agentId);
     const newState = { ...currentState, ...updates, lastUpdated: Date.now() };
+    
+    // No automatic state validation or fixes
+    // Trust the user's actions and preserve the state as intended
+    
     this.state.set(agentId, newState);
     
     // Notify listeners
@@ -117,6 +171,38 @@ class ElevenLabsGlobalState {
       const persisted = localStorage.getItem(key);
       if (persisted) {
         const state = JSON.parse(persisted);
+        
+        // Fix timestamp fields - convert string timestamps back to Date objects
+        if (state.messages && Array.isArray(state.messages)) {
+          state.messages = state.messages.map((message: any) => ({
+            ...message,
+            timestamp: message.timestamp ? new Date(message.timestamp) : new Date()
+          }));
+        }
+        
+        // Fix lastUpdated field
+        if (state.lastUpdated) {
+          state.lastUpdated = new Date(state.lastUpdated);
+        }
+        
+        // Clean up stale error states when loading persisted state
+        // This prevents showing old error messages on page load
+        if (state.error && !state.isSessionActive) {
+          console.log('🧹 Cleaning up stale error state on page load');
+          state.error = null;
+        }
+        
+        // Clean up stale connecting status when loading persisted state
+        // This prevents showing "connecting" when there's no active session
+        if (state.status === 'connecting' && !state.isSessionActive) {
+          console.log('🧹 Cleaning up stale connecting status on page load');
+          state.status = 'disconnected';
+        }
+        
+        // Always load persisted state with cleanup
+        // This ensures a clean state on page load
+        console.log('✅ Loading persisted state from localStorage with cleanup');
+        
         this.state.set(agentId, state);
         return state;
       }
@@ -167,6 +253,18 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     });
     
     return unsubscribe;
+  }, [agentId]);
+  
+  // Initialize hook - no automatic state cleanup
+  useEffect(() => {
+    console.log('🚀 useElevenLabsStable hook mounted - preserving user state');
+    
+    // No automatic state cleanup - only user actions should trigger cleanup
+    // This ensures that user's session state is preserved across component re-renders
+    
+    return () => {
+      console.log('🧹 useElevenLabsStable hook unmounting');
+    };
   }, [agentId]);
   
   // Only log initialization once per hook instance
@@ -226,6 +324,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     isSessionActive: boolean;
     conversationId: string | null;
     error: string | null;
+    status?: string;
   }>) => {
     // Update global state instead of local state
     globalState.updateState(agentId, updates);
@@ -435,14 +534,41 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
   
   // Debug effect to track state changes
   useEffect(() => {
-    console.log('🔍 State change detected:', { isSessionActive, conversationId: conversationIdRef.current, status: getStatusValue() });
+    // Get current state from global state to check for inconsistencies
+    const currentState = globalState.getState(agentId);
+    
+    // Check if there's an inconsistent state that needs fixing
+    if (!currentState.isSessionActive && currentState.status === 'connecting') {
+      console.log('⚠️ Detected inconsistent state: isSessionActive=false but status=connecting');
+      console.log('🔄 Fixing inconsistent state by resetting status to disconnected');
+      
+      // Fix the inconsistent state
+      globalState.updateState(agentId, { status: 'disconnected' });
+      
+      // Log the corrected state
+      console.log('🔍 State corrected:', { 
+        isSessionActive: currentState.isSessionActive, 
+        conversationId: currentState.conversationId, 
+        status: 'disconnected' 
+      });
+    } else {
+      // Log the current state if it's consistent
+      console.log('🔍 State change detected:', { 
+        isSessionActive: currentState.isSessionActive, 
+        conversationId: currentState.conversationId, 
+        status: currentState.status 
+      });
+    }
   }, [isSessionActive, conversationStatus]);
 
   // Helper function to get status value
   const getStatusValue = () => {
     try {
+      // Get current state from global state
+      const currentState = globalState.getState(agentId);
+      
       // First, check if we have an active session with conversation ID
-      if (isSessionActive && conversationIdRef.current) {
+      if (currentState.isSessionActive && currentState.conversationId) {
         // If we have an active session, check the actual connection status
         if (conversationStatus && typeof conversationStatus === 'object' && 'status' in conversationStatus) {
           const status = (conversationStatus as any).status;
@@ -455,25 +581,46 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         return 'connected';
       }
       
-      // Check if we're in the middle of connecting
+      // Check if we're in the middle of connecting (only if we're actually trying to connect)
       if (isConnectingRef.current) {
         return 'connecting';
       }
       
-      // Check if we have a conversation ID but session is not active (transition state)
-      if (conversationIdRef.current && !isSessionActive) {
-        return 'connecting';
+      // Don't trust stored status if session is not active
+      // This prevents showing "connecting" when there's no active connection attempt
+      if (!currentState.isSessionActive && currentState.status === 'connecting') {
+        console.log('⚠️ Found stale connecting status in getStatusValue, resetting to disconnected');
+        // Reset stale connecting status
+        globalState.updateState(agentId, { status: 'disconnected' });
+        return 'disconnected';
+      }
+      
+      // Check if we have a conversation ID but session not active (transition state)
+      if (currentState.conversationId && !currentState.isSessionActive) {
+        // This is a transition state, but we should be conservative
+        // Only show connecting if we're actually in the process of connecting
+        if (isConnectingRef.current) {
+          return 'connecting';
+        } else {
+          // If we have a conversation ID but no active session and not connecting, assume disconnected
+          return 'disconnected';
+        }
       }
       
       // Check if we have a conversation ID but status is disconnected (error state)
-      if (conversationIdRef.current && conversationStatus && typeof conversationStatus === 'object' && 'status' in conversationStatus) {
+      if (currentState.conversationId && conversationStatus && typeof conversationStatus === 'object' && 'status' in conversationStatus) {
         const status = (conversationStatus as any).status;
         if (status === 'disconnected' || status === 'disconnecting') {
           return status;
         }
       }
       
-      // Default fallback
+      // Default fallback - only trust disconnected status
+      if (currentState.status === 'disconnected') {
+        return 'disconnected';
+      }
+      
+      // For any other status, assume disconnected if session is not active
       return 'disconnected';
     } catch (error) {
       console.warn('⚠️ Error in getStatusValue, using fallback:', error);
@@ -562,6 +709,13 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       
       console.log('🚀 Starting voice session');
       console.log('🔄 Session state before start:', { isSessionActive, conversationId: conversationIdRef.current, status: getStatusValue() });
+      
+      // Reset any stale status before starting
+      const currentState = globalState.getState(agentId);
+      if (currentState.status === 'connecting' && !currentState.isSessionActive) {
+        console.log('⚠️ Resetting stale connecting status before starting new session');
+        globalState.updateState(agentId, { status: 'disconnected' });
+      }
       
       // Set connecting flag to prevent multiple calls
       isConnectingRef.current = true;
@@ -800,34 +954,63 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     }
   };
 
-  // End conversation session
+  // End conversation session - only called when user explicitly clicks Stop Voice
   const endSession = async () => {
     try {
-      console.log('🛑 Ending session...');
+      console.log('🛑 User requested to end session - cleaning up state');
       
       // Reset connecting flag
       isConnectingRef.current = false;
       
       // End the session through ElevenLabs
       if (conversationIdRef.current) {
-        await conversation.endSession();
-        console.log('✅ Session ended through ElevenLabs');
+        try {
+          await conversation.endSession();
+          console.log('✅ Session ended through ElevenLabs');
+        } catch (endSessionError) {
+          // This is not a critical error - user requested to stop, so we continue
+          console.log('⚠️ ElevenLabs endSession failed, but continuing with cleanup as user requested stop:', endSessionError);
+        }
       }
       
-      // Use the new state management function
-      resetSessionState();
-      setCurrentTranscript('');
+      // Clear all session state as user explicitly requested to stop
+      // This is the only place where we actively clean up session state
+      globalState.updateState(agentId, {
+        isSessionActive: false,
+        conversationId: null,
+        status: 'disconnected',
+        isSpeaking: false,
+        error: null, // Clear any previous errors
+        currentTranscript: ''
+      });
       
-      addSystemMessage('Voice session ended');
-      console.log('✅ Session ended successfully');
+      // Reset local refs
+      conversationIdRef.current = null;
+      
+      // Always show success message for user-initiated stop
+      addSystemMessage('Voice session ended by user request');
+      console.log('✅ Session ended successfully by user request');
       
     } catch (error) {
-      console.error('❌ Failed to end session:', error);
+      console.error('❌ Unexpected error during session end:', error);
       
-      // Even if ending fails, reset local state
-      resetSessionState();
+      // Even if there's an unexpected error, still clear the state as user requested
+      // This ensures the user's intent (to stop) is always respected
+      globalState.updateState(agentId, {
+        isSessionActive: false,
+        conversationId: null,
+        status: 'disconnected',
+        isSpeaking: false,
+        error: null, // Clear any errors
+        currentTranscript: ''
+      });
       
-      addSystemMessage('Voice session ended (with errors)');
+      // Reset local refs
+      conversationIdRef.current = null;
+      
+      // Still show success message since user wanted to stop
+      addSystemMessage('Voice session ended by user request');
+      console.log('✅ Session ended by user request (despite unexpected error)');
     }
   };
 
