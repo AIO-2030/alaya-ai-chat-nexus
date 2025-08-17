@@ -24,36 +24,61 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
   }
   
   // Use the stable ElevenLabs hook instead of managing state manually
-  const [state, actions, showChatHistory] = useElevenLabsStable(agentId);
+  const hookResult = useElevenLabsStable(agentId);
   
   // Prevent unnecessary re-renders and log only once
   React.useEffect(() => {
     console.log('🚀 ElevenLabsVoiceChat component mounted with agentId:', agentId);
   }, [agentId]);
   
-  // Extract state from the hook
-  const {
-    messages,
-    isSessionActive,
-    currentTranscript,
-    conversationId,
-    status,
-    isSpeaking,
-    error
-  } = state;
+  // Safe destructuring with fallbacks to prevent undefined errors
+  const [state, actions, showChatHistory] = hookResult || [
+    {
+      messages: [],
+      isSessionActive: false,
+      currentTranscript: '',
+      conversationId: null,
+      status: 'disconnected',
+      isSpeaking: false,
+      error: null
+    },
+    {
+      addMessage: () => {},
+      addSystemMessage: () => {},
+      clearChatHistory: () => {},
+      startSession: async () => {},
+      endSession: async () => {},
+      startVoiceRecording: async () => {},
+      stopVoiceRecording: async () => {},
+      returnToHomepage: () => {},
+      setShowChatHistory: () => {}
+    },
+    false
+  ];
   
-  // Extract actions from the hook
+  // Safely extract state from the hook with fallbacks
   const {
-    addMessage,
-    addSystemMessage,
-    clearChatHistory,
-    startSession,
-    endSession,
-    startVoiceRecording,
-    stopVoiceRecording,
-    returnToHomepage,
-    setShowChatHistory
-  } = actions;
+    messages = [],
+    isSessionActive = false,
+    currentTranscript = '',
+    conversationId = null,
+    status = 'disconnected',
+    isSpeaking = false,
+    error = null
+  } = state || {};
+  
+  // Safely extract actions from the hook with fallbacks
+  const {
+    addMessage = () => {},
+    addSystemMessage = () => {},
+    clearChatHistory = () => {},
+    startSession = async () => {},
+    endSession = async () => {},
+    startVoiceRecording = async () => {},
+    stopVoiceRecording = async () => {},
+    returnToHomepage = () => {},
+    setShowChatHistory = () => {}
+  } = actions || {};
   
   // Local state for UI - only voice mode needed
 
@@ -66,6 +91,7 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
   // Start conversation session - now handled by the hook
   const handleStartSession = async () => {
     try {
+      console.log('🚀 Starting voice session from component...');
       await startSession();
       
       // Notify parent about voice mode change
@@ -82,6 +108,7 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
   // End conversation session - now handled by the hook
   const handleEndSession = async () => {
     try {
+      console.log('🛑 Ending voice session from component...');
       await endSession();
       
       // Notify parent about voice mode change
@@ -112,6 +139,27 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
       console.log('⏳ Already connecting, please wait...');
     }
   };
+
+  // Ensure messages is always an array to prevent length errors
+  const safeMessages = Array.isArray(messages) ? messages : [];
+  const hasMessages = safeMessages.length > 0;
+
+  // Show error if there's an error state
+  if (error) {
+    return (
+      <div className={cn("w-full", className)}>
+        <Card className="p-6 bg-red-500/10 border-red-500/30">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-red-400 mb-2">Connection Error</h3>
+            <p className="text-red-300 mb-4">{error}</p>
+            <Button onClick={handleStartSession} variant="outline" size="sm">
+              Try Again
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("w-full", className)}>
@@ -201,12 +249,12 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
           )}
           
           {/* Chat Messages Display */}
-          {messages && messages.length > 0 && (
+          {hasMessages && (
             <div className="space-y-4 max-h-64 overflow-y-auto">
               <div className="text-center mb-3">
                 <span className="text-xs text-white/40 uppercase tracking-wide">Chat History</span>
               </div>
-              {messages.map((message) => (
+              {safeMessages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex items-start gap-3 ${
@@ -255,7 +303,7 @@ const ElevenLabsVoiceChat: React.FC<ElevenLabsVoiceChatProps> = ({
           variant="outline"
           size="sm"
           onClick={handleClearChatHistory}
-          disabled={!messages || messages.length === 0}
+          disabled={!hasMessages}
           className="text-xs"
         >
           Clear History

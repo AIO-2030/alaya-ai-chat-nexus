@@ -31,10 +31,150 @@ export interface ElevenLabsHookActions {
   setShowChatHistory: (show: boolean) => void;
 }
 
-export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, ElevenLabsHookActions, boolean] => {
-  // Use a global ref to prevent multiple hook instances
-  const hookInstanceRef = useRef<boolean>(false);
+// Global state management - independent of React component lifecycle
+class ElevenLabsGlobalState {
+  private static instance: ElevenLabsGlobalState;
+  private state: Map<string, any> = new Map();
+  private listeners: Map<string, Set<() => void>> = new Map();
+  private conversationInstances: Map<string, any> = new Map();
   
+  private constructor() {}
+  
+  static getInstance(): ElevenLabsGlobalState {
+    if (!ElevenLabsGlobalState.instance) {
+      ElevenLabsGlobalState.instance = new ElevenLabsGlobalState();
+    }
+    return ElevenLabsGlobalState.instance;
+  }
+  
+  // Get state for a specific agent
+  getState(agentId: string): any {
+    if (!this.state.has(agentId)) {
+      // Initialize default state for this agent
+      this.state.set(agentId, {
+        messages: [],
+        isSessionActive: false,
+        currentTranscript: '',
+        conversationId: null,
+        status: 'disconnected',
+        isSpeaking: false,
+        error: null,
+        lastUpdated: Date.now()
+      });
+    }
+    return this.state.get(agentId);
+  }
+  
+  // Update state for a specific agent
+  updateState(agentId: string, updates: Partial<any>): void {
+    const currentState = this.getState(agentId);
+    const newState = { ...currentState, ...updates, lastUpdated: Date.now() };
+    this.state.set(agentId, newState);
+    
+    // Notify listeners
+    this.notifyListeners(agentId);
+    
+    // Persist to localStorage
+    this.persistState(agentId, newState);
+  }
+  
+  // Subscribe to state changes
+  subscribe(agentId: string, callback: () => void): () => void {
+    if (!this.listeners.has(agentId)) {
+      this.listeners.set(agentId, new Set());
+    }
+    
+    const agentListeners = this.listeners.get(agentId)!;
+    agentListeners.add(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      agentListeners.delete(callback);
+    };
+  }
+  
+  // Notify all listeners for an agent
+  private notifyListeners(agentId: string): void {
+    if (this.listeners.has(agentId)) {
+      this.listeners.get(agentId)!.forEach(callback => callback());
+    }
+  }
+  
+  // Persist state to localStorage
+  private persistState(agentId: string, state: any): void {
+    try {
+      const key = `elevenlabs_state_${agentId}`;
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (error) {
+      console.warn('Failed to persist state to localStorage:', error);
+    }
+  }
+  
+  // Load state from localStorage
+  loadPersistedState(agentId: string): any {
+    try {
+      const key = `elevenlabs_state_${agentId}`;
+      const persisted = localStorage.getItem(key);
+      if (persisted) {
+        const state = JSON.parse(persisted);
+        this.state.set(agentId, state);
+        return state;
+      }
+    } catch (error) {
+      console.warn('Failed to load persisted state:', error);
+    }
+    return null;
+  }
+  
+  // Store conversation instance
+  setConversationInstance(agentId: string, instance: any): void {
+    this.conversationInstances.set(agentId, instance);
+  }
+  
+  // Get conversation instance
+  getConversationInstance(agentId: string): any {
+    return this.conversationInstances.get(agentId);
+  }
+  
+  // Clear conversation instance
+  clearConversationInstance(agentId: string): void {
+    this.conversationInstances.delete(agentId);
+  }
+}
+
+// Global state instance
+const globalState = ElevenLabsGlobalState.getInstance();
+
+export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, ElevenLabsHookActions, boolean] => {
+  // Use a stable ref to track if this hook instance has been initialized
+  const isInitializedRef = useRef(false);
+  
+  // Get initial state from global state
+  const [localState, setLocalState] = useState(() => {
+    // Try to load from global state first
+    const globalStateData = globalState.getState(agentId);
+    const persistedState = globalState.loadPersistedState(agentId);
+    
+    // Merge global state with persisted state
+    return { ...globalStateData, ...persistedState };
+  });
+  
+  // Subscribe to global state changes
+  useEffect(() => {
+    const unsubscribe = globalState.subscribe(agentId, () => {
+      const newGlobalState = globalState.getState(agentId);
+      setLocalState((prev: any) => ({ ...prev, ...newGlobalState }));
+    });
+    
+    return unsubscribe;
+  }, [agentId]);
+  
+  // Only log initialization once per hook instance
+  if (!isInitializedRef.current) {
+    console.log('🚀 useElevenLabsStable hook initialized with agentId:', agentId);
+    isInitializedRef.current = true;
+  }
+
   // State management
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -50,30 +190,6 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
   // Agent ID validation
   const isValidAgentId = agentId && agentId.startsWith('agent_');
   
-  // Prevent multiple hook instances
-  if (hookInstanceRef.current) {
-    console.warn('⚠️ Hook instance already exists, preventing duplicate initialization');
-    // Return a minimal state to prevent errors
-    return [
-      { messages: [], isSessionActive: false, currentTranscript: '', conversationId: null, status: 'disconnected', isSpeaking: false, error: null },
-      {
-        addMessage: () => {},
-        addSystemMessage: () => {},
-        clearChatHistory: () => {},
-        startSession: async () => {},
-        endSession: async () => {},
-        startVoiceRecording: async () => {},
-        stopVoiceRecording: async () => {},
-        returnToHomepage: () => {},
-        setShowChatHistory: () => {}
-      },
-      false
-    ];
-  }
-  
-  hookInstanceRef.current = true;
-  console.log('🚀 useElevenLabsStable hook initialized with agentId:', agentId);
-
   // Helper function to add messages - use useCallback to prevent recreation
   const addMessage = useCallback((type: 'user' | 'agent' | 'system', content: string) => {
     console.log('💬 Adding message:', { type, content });
@@ -83,8 +199,12 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       content,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, newMessage]);
-  }, []);
+    
+    // Update global state instead of local state
+    const currentMessages = globalState.getState(agentId).messages || [];
+    const updatedMessages = [...currentMessages, newMessage];
+    globalState.updateState(agentId, { messages: updatedMessages });
+  }, [agentId]);
 
   const addSystemMessage = useCallback((content: string) => {
     console.log('🔔 Adding system message:', content);
@@ -94,8 +214,48 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       content: `✨ ${content}`,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, systemMessage]);
-  }, []);
+    
+    // Update global state instead of local state
+    const currentMessages = globalState.getState(agentId).messages || [];
+    const updatedMessages = [...currentMessages, systemMessage];
+    globalState.updateState(agentId, { messages: updatedMessages });
+  }, [agentId]);
+
+  // Stable state update functions
+  const updateSessionState = useCallback((updates: Partial<{
+    isSessionActive: boolean;
+    conversationId: string | null;
+    error: string | null;
+  }>) => {
+    // Update global state instead of local state
+    globalState.updateState(agentId, updates);
+    
+    // Also update local refs for immediate access
+    if (updates.conversationId !== undefined) {
+      conversationIdRef.current = updates.conversationId;
+    }
+    if (updates.isSessionActive !== undefined) {
+      isConnectingRef.current = false; // Reset connecting flag when session state changes
+    }
+  }, [agentId]);
+
+  const resetSessionState = useCallback(() => {
+    console.log('🔄 Resetting session state');
+    
+    // Update global state
+    globalState.updateState(agentId, {
+      isSessionActive: false,
+      conversationId: null,
+      error: null,
+      currentTranscript: '',
+      status: 'disconnected',
+      isSpeaking: false
+    });
+    
+    // Reset local refs
+    conversationIdRef.current = null;
+    isConnectingRef.current = false;
+  }, [agentId]);
 
   // Initialize ElevenLabs conversation hook with stable callbacks
   const conversation = useConversation({
@@ -107,8 +267,8 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       // Always mark session as active when connected, regardless of conversation ID
       // The conversation ID will be set later in startSession
       console.log('✅ Connection established, marking session as active');
-      setIsSessionActive(true);
-      setError(null);
+      updateSessionState({ isSessionActive: true });
+      globalState.updateState(agentId, { error: null });
       isConnectingRef.current = false;
       
       // Add connection message for voice mode
@@ -120,7 +280,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       
       console.log('🎉 Session state updated to active on connection');
       console.log('🔄 Final session state after connection:', { isSessionActive: true, conversationId: conversationIdRef.current });
-    }, [addSystemMessage]),
+    }, [addSystemMessage, updateSessionState, agentId]),
     
     onDisconnect: useCallback((reason: any) => {
       console.log('🔌 Disconnected from ElevenLabs agent');
@@ -135,34 +295,36 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         addSystemMessage('Voice conversation ended by user');
         
         // Only reset state for user-initiated disconnects
-        setIsSessionActive(false);
+        updateSessionState({ isSessionActive: false });
         isConnectingRef.current = false;
         conversationIdRef.current = null;
         console.log('🔄 Session state reset for user disconnect');
       } else if (reason && typeof reason === 'object' && (reason as any)?.reason === 'timeout') {
         console.log('⏰ Connection timed out');
         addSystemMessage('Voice conversation timed out. Please try again.');
-        setIsSessionActive(false);
+        updateSessionState({ isSessionActive: false });
         isConnectingRef.current = false;
         conversationIdRef.current = null;
       } else if (reason && typeof reason === 'object' && (reason as any)?.reason === 'error') {
         console.log('💥 Connection error occurred');
         addSystemMessage('Voice conversation error occurred. Please check your network and try again.');
-        setIsSessionActive(false);
+        updateSessionState({ isSessionActive: false });
         isConnectingRef.current = false;
         conversationIdRef.current = null;
+        globalState.updateState(agentId, { error: 'Connection error occurred. Please check your network and try again.' });
       } else if (reason && typeof reason === 'object' && (reason as any)?.reason === 'agent') {
         console.log('🤖 Agent initiated disconnect');
         addSystemMessage('Agent disconnected from voice conversation');
-        setIsSessionActive(false);
+        updateSessionState({ isSessionActive: false });
         isConnectingRef.current = false;
         conversationIdRef.current = null;
       } else if (reason && typeof reason === 'object' && (reason as any)?.reason === 'network') {
         console.log('🌐 Network disconnect');
         addSystemMessage('Voice conversation network connection lost. Please check your internet connection.');
-        setIsSessionActive(false);
+        updateSessionState({ isSessionActive: false });
         isConnectingRef.current = false;
         conversationIdRef.current = null;
+        globalState.updateState(agentId, { error: 'Network connection lost. Please check your internet connection.' });
       } else {
         console.log('🔌 Unknown disconnect reason, not resetting state');
         addSystemMessage('Voice conversation status changed');
@@ -170,7 +332,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       }
       
       console.log('🔄 Session state after disconnect handling');
-    }, [addSystemMessage]),
+    }, [addSystemMessage, updateSessionState, agentId]),
     
     onMessage: useCallback((message: any) => {
       console.log('📨 Message received from ElevenLabs:', message);
@@ -186,9 +348,9 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       if (message.source === 'user') {
         // User's voice input transcribed
         console.log('🎤 User voice input transcribed:', message.message);
-        setCurrentTranscript(message.message);
+        globalState.updateState(agentId, { currentTranscript: message.message });
         addMessage('user', message.message);
-        setCurrentTranscript('');
+        globalState.updateState(agentId, { currentTranscript: '' });
         
         // Add system message to indicate voice input received
         addSystemMessage('Voice input received - AI agent is processing your message...');
@@ -202,39 +364,27 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       } else {
         // Unknown message source
         console.log('❓ Unknown message source:', message.source);
-        addMessage('system', `Received message from ${message.source}: ${message.message}`);
       }
     }, [addMessage, addSystemMessage]),
     
-    onError: useCallback((error: unknown) => {
-      console.error('❌ Conversation error (full object):', error);
-      console.error('❌ Error type:', typeof error);
+    onError: useCallback((error: any) => {
+      console.error('💥 ElevenLabs error:', error);
       
-      let errorMessage = 'Connection failed';
-      
-      if (typeof error === 'string') {
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
         errorMessage = error;
-      } else if (error && typeof error === 'object') {
-        const errorObj = error as any;
-        if (errorObj.message) {
-          errorMessage = errorObj.message;
-        } else if (errorObj.error) {
-          errorMessage = errorObj.error;
-        } else {
-          errorMessage = JSON.stringify(error);
-        }
-        
-        if (errorObj.stack) {
-          console.error('❌ Error stack:', errorObj.stack);
-        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as any).message;
       }
       
-      console.log('❌ Processed error message:', errorMessage);
+      console.error('💥 Error details:', errorMessage);
       addSystemMessage(`Connection disrupted: ${errorMessage}`);
-      setError(errorMessage);
-      setIsSessionActive(false);
+      globalState.updateState(agentId, { error: errorMessage });
+      updateSessionState({ isSessionActive: false });
       isConnectingRef.current = false;
-    }, [addSystemMessage]),
+    }, [addSystemMessage, updateSessionState, agentId]),
     
     onStatusChange: useCallback((status: any) => {
       console.log('📊 Status changed to:', status);
@@ -261,10 +411,12 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     }, [isSessionActive]),
   });
 
-  const { status, isSpeaking } = conversation;
+  // Safely extract status and isSpeaking from conversation object
+  const conversationStatus = conversation?.status;
+  const conversationIsSpeaking = conversation?.isSpeaking;
 
-  console.log('📊 Current conversation status:', status);
-  console.log('🎤 Is speaking:', isSpeaking);
+  console.log('📊 Current conversation status:', conversationStatus);
+  console.log('🎤 Is speaking:', conversationIsSpeaking);
   console.log('🔊 Is session active:', isSessionActive);
 
   // Prevent component re-mounting issues
@@ -275,28 +427,67 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     return () => {
       console.log('🧹 Hook unmounting, cleaning up session');
       // Reset the hook instance flag
-      hookInstanceRef.current = false;
-      // Don't automatically end session on unmount
-      // Let the user control when to end the session
+      // This global ref is no longer needed as state manages the hook instance
+      // isConnectingRef.current = false; // This line is removed
+      // conversationIdRef.current = null; // This line is removed
     };
   }, []);
   
   // Debug effect to track state changes
   useEffect(() => {
     console.log('🔍 State change detected:', { isSessionActive, conversationId: conversationIdRef.current, status: getStatusValue() });
-  }, [isSessionActive, status]);
+  }, [isSessionActive, conversationStatus]);
 
   // Helper function to get status value
   const getStatusValue = () => {
-    return status && typeof status === 'object' && 'status' in status ? (status as any).status : 'unknown';
+    try {
+      // First, check if we have an active session with conversation ID
+      if (isSessionActive && conversationIdRef.current) {
+        // If we have an active session, check the actual connection status
+        if (conversationStatus && typeof conversationStatus === 'object' && 'status' in conversationStatus) {
+          const status = (conversationStatus as any).status;
+          // Only trust the status if it's connected or connecting
+          if (status === 'connected' || status === 'connecting') {
+            return status;
+          }
+        }
+        // If we have an active session but status is not reliable, assume connected
+        return 'connected';
+      }
+      
+      // Check if we're in the middle of connecting
+      if (isConnectingRef.current) {
+        return 'connecting';
+      }
+      
+      // Check if we have a conversation ID but session is not active (transition state)
+      if (conversationIdRef.current && !isSessionActive) {
+        return 'connecting';
+      }
+      
+      // Check if we have a conversation ID but status is disconnected (error state)
+      if (conversationIdRef.current && conversationStatus && typeof conversationStatus === 'object' && 'status' in conversationStatus) {
+        const status = (conversationStatus as any).status;
+        if (status === 'disconnected' || status === 'disconnecting') {
+          return status;
+        }
+      }
+      
+      // Default fallback
+      return 'disconnected';
+    } catch (error) {
+      console.warn('⚠️ Error in getStatusValue, using fallback:', error);
+      return 'disconnected';
+    }
   };
 
   // Clear chat history function
   const clearChatHistory = useCallback(() => {
     console.log('🧹 Clearing chat history');
-    setMessages([]);
+    // Update global state instead of local state
+    globalState.updateState(agentId, { messages: [] });
     setError(null);
-  }, []);
+  }, [agentId]);
 
   // Function to get signed URL for private agents
   const getSignedUrl = async (agentId: string): Promise<string> => {
@@ -370,7 +561,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       }
       
       console.log('🚀 Starting voice session');
-      console.log('🔄 Session state before start:', { isSessionActive, conversationId: conversationIdRef.current, status });
+      console.log('🔄 Session state before start:', { isSessionActive, conversationId: conversationIdRef.current, status: getStatusValue() });
       
       // Set connecting flag to prevent multiple calls
       isConnectingRef.current = true;
@@ -431,7 +622,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         return;
       }
       
-      console.log('📞 Conversation status before connection:', status);
+      console.log('📞 Conversation status before connection:', getStatusValue());
       console.log('🔗 Attempting to start ElevenLabs session...');
       
       // Start the session
@@ -452,8 +643,11 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       
       // Update local state after successful session start
       conversationIdRef.current = conversationId;
-      setIsSessionActive(true);
-      setError(null);
+      updateSessionState({
+        isSessionActive: true,
+        conversationId: conversationId,
+        error: null
+      });
       
       // Add success message
       addSystemMessage('Voice session started successfully - Waiting for ElevenLabs connection...');
@@ -476,6 +670,32 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         } else if (currentStatus === 'connecting') {
           console.log('⏳ ElevenLabs still connecting, waiting...');
           addSystemMessage('Voice connection in progress - please wait...');
+          
+          // Wait a bit longer for connection to establish
+          setTimeout(() => {
+            const finalStatus = getStatusValue();
+            console.log('🔍 Final connection status check:', finalStatus);
+            
+            if (finalStatus === 'connected') {
+              console.log('✅ ElevenLabs connection established on second check');
+              addSystemMessage('Voice connection established - Ready for conversation');
+            } else if (finalStatus === 'connecting') {
+              console.log('⏳ Still connecting, but this is normal for some connections');
+              addSystemMessage('Voice connection in progress - this may take a moment');
+            } else {
+              // Only mark as failed if we're sure it's not working
+              console.log('❌ Connection appears to have failed');
+              const errorMsg = 'Voice connection failed - please try again';
+              addSystemMessage(errorMsg);
+              updateSessionState({
+                error: errorMsg,
+                isSessionActive: false,
+                conversationId: null
+              });
+              isConnectingRef.current = false;
+            }
+          }, 3000); // Wait another 3 seconds
+          
         } else if (currentStatus === 'unknown') {
           // Status is unknown, but we have a conversation ID, so connection might be working
           console.log('❓ Status is unknown, but checking if connection is actually working...');
@@ -494,21 +714,46 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
             console.log('❌ ElevenLabs connection failed or timed out');
             const errorMsg = 'Voice connection failed - please try again';
             addSystemMessage(errorMsg);
-            setError(errorMsg);
-            // Reset session state on connection failure
-            setIsSessionActive(false);
-            conversationIdRef.current = null;
+            updateSessionState({
+              error: errorMsg,
+              isSessionActive: false,
+              conversationId: null
+            });
             isConnectingRef.current = false;
           }
+        } else if (currentStatus === 'disconnected' || currentStatus === 'disconnecting') {
+          // Only mark as failed if we're sure the connection is actually broken
+          if (!conversationIdRef.current) {
+            console.log('❌ Connection failed - no conversation ID');
+            const errorMsg = 'Voice connection failed - please try again';
+            addSystemMessage(errorMsg);
+            updateSessionState({
+              error: errorMsg,
+              isSessionActive: false,
+              conversationId: null
+            });
+            isConnectingRef.current = false;
+          } else {
+            console.log('⚠️ Status shows disconnected but we have conversation ID - connection may still be working');
+            addSystemMessage('Voice connection status unclear - checking connection...');
+          }
         } else {
-          console.log('❌ ElevenLabs connection failed or timed out');
-          const errorMsg = 'Voice connection failed - please try again';
-          addSystemMessage(errorMsg);
-          setError(errorMsg);
-          // Reset session state on connection failure
-          setIsSessionActive(false);
-          conversationIdRef.current = null;
-          isConnectingRef.current = false;
+          // For any other status, be conservative and assume it's working if we have a conversation ID
+          if (conversationIdRef.current) {
+            console.log('✅ Assuming connection is working based on conversation ID');
+            addSystemMessage('Voice connection established - Ready for conversation');
+            addSystemMessage('Voice connection ready - click "Start Voice" to begin recording');
+          } else {
+            console.log('❌ Connection failed - no conversation ID and unclear status');
+            const errorMsg = 'Voice connection failed - please try again';
+            addSystemMessage(errorMsg);
+            updateSessionState({
+              error: errorMsg,
+              isSessionActive: false,
+              conversationId: null
+            });
+            isConnectingRef.current = false;
+          }
         }
       }, 5000); // Wait 5 seconds for connection to establish
       
@@ -524,10 +769,8 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         console.error('❌ Error stack:', error.stack);
       }
       
-      // Ensure state is reset on error
-      setIsSessionActive(false);
-      conversationIdRef.current = null;
-      isConnectingRef.current = false;
+      // Use the new state management function
+      resetSessionState();
       
       // Provide different messages based on error type
       let errorMsg = 'Unknown error occurred';
@@ -545,10 +788,15 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         } else {
           errorMsg = `Failed to start voice session: ${error.message}`;
         }
+      } else {
+        errorMsg = `Failed to start voice session: ${String(error)}`;
       }
       
+      // Set error state and add system message
+      updateSessionState({ error: errorMsg });
       addSystemMessage(errorMsg);
-      setError(errorMsg);
+      
+      console.error('❌ Session start failed with error:', errorMsg);
     }
   };
 
@@ -566,11 +814,9 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
         console.log('✅ Session ended through ElevenLabs');
       }
       
-      // Reset local state
-      setIsSessionActive(false);
-      conversationIdRef.current = null;
+      // Use the new state management function
+      resetSessionState();
       setCurrentTranscript('');
-      setError(null);
       
       addSystemMessage('Voice session ended');
       console.log('✅ Session ended successfully');
@@ -579,10 +825,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
       console.error('❌ Failed to end session:', error);
       
       // Even if ending fails, reset local state
-      setIsSessionActive(false);
-      conversationIdRef.current = null;
-      isConnectingRef.current = false;
-      setError(null);
+      resetSessionState();
       
       addSystemMessage('Voice session ended (with errors)');
     }
@@ -657,10 +900,17 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     console.log('🧹 Performing homepage cleanup...');
     
     // Reset all states
-    setMessages([]);
-    setCurrentTranscript('');
-    setShowChatHistory(false);
-    setError(null);
+    // Update global state instead of local state
+    globalState.updateState(agentId, {
+      messages: [],
+      currentTranscript: '',
+      showChatHistory: false,
+      error: null,
+      isSessionActive: false,
+      conversationId: null,
+      status: 'disconnected',
+      isSpeaking: false
+    });
     
     // Ensure conversation state is clean
     if (conversationIdRef.current) {
@@ -677,24 +927,52 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
 
   // Cleanup on unmount
   useEffect(() => {
+    let cleanupTimeout: number | null = null;
+    
     return () => {
+      // Only cleanup if we're actually unmounting the component, not just re-rendering
       if (conversationIdRef.current || isSessionActive) {
-        console.log('🧹 Hook unmounting, cleaning up session');
-        try {
-          // Try to gracefully end the session
-          if (isSessionActive) {
-            conversation.endSession();
+        console.log('🧹 Hook unmounting, checking if real unmount...');
+        
+        // Check if this is a real unmount or just a re-render
+        // We'll use a timeout to distinguish between the two
+        cleanupTimeout = window.setTimeout(() => {
+          // If we still have the same conversation ID after a short delay,
+          // this was likely just a re-render, not a real unmount
+          if (conversationIdRef.current) {
+            console.log('🔄 This appears to be a re-render, not a real unmount - preserving session');
+            return;
           }
-        } catch (error) {
-          console.log('🧹 Cleanup endSession error (safe to ignore):', error);
-        } finally {
-          // Ensure state is reset
-          conversationIdRef.current = null;
-          isConnectingRef.current = false;
-        }
+          
+          console.log('🧹 Real unmount detected, cleaning up session');
+          try {
+            // Try to gracefully end the session
+            if (isSessionActive) {
+              conversation.endSession();
+            }
+          } catch (error) {
+            console.log('🧹 Cleanup endSession error (safe to ignore):', error);
+          } finally {
+            // Ensure state is reset
+            conversationIdRef.current = null;
+            isConnectingRef.current = false;
+          }
+        }, 100); // 100ms delay to distinguish re-render from unmount
       }
     };
   }, [conversation, isSessionActive]);
+
+  // Additional cleanup effect for timeout
+  useEffect(() => {
+    let cleanupTimeout: number | null = null;
+    
+    return () => {
+      // Clear any pending cleanup timeout
+      if (cleanupTimeout) {
+        window.clearTimeout(cleanupTimeout);
+      }
+    };
+  }, []);
 
   // Initialize hook - NO AUTO-INITIALIZATION
   useEffect(() => {
@@ -715,7 +993,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
   // Get status display info
   const getStatusInfo = () => {
     const statusValue = getStatusValue();
-    console.log('🔍 Status check - status:', statusValue, 'isSessionActive:', isSessionActive, 'isSpeaking:', isSpeaking, 'mode: Voice');
+    console.log('🔍 Status check - status:', statusValue, 'isSessionActive:', isSessionActive, 'isSpeaking:', conversationIsSpeaking, 'mode: Voice');
     
     // Check if we're in the middle of a mode switch
     if (conversationIdRef.current && !isSessionActive) {
@@ -724,7 +1002,7 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     
     // Check if ElevenLabs is connected and session is active
     if (statusValue === 'connected' && isSessionActive) {
-      if (isSpeaking) {
+      if (conversationIsSpeaking) {
         return { text: 'Agent is speaking...', color: 'text-green-400' };
       }
       return { text: 'Agent is listening', color: 'text-blue-400' };
@@ -755,13 +1033,13 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
 
   // Return state, actions, and loading state
   const state: ElevenLabsHookState = {
-    messages,
-    isSessionActive,
-    currentTranscript,
+    messages: globalState.getState(agentId).messages || [],
+    isSessionActive: globalState.getState(agentId).isSessionActive,
+    currentTranscript: globalState.getState(agentId).currentTranscript,
     conversationId: conversationIdRef.current,
     status: getStatusValue(),
-    isSpeaking,
-    error
+    isSpeaking: conversationIsSpeaking,
+    error: globalState.getState(agentId).error
   };
 
   const actions: ElevenLabsHookActions = {
