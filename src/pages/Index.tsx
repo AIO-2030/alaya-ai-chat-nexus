@@ -9,6 +9,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { useNavigate } from 'react-router-dom';
+import { BottomNavigation } from '../components/BottomNavigation';
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -123,7 +124,7 @@ const Index = () => {
         <AppHeader />
 
         {/* Main Content - Introduction and Guide */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 min-h-screen">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 min-h-screen pb-32">
           {/* Center Icon - Univoice AI Profile */}
           <div className="text-center mb-12">
             <div className="relative inline-block mb-8">
@@ -216,6 +217,11 @@ const Index = () => {
         </div>
 
         {/* REMOVED: Chat history popup as ElevenLabs integration is moved to separate page */}
+        
+        {/* Bottom Navigation - Mobile only */}
+        <div className="lg:hidden">
+          <BottomNavigation />
+        </div>
       </div>
     </SidebarProvider>
   );
