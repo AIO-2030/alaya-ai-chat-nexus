@@ -7,6 +7,7 @@ import { DeviceProvider } from "./contexts/DeviceContext";
 import { GoogleAuthProvider } from "./components/GoogleAuthProvider";
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
+import UserManagement from "./pages/UserManagement";
 import Contracts from "./pages/Contracts";
 import MyDevices from "./pages/MyDevices";
 import AddDevice from "./pages/AddDevice";
@@ -31,6 +32,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/user-management" element={<UserManagement />} />
               <Route path="/contracts" element={<Contracts />} />
               <Route path="/my-devices" element={<MyDevices />} />
               <Route path="/add-device" element={<AddDevice />} />

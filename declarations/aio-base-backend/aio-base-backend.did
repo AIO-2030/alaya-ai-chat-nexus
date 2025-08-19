@@ -1,0 +1,541 @@
+type Platform = variant {
+  Windows;
+  Linux;
+  Both;
+};
+
+type WorkStatus = variant {
+  Todo;
+  InProgress;
+  Completed;
+  Cancelled;
+};
+
+type TraceStatus = variant {
+  Ok;
+  Recall;
+  Fail;
+};
+
+type TransferStatus = variant {
+  Pending;
+  Completed;
+  Failed;
+};
+
+type RiskLevel = variant {
+  Low;
+  Medium;
+  High;
+};
+
+type SubscriptionPlan = variant {
+  Free;
+  Basic;
+  Premium;
+  Enterprise;
+};
+
+type IOData = record {
+  data_type: text;
+  value: text;
+};
+
+type CallItem = record {
+  id: nat64;
+  protocol: text;
+  agent: text;
+  call_type: text;
+  method: text;
+  inputs: vec IOData;
+  outputs: vec IOData;
+  status: text;
+};
+
+type TraceItem = record {
+  id: text;
+  trace_id: text;
+  owner: text;
+  created_at: nat64;
+  updated_at: nat64;
+  calls: vec CallItem;
+  metadata: opt text;
+  amount: nat64;
+  from_account: Account;
+  to_account: Account;
+  status: TransferStatus;
+  error: opt text;
+};
+
+type Account = record {
+  owner: principal;
+  subaccount: opt vec nat8;
+};
+
+type AgentItem = record {
+  id: nat64;
+  name: text;
+  description: text;
+  author: text;
+  owner: text;
+  platform: opt Platform;
+  git_repo: text;
+  homepage: opt text;
+  input_params: opt text;
+  output_example: opt text;
+  image_url: opt text;
+  exec_file_url: opt text;
+  version: text;
+};
+
+type McpItem = record {
+  id: nat64;
+  name: text;
+  description: text;
+  author: text;
+  owner: text;
+  git_repo: text;
+  exec_file: opt text;
+  homepage: opt text;
+  remote_endpoint: opt text;
+  mcp_type: text;
+  community_body: opt text;
+  resources: bool;
+  prompts: bool;
+  tools: bool;
+  sampling: bool;
+};
+
+type WorkItem = record {
+  id: nat64;
+  title: text;
+  description: text;
+  status: WorkStatus;
+  created_at: nat64;
+  updated_at: nat64;
+  owner: text;
+  assigned_to: opt text;
+  tags: vec text;
+  metadata: opt text;
+};
+
+type SchemaProperty = record {
+  property_type: text;
+  description: opt text;
+  default: opt text;
+  enum_values: opt vec text;
+  items: opt SchemaProperty;
+  properties: opt vec record { text; SchemaProperty };
+  required: opt vec text;
+};
+
+type InputSchema = record {
+  schema_type: text;
+  properties: vec record { text; SchemaProperty };
+  required: opt vec text;
+};
+
+type Method = record {
+  name: text;
+  description: text;
+  required_params: opt vec text;
+  input_schema: opt InputSchema;
+};
+
+type Source = record {
+  author: text;
+  version: text;
+  github: text;
+};
+
+type AioIndex = record {
+  id: text;
+  description: text;
+  author: text;
+  version: text;
+  github: text;
+  transport: vec text;
+  methods: vec Method;
+  source: Source;
+  keywords: vec text;
+  scenarios: vec text;
+};
+
+type InvertedIndexItem = record {
+  keyword: text;
+  keyword_group: text;
+  mcp_name: text;
+  method_name: text;
+  source_field: text;
+  confidence: float32;
+  standard_match: text;
+};
+
+type TokenInfo = record {
+  token_balance: nat64;
+  credit_balance: nat64;
+  staked_credits: nat64;
+  kappa_multiplier: float64;
+};
+
+type AccountInfo = record {
+  principal_id: text;
+  token_info: TokenInfo;
+  created_at: nat64;
+  updated_at: opt nat64;
+  metadata: opt text;
+};
+
+type TokenActivityType = variant {
+  Transfer;
+  Stack;
+  Unstack;
+  Claim;
+  Grant;
+  Vest;
+};
+
+type TokenActivity = record {
+  timestamp: nat64;
+  from: text;
+  to: text;
+  amount: nat64;
+  activity_type: TokenActivityType;
+  status: TransferStatus;
+  metadata: opt text;
+};
+
+type CreditActivityType = variant {
+  Earn;
+  Spend;
+  Stack;
+  Unstack;
+  Reward;
+};
+
+type CreditActivity = record {
+  timestamp: nat64;
+  principal_id: text;
+  amount: nat64;
+  activity_type: CreditActivityType;
+  status: TransferStatus;
+  metadata: opt text;
+};
+
+type TokenGrantStatus = variant {
+  Pending;
+  Active;
+  Completed;
+  Cancelled;
+};
+
+type TokenGrant = record {
+  recipient: text;
+  amount: nat64;
+  start_time: nat64;
+  claimed_amount: nat64;
+  status: TokenGrantStatus;
+};
+
+type EmissionPolicy = record {
+  base_rate: nat64;
+  kappa_factor: float64;
+  staking_bonus: float64;
+  subscription_multipliers: vec record { SubscriptionPlan; float64 };
+  last_update_time: nat64;
+};
+
+type GrantAction = variant {
+  NewUser;
+  NewDeveloper;
+};
+
+type GrantPolicy = record {
+  grant_amount: nat64;
+  grant_action: GrantAction;
+  grant_duration: nat64;
+};
+
+type NewMcpGrant = record {
+  recipient: text;
+  amount: nat64;
+  start_time: nat64;
+  claimed_amount: nat64;
+  mcp_name: text;
+  status: TokenGrantStatus;
+};
+
+type StackStatus = variant {
+  Stacked;
+  Unstacked;
+};
+
+type McpStackRecord = record {
+  principal_id : text;
+  mcp_name : text;
+  stack_time : nat64;
+  stack_amount : nat64;
+  stack_status : StackStatus;
+};
+
+type IOValue = record {
+  data_type: text;
+  value: variant {
+    Text: text;
+    Number: float64;
+    Boolean: bool;
+    Object: text;
+    Array: text;
+    Null: null;
+  };
+};
+
+type ProtocolCall = record {
+  id: nat32;
+  protocol: text;
+  agent: text;
+  call_type: text;
+  method: text;
+  input: IOValue;
+  output: IOValue;
+  status: text;
+  error_message: opt text;
+};
+
+type TraceLog = record {
+  trace_id: text;
+  context_id: text;
+  calls: vec ProtocolCall;
+};
+
+type TraceStatistics = record {
+  total_amount: nat64;
+  success_amount: nat64;
+  failed_amount: nat64;
+  total_count: nat64;
+};
+
+type RewardEntry = record {
+  principal_id: principal;
+  mcp_name: text;
+  reward_amount: nat64;
+  block_id: nat64;
+  status: text;
+};
+
+type StackPositionRecord = record {
+  id: nat64;
+  mcp_name: text;
+  stack_amount: nat64;
+};
+
+type RechargeRecord = record {
+  user: principal;
+  icp_amount: float64;
+  credits_obtained: nat64;
+  timestamp: nat64;
+};
+
+type RechargePrincipalAccount = record {
+  principal_id: text;
+  subaccount_id: opt text;
+};
+
+type LoginMethod = variant {
+  Wallet;
+  Google;
+  II;
+};
+
+type LoginStatus = variant {
+  Authenticated;
+  Unauthenticated;
+};
+
+type UserProfile = record {
+  user_id: text;
+  principal_id: text;
+  name: opt text;
+  nickname: text;
+  login_method: LoginMethod;
+  login_status: LoginStatus;
+  email: opt text;
+  picture: opt text;
+  wallet_address: opt text;
+  created_at: nat64;
+  updated_at: nat64;
+  metadata: opt text;
+};
+
+service : {
+  // Basic API
+  "greet": (text) -> (text) query;
+  
+  // Agent Asset API
+  "get_agent_item": (nat64) -> (opt AgentItem) query;
+  "get_all_agent_items": () -> (vec AgentItem) query;
+  "get_user_agent_items": () -> (vec AgentItem) query;
+  "get_user_agent_items_paginated": (nat64, nat64) -> (vec AgentItem) query;
+  "get_agent_items_paginated": (nat64, nat64) -> (vec AgentItem) query;
+  "get_agent_item_by_name": (text) -> (opt AgentItem) query;
+  "add_agent_item": (AgentItem, text) -> (variant { Ok: nat64; Err: text });
+  "update_agent_item": (nat64, AgentItem) -> (variant { Ok; Err: text });
+  
+  // Mining Rewards API
+  "dispatch_mining_rewards": () -> (variant { Ok; Err: text });
+  "stop_mining_rewards": () -> (variant { Ok; Err: text });
+  "cal_unclaim_rewards": (text) -> (nat64) query;
+  "claim_rewards": (text) -> (variant { Ok: nat64; Err: text });
+  "perdic_mining": (bool) -> (variant { Ok: vec RewardEntry; Err: text });
+  "get_mcp_rewards_paginated": (nat64, nat64) -> (vec RewardEntry) query;
+  
+  // MCP Asset API
+  "get_mcp_item": (text) -> (opt McpItem) query;
+  "get_all_mcp_items": () -> (vec McpItem) query;
+  "get_user_mcp_items": () -> (vec McpItem) query;
+  "get_user_mcp_items_paginated": (nat64, nat64) -> (vec McpItem) query;
+  "get_mcp_items_paginated": (nat64, nat64) -> (vec McpItem) query;
+  "get_mcp_item_by_name": (text) -> (opt McpItem) query;
+  "add_mcp_item": (McpItem, text) -> (variant { Ok: text; Err: text });
+  "update_mcp_item": (text, McpItem) -> (variant { Ok; Err: text });
+  "delete_mcp_item": (text) -> (variant { Ok; Err: text });
+  
+  // Work Ledger API - Trace System
+  "get_trace": (text) -> (opt TraceLog) query;
+  "get_trace_by_context": (text) -> (opt TraceLog) query;
+  "get_all_traces": () -> (vec TraceLog) query;
+  "get_traces_paginated": (nat64, nat64) -> (vec TraceLog) query;
+  "get_traces_by_protocol": (text) -> (vec TraceLog) query;
+  "get_traces_by_method": (text) -> (vec TraceLog) query;
+  "get_traces_by_status": (text) -> (vec TraceLog) query;
+  "get_traces_by_status_paginated": (text, nat64, nat64) -> (vec TraceLog) query;
+  "get_traces_with_filters": (opt vec text, opt vec text, opt vec text) -> (vec TraceLog) query;
+  "get_traces_statistics": () -> (record { total_count: nat64; success_count: nat64; error_count: nat64 }) query;
+  "get_traces_statistics_by_account": (text, opt nat64, opt nat64) -> (record { total_count: nat64; total_amount: nat; success_amount: nat; failed_amount: nat }) query;
+  "record_trace_call": (text, text, text, text, text, text, IOValue, IOValue, text, opt text) -> (variant { Ok: null; Err: text });
+  "get_traces_by_agentname_paginated": (text, nat64, nat64) -> (vec TraceLog) query;
+
+  // AIO Protocol Index API
+  "create_aio_index_from_json": (text, text) -> (variant { Ok; Err: text });
+  "get_aio_index": (text) -> (opt AioIndex) query;
+  "get_all_aio_indices": () -> (vec AioIndex) query;
+  "get_aio_indices_paginated": (nat64, nat64) -> (vec AioIndex) query;
+  "search_aio_indices_by_keyword": (text) -> (vec AioIndex) query;
+  "update_aio_index": (text, text) -> (variant { Ok; Err: text });
+  "delete_aio_index": (text) -> (variant { Ok; Err: text });
+  "export_aio_index_to_json": (text) -> (variant { Ok: text; Err: text }) query;
+  "get_aio_indices_count": () -> (nat64) query;
+
+  // Inverted Index API
+  "store_inverted_index": (text, text) -> (variant { Ok; Err: text });
+  "get_all_inverted_index_items": () -> (text) query;
+  "get_all_keywords": () -> (text) query;
+  "find_inverted_index_by_keyword": (text) -> (text) query;
+  "find_inverted_index_by_group": (text) -> (text) query;
+  "find_inverted_index_by_mcp": (text) -> (text) query;
+  "find_inverted_index_by_confidence": (float32) -> (text) query;
+  "find_inverted_index_by_keywords": (vec text, float32) -> (text) query;
+  "delete_inverted_index_by_mcp": (text) -> (variant { Ok; Err: text });
+  "revert_Index_find_by_keywords_strategy": (vec text) -> (text) query;
+
+  // Finance API
+  "get_account_info": (text) -> (opt AccountInfo);
+  "add_account": (text) -> (variant { Ok: AccountInfo; Err: text });
+  "get_all_accounts": () -> (vec AccountInfo) query;
+  "get_accounts_paginated": (nat64, nat64) -> (vec AccountInfo) query;
+  "delete_account": (text) -> (variant { Ok; Err: text });
+  "stack_credit": (text,text, nat64) -> (variant { Ok: AccountInfo; Err: text });
+  "unstack_credit": (text, nat64) -> (variant { Ok: AccountInfo; Err: text });
+  "add_token_balance": (text, nat64) -> (variant { Ok: AccountInfo; Err: text });
+  "get_balance_summary": (text) -> (record { total_count: nat64; total_amount: nat64; success_count: nat64; unclaimed_balance: nat64 }) query;
+  "get_traces_by_operation": (text, text) -> (vec TraceItem) query;
+  "get_traces_by_transfer_status": (text, TransferStatus) -> (vec TraceItem) query;
+  "get_traces_by_time_period": (text, text) -> (vec TraceItem) query;
+  "get_traces_sorted": (text, text, bool) -> (vec TraceItem) query;
+  "get_traces_with_advanced_filters": (text, opt vec text, opt vec TransferStatus, opt nat64, opt nat64, opt nat, opt nat, opt vec Account) -> (vec TraceItem) query;
+
+  // Token Economy Service
+  "convert_aio_to_credits": (text, nat64) -> (variant { Ok: nat64; Err: text });
+  "update_exchange_ratio": (float64) -> (variant { Ok; Err: text });
+  "subscribe_plan": (text, SubscriptionPlan) -> (variant { Ok; Err: text });
+  "get_kappa": (text) -> (variant { Ok: float64; Err: text });
+  "init_emission_policy": () -> ();
+  "calculate_emission": (text) -> (variant { Ok: nat64; Err: text }) query;
+  "get_emission_policy": () -> (variant { Ok: EmissionPolicy; Err: text }) query;
+  "update_emission_policy": (EmissionPolicy) -> (variant { Ok; Err: text });
+  "create_token_grant": (TokenGrant) -> (variant { Ok; Err: text });
+  "get_token_grant": (text) -> (bool) query;
+  "claim_grant": (text) -> (variant { Ok: nat64; Err: text });
+  "get_all_token_grants": () -> (vec TokenGrant) query;
+  "get_token_grants_paginated": (nat64, nat64) -> (vec TokenGrant) query;
+  "get_token_grants_by_recipient": (text) -> (vec TokenGrant) query;
+  "get_token_grants_by_status": (text) -> (vec TokenGrant) query;
+  "get_token_grants_count": () -> (nat64) query;
+
+  // Token Activity API
+  "get_token_activities": (text) -> (vec TokenActivity) query;
+  "get_token_activities_paginated": (text, nat64, nat64) -> (vec TokenActivity) query;
+  "get_token_activities_by_type": (text, TokenActivityType) -> (vec TokenActivity) query;
+  "get_token_activities_by_time_period": (text, nat64, nat64) -> (vec TokenActivity) query;
+  "get_token_activity_statistics": (text) -> (record { total_count: nat64; total_amount: nat64; success_count: nat64 }) query;
+
+  // Credit Activity API
+  "get_credit_activities": (text) -> (vec CreditActivity) query;
+  "get_credit_activities_paginated": (text, nat64, nat64) -> (vec CreditActivity) query;
+  "get_credit_activities_by_type": (text, CreditActivityType) -> (vec CreditActivity) query;
+  "get_credit_activities_by_time_period": (text, nat64, nat64) -> (vec CreditActivity) query;
+  "get_credit_activity_statistics": (text) -> (record { total_count: nat64; total_amount: nat64; success_count: nat64 }) query;
+
+  // Additional Methods
+  "log_credit_usage": (text, nat64, text, opt text) -> (variant { Ok; Err: text });
+  "use_credit": (text, nat64, text, opt text) -> (variant { Ok: AccountInfo; Err: text });
+  "grant_token": (TokenGrant) -> (variant { Ok; Err: text });
+  "transfer_token": (text, text, nat64) -> (variant { Ok: AccountInfo; Err: text });
+
+  // Grant Policy API
+  "init_grant_policy": (opt GrantPolicy) -> ();
+  "check_is_newuser": (text) -> (bool) query;
+  "create_and_claim_newuser_grant": (text) -> (variant { Ok: nat64; Err: text });
+
+  // MCP Grant API
+  "create_mcp_grant": (NewMcpGrant) -> (variant { Ok; Err: text });
+  "claim_mcp_grant": (text, text) -> (variant { Ok: nat64; Err: text });
+  "get_mcp_grant": (text, text) -> (opt NewMcpGrant) query;
+  "get_all_mcp_grants": () -> (vec NewMcpGrant) query;
+  "get_mcp_grants_paginated": (nat64, nat64) -> (vec NewMcpGrant) query;
+  "get_mcp_grants_by_recipient": (text) -> (vec NewMcpGrant) query;
+  "get_mcp_grants_by_mcp": (text) -> (vec NewMcpGrant) query;
+  "get_mcp_grants_by_status": (TokenGrantStatus) -> (vec NewMcpGrant) query;
+  "get_mcp_grants_count": () -> (nat64) query;
+  "create_and_claim_newmcp_grant": (text, text) -> (variant { Ok: nat64; Err: text });
+
+  get_mcp_stack_records_paginated : (text, nat64, nat64) -> (vec McpStackRecord);
+  get_total_aiotoken_claimable : () -> (nat64) query;
+  get_total_stacked_credits : () -> (nat64) query;
+  get_stacked_record_group_by_stack_amount : () -> (vec StackPositionRecord) query;
+  get_all_mcp_names : () -> (vec text) query;
+
+  // Credit Exchange API
+  get_credits_per_icp_api: () -> (nat64) query;
+  update_icp_usd_price_api: (float64) -> (variant { Ok; Err: text });
+  simulate_credit_from_icp_api: (float64) -> (nat64) query;
+  recharge_and_convert_credits_api: (float64) -> (nat64);
+  get_user_credit_balance_api: (text) -> (nat64) query;
+  get_recharge_history_api: (text, nat64, nat64) -> (vec RechargeRecord) query;
+
+  add_recharge_principal_account_api: (RechargePrincipalAccount) -> (variant { Ok; Err: text });
+  get_recharge_principal_account_api: () -> (opt RechargePrincipalAccount) query;
+  update_recharge_principal_account_api: (RechargePrincipalAccount) -> (variant { Ok; Err: text });
+  delete_recharge_principal_account_api: () -> (variant { Ok; Err: text });
+  list_recharge_principal_accounts_api: () -> (vec RechargePrincipalAccount) query;
+
+  // User Profile API
+  "upsert_user_profile": (UserProfile) -> (variant { Ok: nat64; Err: text });
+  "get_user_profile_by_principal": (text) -> (opt UserProfile) query;
+  "get_user_profile_by_user_id": (text) -> (opt UserProfile) query;
+  "get_user_profile_by_email": (text) -> (opt UserProfile) query;
+  "update_user_nickname": (text, text) -> (variant { Ok: UserProfile; Err: text });
+  "get_user_profiles_paginated": (nat64, nat64) -> (vec UserProfile) query;
+  "delete_user_profile": (text) -> (variant { Ok: bool; Err: text });
+  "get_total_user_profiles": () -> (nat64) query;
+}

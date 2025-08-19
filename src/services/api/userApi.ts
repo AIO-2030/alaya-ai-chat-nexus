@@ -1,85 +1,101 @@
 import type { UserInfo } from '../../types/user';
 
 // Canister actor for backend interaction
-import { Actor, HttpAgent } from '@dfinity/agent';
+import { Actor, HttpAgent, ActorSubclass } from '@dfinity/agent';
+import { idlFactory } from '../../../declarations/aio-base-backend/aio-base-backend.did.js';
+import type { UserProfile } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+import type { _SERVICE } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 
-// Canister configuration - using import.meta.env for Vite
-const CANISTER_ID = import.meta.env.VITE_CANISTER_ID || 'rrkah-fqaaa-aaaaa-aaaaq-cai';
-const HOST = import.meta.env.VITE_INTERNET_IDENTITY_HOST || 'https://ic0.app';
-
-// Initialize agent and actor
-const agent = new HttpAgent({ host: HOST });
-
-// Type definitions for canister responses
-interface CanisterResult<T> {
-  Ok?: T;
-  Err?: string;
-}
-
-interface UserProfile {
-  user_id: string;
-  principal_id: string;
-  name?: string;
-  nickname: string;
-  login_method: { Wallet?: null } | { Google?: null } | { II?: null };
-  login_status: { Authenticated?: null } | { Unauthenticated?: null };
-  email?: string;
-  picture?: string;
-  wallet_address?: string;
-  created_at: bigint;
-  updated_at: bigint;
-  metadata?: string;
-}
-
-// Mock canister for now - replace with actual actor when declarations are available
-const mockCanister = {
-  upsert_user_profile: async (profile: UserProfile): Promise<CanisterResult<bigint>> => {
-    // Mock implementation
-    return { Ok: BigInt(Date.now()) };
-  },
-  get_user_profile_by_principal: async (principalId: string): Promise<UserProfile | null> => {
-    // Mock implementation
-    return null;
-  },
-  update_user_nickname: async (principalId: string, nickname: string): Promise<CanisterResult<UserProfile>> => {
-    // Mock implementation
-    return { Err: "Not implemented" };
-  },
-  get_user_profile_by_email: async (email: string): Promise<UserProfile | null> => {
-    return null;
-  },
-  get_user_profile_by_user_id: async (userId: string): Promise<UserProfile | null> => {
-    return null;
-  },
-  get_user_profiles_paginated: async (offset: bigint, limit: bigint): Promise<UserProfile[]> => {
-    return [];
-  },
-  get_total_user_profiles: async (): Promise<bigint> => {
-    return BigInt(0);
-  },
-  delete_user_profile: async (principalId: string): Promise<CanisterResult<boolean>> => {
-    return { Ok: true };
-  }
+// Environment detection and configuration
+const isLocalNet = (): boolean => {
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host.includes('4943');
 };
 
-const canister = mockCanister;
+const getCanisterId = (): string => {
+  // Try to get from environment variable first
+  const envCanisterId = import.meta.env.VITE_CANISTER_ID_AIO_BASE_BACKEND;
+  if (envCanisterId) {
+    return envCanisterId;
+  }
+  
+  // Fallback to default canister ID
+  return 'rrkah-fqaaa-aaaaa-aaaaq-cai';
+};
+
+const getHost = (): string => {
+  if (isLocalNet()) {
+    return 'http://localhost:4943';
+  }
+  return 'https://ic0.app';
+};
+
+// Canister configuration
+const CANISTER_ID = getCanisterId();
+const HOST = getHost();
+
+console.log('[UserApi] Environment config:', {
+  isLocalNet: isLocalNet(),
+  canisterId: CANISTER_ID,
+  host: HOST
+});
+
+// Initialize agent with proper configuration
+const agent = new HttpAgent({ 
+  host: HOST,
+  // Add identity if available (for authenticated calls)
+  // identity: await getIdentity()
+});
+
+// Configure agent for local development
+if (isLocalNet()) {
+  agent.fetchRootKey().catch(console.error);
+}
+
+// Actor singleton for re-use (similar to actorManager.ts pattern)
+let actor: ActorSubclass<_SERVICE> | null = null;
+
+// Get or create actor instance
+const getActor = (): ActorSubclass<_SERVICE> => {
+  if (!actor) {
+    console.log('[UserApi] Creating new actor instance for canister:', CANISTER_ID);
+    actor = Actor.createActor(idlFactory, { 
+      agent, 
+      canisterId: CANISTER_ID 
+    });
+  }
+  return actor;
+};
+
+// Type definitions for canister responses
+type CanisterResult<T> = { 'Ok': T } | { 'Err': string };
+
+// Helper function to check if result is Ok
+const isOk = <T>(result: CanisterResult<T>): result is { 'Ok': T } => {
+  return 'Ok' in result;
+};
+
+// Helper function to check if result is Err
+const isErr = <T>(result: CanisterResult<T>): result is { 'Err': string } => {
+  return 'Err' in result;
+};
 
 // Convert frontend UserInfo to backend UserProfile format
 const convertToUserProfile = (info: UserInfo): UserProfile => {
   return {
     user_id: info.userId,
     principal_id: info.principalId,
-    name: info.name,
+    name: info.name ? [info.name] : [],
     nickname: info.nickname,
     login_method: info.loginMethod === 'wallet' ? { Wallet: null } : 
                   info.loginMethod === 'google' ? { Google: null } : { II: null },
     login_status: info.loginStatus === 'authenticated' ? { Authenticated: null } : { Unauthenticated: null },
-    email: info.email,
-    picture: info.picture,
-    wallet_address: info.walletAddress,
+    email: info.email ? [info.email] : [],
+    picture: info.picture ? [info.picture] : [],
+    wallet_address: info.walletAddress ? [info.walletAddress] : [],
     created_at: BigInt(Date.now()),
     updated_at: BigInt(Date.now()),
-    metadata: undefined,
+    metadata: [],
   };
 };
 
@@ -100,22 +116,115 @@ const convertFromUserProfile = (profile: UserProfile): UserInfo => {
   return {
     userId: profile.user_id,
     principalId: profile.principal_id,
-    name: profile.name,
+    name: profile.name[0] || undefined,
     nickname: profile.nickname,
     loginMethod,
     loginStatus,
-    email: profile.email,
-    picture: profile.picture,
-    walletAddress: profile.wallet_address,
+    email: profile.email[0] || undefined,
+    picture: profile.picture[0] || undefined,
+    walletAddress: profile.wallet_address[0] || undefined,
   };
 };
+
+// Real canister implementation based on DID interface
+const callBackend = {
+  upsert_user_profile: async (profile: UserProfile): Promise<CanisterResult<bigint>> => {
+    try {
+      const actor = getActor();
+      const result = await actor.upsert_user_profile(profile);
+      return result as CanisterResult<bigint>;
+    } catch (error) {
+      console.error('[UserApi] Error upserting user profile:', error);
+      return { 'Err': `Canister call failed: ${error}` };
+    }
+  },
+  
+  get_user_profile_by_principal: async (principalId: string): Promise<UserProfile | null> => {
+    try {
+      const actor = getActor();
+      const result = await actor.get_user_profile_by_principal(principalId);
+      return (result as [] | [UserProfile])[0] || null;
+    } catch (error) {
+      console.error('[UserApi] Error getting user profile by principal:', error);
+      return null;
+    }
+  },
+  
+  update_user_nickname: async (principalId: string, nickname: string): Promise<CanisterResult<UserProfile>> => {
+    try {
+      const actor = getActor();
+      const result = await actor.update_user_nickname(principalId, nickname);
+      return result as CanisterResult<UserProfile>;
+    } catch (error) {
+      console.error('[UserApi] Error updating user nickname:', error);
+      return { 'Err': `Canister call failed: ${error}` };
+    }
+  },
+  
+  get_user_profile_by_email: async (email: string): Promise<UserProfile | null> => {
+    try {
+      const actor = getActor();
+      const result = await actor.get_user_profile_by_email(email);
+      return (result as [] | [UserProfile])[0] || null;
+    } catch (error) {
+      console.error('[UserApi] Error getting user profile by email:', error);
+      return null;
+    }
+  },
+  
+  get_user_profile_by_user_id: async (userId: string): Promise<UserProfile | null> => {
+    try {
+      const actor = getActor();
+      const result = await actor.get_user_profile_by_user_id(userId);
+      return (result as [] | [UserProfile])[0] || null;
+    } catch (error) {
+      console.error('[UserApi] Error getting user profile by user ID:', error);
+      return null;
+    }
+  },
+  
+  get_user_profiles_paginated: async (offset: bigint, limit: bigint): Promise<UserProfile[]> => {
+    try {
+      const actor = getActor();
+      const result = await actor.get_user_profiles_paginated(offset, limit);
+      return result as UserProfile[];
+    } catch (error) {
+      console.error('[UserApi] Error getting paginated user profiles:', error);
+      return [];
+    }
+  },
+  
+  get_total_user_profiles: async (): Promise<bigint> => {
+    try {
+      const actor = getActor();
+      const result = await actor.get_total_user_profiles();
+      return result as bigint;
+    } catch (error) {
+      console.error('[UserApi] Error getting total user profiles:', error);
+      return BigInt(0);
+    }
+  },
+  
+  delete_user_profile: async (principalId: string): Promise<CanisterResult<boolean>> => {
+    try {
+      const actor = getActor();
+      const result = await actor.delete_user_profile(principalId);
+      return result as CanisterResult<boolean>;
+    } catch (error) {
+      console.error('[UserApi] Error deleting user profile:', error);
+      return { 'Err': `Canister call failed: ${error}` };
+    }
+  }
+};
+
+const canister = callBackend;
 
 export const syncUserInfo = async (info: UserInfo): Promise<UserInfo> => {
   try {
     const profile = convertToUserProfile(info);
     const result = await canister.upsert_user_profile(profile);
     
-    if (result.Ok !== undefined) {
+    if (isOk(result)) {
       console.log('[UserApi] Synced user info to canister, index:', result.Ok);
       return info;
     } else {
@@ -157,7 +266,7 @@ export const upsertNickname = async (principalId: string, nickname: string): Pro
   try {
     const result = await canister.update_user_nickname(principalId, nickname);
     
-    if (result.Ok !== undefined) {
+    if (isOk(result)) {
       const userInfo = convertFromUserProfile(result.Ok);
       console.log('[UserApi] Updated nickname in canister:', userInfo);
       return userInfo;
@@ -196,9 +305,9 @@ export const getUserProfileByUserId = async (userId: string): Promise<UserInfo |
   }
 };
 
-export const getUserProfilesPaginated = async (offset: number, limit: number): Promise<UserInfo[]> => {
+export const getUserProfilesPaginated = async (offset: bigint, limit: bigint): Promise<UserInfo[]> => {
   try {
-    const profiles = await canister.get_user_profiles_paginated(BigInt(offset), BigInt(limit));
+    const profiles = await canister.get_user_profiles_paginated(offset, limit);
     return profiles.map(convertFromUserProfile);
   } catch (error) {
     console.error('[UserApi] Error getting paginated user profiles:', error);
@@ -206,13 +315,13 @@ export const getUserProfilesPaginated = async (offset: number, limit: number): P
   }
 };
 
-export const getTotalUserProfiles = async (): Promise<number> => {
+export const getTotalUserProfiles = async (): Promise<bigint> => {
   try {
     const total = await canister.get_total_user_profiles();
-    return Number(total);
+    return total;
   } catch (error) {
     console.error('[UserApi] Error getting total user profiles:', error);
-    return 0;
+    return BigInt(0);
   }
 };
 
@@ -220,7 +329,7 @@ export const deleteUserProfile = async (principalId: string): Promise<boolean> =
   try {
     const result = await canister.delete_user_profile(principalId);
     
-    if (result.Ok !== undefined) {
+    if (isOk(result)) {
       console.log('[UserApi] Deleted user profile from canister');
       // Also remove from local storage
       localStorage.removeItem(`user_profile_${principalId}`);
@@ -233,4 +342,20 @@ export const deleteUserProfile = async (principalId: string): Promise<boolean> =
     return false;
   }
 };
+
+// Export actor management functions for external use
+export const getCanisterActor = (): ActorSubclass<_SERVICE> => {
+  return getActor();
+};
+
+export const resetActor = (): void => {
+  actor = null;
+  console.log('[UserApi] Actor instance reset');
+};
+
+export const getEnvironmentInfo = () => ({
+  isLocalNet: isLocalNet(),
+  canisterId: CANISTER_ID,
+  host: HOST
+});
 

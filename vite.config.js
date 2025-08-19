@@ -27,6 +27,33 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
       },
     },
+    headers: {
+      'Content-Security-Policy': `
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
+        connect-src 'self' 
+          http://localhost:* https://localhost:*
+          https://icp0.io https://*.icp0.io 
+          https://icp-api.io 
+          https://ic0.app https://*.ic0.app
+          https://accounts.google.com https://www.googleapis.com
+          https://api.elevenlabs.io https://*.elevenlabs.io
+          wss://api.elevenlabs.io wss://*.elevenlabs.io
+          blob: ws: wss:;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: https://lh3.googleusercontent.com;
+        font-src 'self';
+        object-src 'none';
+        base-uri 'self';
+        frame-ancestors 'none';
+        worker-src 'self' blob:;
+        media-src 'self' blob:;
+      `.replace(/\s+/g, ' ').trim(),
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Origin, Accept',
+      'Access-Control-Allow-Credentials': 'true'
+    }
   },
   plugins: [
     react(),
