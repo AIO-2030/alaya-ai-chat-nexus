@@ -5,9 +5,7 @@ import { AppHeader } from '../components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MessageSquare, Sparkles, Globe, Heart, Infinity } from 'lucide-react';
-import {
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { PageLayout } from '../components/PageLayout';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation } from '../components/BottomNavigation';
 
@@ -78,7 +76,7 @@ const Index = () => {
   }
 
   return (
-    <SidebarProvider>
+    <PageLayout>
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
         {/* Enhanced animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
@@ -223,7 +221,7 @@ const Index = () => {
           <BottomNavigation />
         </div>
       </div>
-    </SidebarProvider>
+    </PageLayout>
   );
 };
 

@@ -7,9 +7,7 @@ import { useAuth } from '../lib/auth';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
-import {
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { PageLayout } from '../components/PageLayout';
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { DeviceInitStep } from '../services/deviceInitManager';
 import { useNavigate } from 'react-router-dom';
@@ -100,7 +98,7 @@ const AddDevice = () => {
   }
 
   return (
-    <SidebarProvider>
+    <PageLayout>
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
@@ -535,7 +533,7 @@ const AddDevice = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </SidebarProvider>
+    </PageLayout>
   );
 };
 

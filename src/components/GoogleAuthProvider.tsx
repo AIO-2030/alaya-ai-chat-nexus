@@ -107,22 +107,8 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({
   // Show error state - but allow app to continue running
   if (loadError) {
     console.warn('Google Auth failed to load, but app will continue:', loadError);
-    // Don't block app execution, just show a non-blocking warning
-    return (
-      <>
-        {/* Non-blocking error notification */}
-        <div className="fixed top-4 right-4 z-50 bg-yellow-500/90 backdrop-blur-sm text-black px-4 py-2 rounded-lg shadow-lg max-w-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium">Google Auth Unavailable</span>
-          </div>
-          <div className="text-xs mt-1 opacity-80">
-            Using mock authentication
-          </div>
-        </div>
-        {children}
-      </>
-    );
+    // Don't block app execution, just continue without showing warning
+    return <>{children}</>;
   }
 
   return <>{children}</>;

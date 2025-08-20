@@ -7,9 +7,7 @@ import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { AppHeader } from '../components/AppHeader';
-import {
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { PageLayout } from '../components/PageLayout';
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -90,7 +88,7 @@ const MyDevices = () => {
   }
 
   return (
-    <SidebarProvider>
+    <PageLayout>
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-x-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
@@ -147,10 +145,9 @@ const MyDevices = () => {
                           <Smartphone className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
+                          <h1 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
                             {t('common.myDevices')}
                           </h1>
-                          <p className="text-white/60">{t('common.myDevicesSubtitle')}</p>
                         </div>
                       </div>
                       <Button 
@@ -281,7 +278,7 @@ const MyDevices = () => {
 
 
       </div>
-    </SidebarProvider>
+    </PageLayout>
   );
 };
 

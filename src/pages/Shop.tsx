@@ -6,9 +6,7 @@ import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { AppHeader } from '../components/AppHeader';
-import {
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { PageLayout } from '../components/PageLayout';
 
 const Shop = () => {
   const { user, loading: authLoading } = useAuth();
@@ -241,7 +239,7 @@ const Shop = () => {
   }
 
   return (
-    <SidebarProvider>
+    <PageLayout>
       <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
@@ -378,7 +376,7 @@ const Shop = () => {
 
 
       </div>
-    </SidebarProvider>
+    </PageLayout>
   );
 };
 

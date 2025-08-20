@@ -4,31 +4,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width" />
+  <!-- Permissions Policy for Clipboard API -->
+  <meta http-equiv="Permissions-Policy" content="clipboard-write=*, clipboard-read=*" />
   <title>IC Hello Starter</title>
   <base href="/" />
   <link rel="icon" href="/favicon.ico" />
   <!-- Content Security Policy for Internet Computer API access -->
-  <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
-    connect-src 'self' 
-      http://localhost:* https://localhost:*
-      https://icp0.io https://*.icp0.io 
-      https://icp-api.io 
-      https://ic0.app https://*.ic0.app
-      https://accounts.google.com https://www.googleapis.com
-      https://api.elevenlabs.io https://*.elevenlabs.io
-      wss://api.elevenlabs.io wss://*.elevenlabs.io
-      blob: ws: wss:;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: https://lh3.googleusercontent.com;
-    font-src 'self';
-    object-src 'none';
-    base-uri 'self';
-    frame-ancestors 'none';
-    worker-src 'self' blob:;
-    media-src 'self' blob:;
-  ">
+
 </head>
 
 <body>

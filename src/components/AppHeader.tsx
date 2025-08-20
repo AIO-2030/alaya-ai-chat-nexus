@@ -24,16 +24,38 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
   const { user, loading: authLoading, loginWithWallet, loginWithGoogle, logout } = useAuth();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
 
+  // Auto-close login modal when user is authenticated
+  React.useEffect(() => {
+    if (user && showLoginModal) {
+      console.log('[AppHeader] User authenticated, auto-closing login modal');
+      setShowLoginModal(false);
+    }
+  }, [user, showLoginModal]);
+
   const handleWalletLogin = async () => {
-    const result = await loginWithWallet();
-    setShowLoginModal(false);
-    return result;
+    try {
+      const result = await loginWithWallet();
+      console.log('[AppHeader] Wallet login successful, closing modal');
+      setShowLoginModal(false);
+      return result;
+    } catch (error) {
+      console.error('[AppHeader] Wallet login failed:', error);
+      // Don't close modal on error, let user try again
+      throw error;
+    }
   };
 
   const handleGoogleLogin = async () => {
-    const result = await loginWithGoogle();
-    setShowLoginModal(false);
-    return result;
+    try {
+      const result = await loginWithGoogle();
+      console.log('[AppHeader] Google login successful, closing modal');
+      setShowLoginModal(false);
+      return result;
+    } catch (error) {
+      console.error('[AppHeader] Google login failed:', error);
+      // Don't close modal on error, let user try again
+      throw error;
+    }
   };
 
   return (

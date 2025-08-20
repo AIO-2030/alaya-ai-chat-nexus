@@ -50,6 +50,29 @@ export interface CallItem {
   'outputs' : Array<IOData>,
   'call_type' : string,
 }
+export interface Contact {
+  'id' : bigint,
+  'status' : ContactStatus,
+  'updated_at' : bigint,
+  'nickname' : [] | [string],
+  'metadata' : [] | [string],
+  'name' : string,
+  'created_at' : bigint,
+  'owner_principal_id' : string,
+  'is_online' : boolean,
+  'contact_type' : ContactType,
+  'devices' : Array<string>,
+  'contact_principal_id' : string,
+  'avatar' : [] | [string],
+}
+export type ContactStatus = { 'Blocked' : null } |
+  { 'Active' : null } |
+  { 'Deleted' : null } |
+  { 'Pending' : null };
+export type ContactType = { 'Family' : null } |
+  { 'System' : null } |
+  { 'Business' : null } |
+  { 'Friend' : null };
 export interface CreditActivity {
   'status' : TransferStatus,
   'activity_type' : CreditActivityType,
@@ -279,6 +302,7 @@ export interface UserProfile {
   'login_status' : LoginStatus,
   'login_method' : LoginMethod,
   'principal_id' : string,
+  'devices' : Array<string>,
 }
 export interface WorkItem {
   'id' : bigint,
@@ -322,6 +346,11 @@ export interface _SERVICE {
     { 'Ok' : AccountInfo } |
       { 'Err' : string }
   >,
+  'add_user_device' : ActorMethod<
+    [string, string],
+    { 'Ok' : UserProfile } |
+      { 'Err' : string }
+  >,
   'cal_unclaim_rewards' : ActorMethod<[string], bigint>,
   'calculate_emission' : ActorMethod<
     [string],
@@ -360,6 +389,11 @@ export interface _SERVICE {
     { 'Ok' : bigint } |
       { 'Err' : string }
   >,
+  'create_contact_from_principal_id' : ActorMethod<
+    [string, string, [] | [string]],
+    { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
   'create_mcp_grant' : ActorMethod<
     [NewMcpGrant],
     { 'Ok' : null } |
@@ -378,6 +412,11 @@ export interface _SERVICE {
   'delete_aio_index' : ActorMethod<
     [string],
     { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'delete_contact' : ActorMethod<
+    [string, string],
+    { 'Ok' : boolean } |
       { 'Err' : string }
   >,
   'delete_inverted_index_by_mcp' : ActorMethod<
@@ -444,6 +483,16 @@ export interface _SERVICE {
       'success_count' : bigint,
       'total_count' : bigint,
     }
+  >,
+  'get_contact_by_id' : ActorMethod<[bigint], [] | [Contact]>,
+  'get_contact_by_principal_ids' : ActorMethod<
+    [string, string],
+    [] | [Contact]
+  >,
+  'get_contacts_by_owner' : ActorMethod<[string], Array<Contact>>,
+  'get_contacts_by_owner_paginated' : ActorMethod<
+    [string, bigint, bigint],
+    Array<Contact>
   >,
   'get_credit_activities' : ActorMethod<[string], Array<CreditActivity>>,
   'get_credit_activities_by_time_period' : ActorMethod<
@@ -538,6 +587,7 @@ export interface _SERVICE {
     Array<TokenGrant>
   >,
   'get_total_aiotoken_claimable' : ActorMethod<[], bigint>,
+  'get_total_contacts_by_owner' : ActorMethod<[string], bigint>,
   'get_total_stacked_credits' : ActorMethod<[], bigint>,
   'get_total_user_profiles' : ActorMethod<[], bigint>,
   'get_trace' : ActorMethod<[string], [] | [TraceLog]>,
@@ -651,11 +701,17 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'remove_user_device' : ActorMethod<
+    [string, string],
+    { 'Ok' : UserProfile } |
+      { 'Err' : string }
+  >,
   'revert_Index_find_by_keywords_strategy' : ActorMethod<
     [Array<string>],
     string
   >,
   'search_aio_indices_by_keyword' : ActorMethod<[string], Array<AioIndex>>,
+  'search_contacts_by_name' : ActorMethod<[string, string], Array<Contact>>,
   'simulate_credit_from_icp_api' : ActorMethod<[number], bigint>,
   'stack_credit' : ActorMethod<
     [string, string, bigint],
@@ -693,6 +749,26 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'update_contact_devices' : ActorMethod<
+    [string, string, Array<string>],
+    { 'Ok' : Contact } |
+      { 'Err' : string }
+  >,
+  'update_contact_nickname' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : Contact } |
+      { 'Err' : string }
+  >,
+  'update_contact_online_status' : ActorMethod<
+    [string, string, boolean],
+    { 'Ok' : Contact } |
+      { 'Err' : string }
+  >,
+  'update_contact_status' : ActorMethod<
+    [string, string, ContactStatus],
+    { 'Ok' : Contact } |
+      { 'Err' : string }
+  >,
   'update_emission_policy' : ActorMethod<
     [EmissionPolicy],
     { 'Ok' : null } |
@@ -718,9 +794,19 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'update_user_devices' : ActorMethod<
+    [string, Array<string>],
+    { 'Ok' : UserProfile } |
+      { 'Err' : string }
+  >,
   'update_user_nickname' : ActorMethod<
     [string, string],
     { 'Ok' : UserProfile } |
+      { 'Err' : string }
+  >,
+  'upsert_contact' : ActorMethod<
+    [Contact],
+    { 'Ok' : bigint } |
       { 'Err' : string }
   >,
   'upsert_user_profile' : ActorMethod<

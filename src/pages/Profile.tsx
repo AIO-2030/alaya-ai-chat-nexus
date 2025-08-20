@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth';
-import { User, Wallet, Smartphone, MoreHorizontal, ChevronRight, Edit, Save, X, Trash2 } from 'lucide-react';
+import { User, Wallet, Smartphone, MoreHorizontal, ChevronRight, Edit, Save, X } from 'lucide-react';
+import { AppHeader } from '../components/AppHeader';
 import { BottomNavigation } from '../components/BottomNavigation';
-import { upsertNickname, deleteUserProfile, getUserInfoByPrincipal } from '../services/api/userApi';
+import { PageLayout } from '../components/PageLayout';
+import { upsertNickname, getUserInfoByPrincipal } from '../services/api/userApi';
 import { useToast } from '../hooks/use-toast';
 
 const Profile = () => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Mock device data
   const devices = [
@@ -33,18 +36,18 @@ const Profile = () => {
       const updatedUser = await upsertNickname(user.principalId, nickname.trim());
       if (updatedUser) {
         toast({
-          title: "昵称更新成功",
-          description: `您的昵称已更新为: ${nickname}`,
+          title: t('userManagement.updateNicknameSuccess'),
+          description: `${t('userManagement.nickname')}: ${nickname}`,
         });
         setIsEditing(false);
       } else {
-        throw new Error('更新失败');
+        throw new Error(t('userManagement.updateNicknameFailed'));
       }
     } catch (error) {
       console.error('Failed to update nickname:', error);
       toast({
-        title: "更新失败",
-        description: "昵称更新失败，请重试",
+        title: t('userManagement.updateNicknameFailed'),
+        description: t('userManagement.updateNicknameFailed'),
         variant: "destructive",
       });
     } finally {
@@ -52,37 +55,7 @@ const Profile = () => {
     }
   };
 
-  const handleDeleteProfile = async () => {
-    if (!user?.principalId) return;
-    
-    if (!confirm('确定要删除您的用户档案吗？此操作不可撤销。')) {
-      return;
-    }
-    
-    setIsDeleting(true);
-    try {
-      const success = await deleteUserProfile(user.principalId);
-      if (success) {
-        toast({
-          title: "档案删除成功",
-          description: "您的用户档案已被删除",
-        });
-        // Logout after successful deletion
-        await logout();
-      } else {
-        throw new Error('删除失败');
-      }
-    } catch (error) {
-      console.error('Failed to delete profile:', error);
-      toast({
-        title: "删除失败",
-        description: "档案删除失败，请重试",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+
 
   const handleCancelEdit = () => {
     setNickname(user?.nickname || '');
@@ -90,15 +63,19 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-300"></div>
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
-      </div>
+    <PageLayout>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+        {/* App Header */}
+        <AppHeader />
+        
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-1000"></div>
+        </div>
 
-      <div className="relative z-10 p-4 pb-20">
+        <div className="relative z-10 p-4 pb-20 pt-24">
         {/* Header with User Avatar and Nickname */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -121,7 +98,7 @@ const Profile = () => {
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                    placeholder="输入昵称"
+                    placeholder={t('userManagement.inputNickname')}
                     maxLength={20}
                   />
                   <button
@@ -141,7 +118,7 @@ const Profile = () => {
               ) : (
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-bold text-white">
-                    {user?.nickname || 'Nick Name'}
+                    {user?.nickname || t('userManagement.nicknameNotSet')}
                   </h1>
                   <button
                     onClick={() => setIsEditing(true)}
@@ -152,7 +129,7 @@ const Profile = () => {
                 </div>
               )}
               <p className="text-white/60 text-sm">
-                {user?.email || 'user@example.com'}
+                {user?.email || t('userManagement.emailNotSet')}
               </p>
               {user?.walletAddress && (
                 <p className="text-white/40 text-xs">
@@ -166,33 +143,33 @@ const Profile = () => {
         {/* User Info Section */}
         <div className="mb-6">
           <div className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-2xl p-6 border border-white/10 backdrop-blur-xl">
-            <h2 className="text-lg font-semibold text-white mb-4">用户信息</h2>
+            <h2 className="text-lg font-semibold text-white mb-4">{t('userManagement.accountInfo')}</h2>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-white/80">用户ID:</span>
+                <span className="text-white/80">{t('userManagement.userId')}:</span>
                 <span className="text-white/60 text-sm">{user?.userId || 'N/A'}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/80">Principal ID:</span>
+                <span className="text-white/80">{t('userManagement.principalId')}:</span>
                 <span className="text-white/60 text-sm font-mono">
                   {user?.principalId ? `${user.principalId.slice(0, 8)}...${user.principalId.slice(-8)}` : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/80">登录方式:</span>
+                <span className="text-white/80">{t('userManagement.loginMethod')}:</span>
                 <span className="text-white/60 text-sm capitalize">
-                  {user?.loginMethod === 'wallet' ? '钱包' : 
-                   user?.loginMethod === 'google' ? 'Google' : 'II'}
+                  {user?.loginMethod === 'wallet' ? t('userManagement.wallet') : 
+                   user?.loginMethod === 'google' ? t('userManagement.google') : t('userManagement.ii')}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/80">状态:</span>
+                <span className="text-white/80">{t('userManagement.status')}:</span>
                 <span className={`text-sm px-2 py-1 rounded-full ${
                   user?.loginStatus === 'authenticated' 
                     ? 'bg-green-400/20 text-green-400' 
                     : 'bg-red-400/20 text-red-400'
                 }`}>
-                  {user?.loginStatus === 'authenticated' ? '已认证' : '未认证'}
+                  {user?.loginStatus === 'authenticated' ? t('userManagement.authenticated') : t('userManagement.unauthenticated')}
                 </span>
               </div>
             </div>
@@ -207,7 +184,7 @@ const Profile = () => {
               <div className="flex-1 mx-4 bg-white/10 rounded-lg p-3">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">$127.50</div>
-                  <div className="text-sm text-white/60">Available Balance</div>
+                  <div className="text-sm text-white/60">{t('common.balance')}</div>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -217,7 +194,7 @@ const Profile = () => {
               </div>
             </div>
             <div className="text-center">
-              <h2 className="text-lg font-semibold text-white">My wallet</h2>
+              <h2 className="text-lg font-semibold text-white">{t('common.myWallet')}</h2>
             </div>
           </div>
         </div>
@@ -228,7 +205,7 @@ const Profile = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Smartphone className="h-5 w-5 text-cyan-400" />
-                <span className="text-white font-medium">My devices</span>
+                <span className="text-white font-medium">{t('common.myDevices')}</span>
               </div>
               <ChevronRight className="h-4 w-4 text-white/60" />
             </div>
@@ -258,32 +235,14 @@ const Profile = () => {
           ))}
         </div>
 
-        {/* Danger Zone */}
-        <div className="mb-6">
-          <div className="bg-red-400/10 border border-red-400/20 rounded-2xl p-6 backdrop-blur-xl">
-            <h3 className="text-lg font-semibold text-red-400 mb-4">危险操作</h3>
-            <div className="space-y-3">
-              <button
-                onClick={handleDeleteProfile}
-                disabled={isDeleting}
-                className="w-full flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 px-4 py-3 rounded-lg border border-red-400/30 transition-all duration-200 disabled:opacity-50"
-              >
-                <Trash2 className="h-4 w-4" />
-                {isDeleting ? '删除中...' : '删除用户档案'}
-              </button>
-              <p className="text-red-400/60 text-xs text-center">
-                删除后无法恢复，请谨慎操作
-              </p>
-            </div>
-          </div>
-        </div>
+
 
         {/* More Button */}
         <div className="text-center">
           <button className="bg-white/5 backdrop-blur-xl rounded-xl px-6 py-3 border border-white/10 hover:bg-white/10 transition-all duration-200">
             <div className="flex items-center justify-center gap-2">
               <MoreHorizontal className="h-4 w-4 text-white/60" />
-              <span className="text-white font-medium">More ...</span>
+              <span className="text-white font-medium">More...</span>
             </div>
           </button>
         </div>
@@ -292,6 +251,7 @@ const Profile = () => {
       {/* Bottom Navigation */}
       <BottomNavigation />
     </div>
+    </PageLayout>
   );
 };
 

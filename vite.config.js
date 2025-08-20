@@ -5,6 +5,7 @@ import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
 import { componentTagger } from "lovable-tagger";
 
+// Load environment variables
 dotenv.config({ path: '../../.env' });
 
 export default defineConfig(({ mode }) => ({
@@ -61,6 +62,20 @@ export default defineConfig(({ mode }) => ({
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
   ].filter(Boolean),
+  define: {
+    // Explicitly define environment variables for client-side access
+    'import.meta.env.CANISTER_ID_AIO_BASE_BACKEND': JSON.stringify(process.env.CANISTER_ID_AIO_BASE_BACKEND),
+    'import.meta.env.CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND': JSON.stringify(process.env.CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND),
+    'import.meta.env.CANISTER_ID_AIO_BASE_FRONTEND': JSON.stringify(process.env.CANISTER_ID_AIO_BASE_FRONTEND),
+    'import.meta.env.DFX_NETWORK': JSON.stringify(process.env.DFX_NETWORK),
+    'import.meta.env.DFX_VERSION': JSON.stringify(process.env.DFX_VERSION),
+    // Add VITE_ prefixed versions for compatibility
+    'import.meta.env.VITE_CANISTER_ID_AIO_BASE_BACKEND': JSON.stringify(process.env.CANISTER_ID_AIO_BASE_BACKEND),
+    'import.meta.env.VITE_CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND': JSON.stringify(process.env.CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND),
+    'import.meta.env.VITE_CANISTER_ID_AIO_BASE_FRONTEND': JSON.stringify(process.env.CANISTER_ID_AIO_BASE_FRONTEND),
+    'import.meta.env.VITE_DFX_NETWORK': JSON.stringify(process.env.DFX_NETWORK),
+    'import.meta.env.VITE_DFX_VERSION': JSON.stringify(process.env.DFX_VERSION),
+  },
   resolve: {
     alias: [
       {
