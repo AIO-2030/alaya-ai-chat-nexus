@@ -112,7 +112,7 @@ const ElevenLabsChat = () => {
       <div className="relative z-10 p-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-            ElevenLabs Voice Chat
+              Listening...
           </h1>
           <Button
             onClick={handleReturnToIndex}
