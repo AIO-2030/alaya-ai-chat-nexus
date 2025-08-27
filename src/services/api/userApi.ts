@@ -203,6 +203,7 @@ const canister = callBackend;
 
 export const syncUserInfo = async (info: UserInfo): Promise<UserInfo> => {
   try {
+    console.log('[UserApi] Syncing user info:', info);
     const profile = convertToUserProfile(info);
     const result = await canister.upsert_user_profile(profile);
     
