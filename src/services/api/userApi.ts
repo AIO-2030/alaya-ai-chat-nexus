@@ -347,7 +347,7 @@ export const getEnvironmentInfo = () => ({
 export interface ContactInfo {
   id: number;
   name: string;
-  type: 'friend' | 'system' | 'business' | 'family';
+  type: 'friend' | 'system'; // 只支持两种类型：好友和系统
   status: 'Active' | 'Pending' | 'Blocked' | 'Deleted';
   date: string;
   avatar: string;
@@ -360,37 +360,105 @@ export interface ContactInfo {
 
 // Convert backend Contact to frontend ContactInfo
 const convertFromContact = (contact: any): ContactInfo => {
-  let contactType: 'friend' | 'system' | 'business' | 'family' = 'friend';
-  if ('System' in contact.contact_type) {
-    contactType = 'system';
-  } else if ('Business' in contact.contact_type) {
-    contactType = 'business';
-  } else if ('Family' in contact.contact_type) {
-    contactType = 'family';
+  console.log('[UserApi] convertFromContact called with:', contact);
+  console.log('[UserApi] Contact type:', typeof contact);
+  console.log('[UserApi] Contact is null/undefined:', contact == null);
+  
+  // 添加空值检查
+  if (!contact) {
+    console.error('[UserApi] Contact data is null or undefined');
+    throw new Error('Contact data is null or undefined');
+  }
+
+  console.log('[UserApi] Contact object keys:', Object.keys(contact));
+  console.log('[UserApi] Contact object values:', Object.values(contact));
+
+  let contactType: 'friend' | 'system' = 'friend';
+  console.log('[UserApi] Processing contact_type:', contact.contact_type, typeof contact.contact_type);
+  
+  if (contact.contact_type && typeof contact.contact_type === 'object') {
+    console.log('[UserApi] contact_type is object, keys:', Object.keys(contact.contact_type));
+    if ('System' in contact.contact_type) {
+      contactType = 'system';
+      console.log('[UserApi] Set contactType to system');
+    } else {
+      // 所有其他类型（Friend、Business、Family等）都视为 friend
+      contactType = 'friend';
+      console.log('[UserApi] Set contactType to friend (default for all non-system types)');
+    }
+  } else {
+    console.log('[UserApi] contact_type is not an object or is falsy, using default friend');
   }
 
   let status: 'Active' | 'Pending' | 'Blocked' | 'Deleted' = 'Active';
-  if ('Pending' in contact.status) {
-    status = 'Pending';
-  } else if ('Blocked' in contact.status) {
-    status = 'Blocked';
-  } else if ('Deleted' in contact.status) {
-    status = 'Deleted';
+  console.log('[UserApi] Processing status:', contact.status, typeof contact.status);
+  
+  if (contact.status && typeof contact.status === 'object') {
+    console.log('[UserApi] status is object, keys:', Object.keys(contact.status));
+    if ('Pending' in contact.status) {
+      status = 'Pending';
+      console.log('[UserApi] Set status to Pending');
+    } else if ('Blocked' in contact.status) {
+      status = 'Blocked';
+      console.log('[UserApi] Set status to Blocked');
+    } else if ('Deleted' in contact.status) {
+      status = 'Deleted';
+      console.log('[UserApi] Set status to Deleted');
+    } else {
+      console.log('[UserApi] Unknown status, using default Active');
+    }
+  } else {
+    console.log('[UserApi] status is not an object or is falsy, using default Active');
   }
 
-  return {
-    id: Number(contact.id),
-    name: contact.name,
+  // 为必需字段提供默认值
+  const contactId = contact.id ? Number(contact.id) : 0;
+  const contactName = contact.name || 'Unknown Contact';
+  const createdAt = contact.created_at ? Number(contact.created_at) / 1000000 : Date.now();
+  const devices = Array.isArray(contact.devices) ? contact.devices : [];
+  
+  console.log('[UserApi] Processed basic fields:', {
+    contactId,
+    contactName,
+    createdAt,
+    devices
+  });
+  
+  // 处理可选数组字段
+  const avatar = (Array.isArray(contact.avatar) && contact.avatar.length > 0) 
+    ? contact.avatar[0] 
+    : contactName.substring(0, 2).toUpperCase();
+  
+  const nickname = (Array.isArray(contact.nickname) && contact.nickname.length > 0) 
+    ? contact.nickname[0] 
+    : undefined;
+    
+  const metadata = (Array.isArray(contact.metadata) && contact.metadata.length > 0) 
+    ? contact.metadata[0] 
+    : undefined;
+
+  console.log('[UserApi] Processed optional fields:', {
+    avatar,
+    nickname,
+    metadata
+  });
+
+  const result = {
+    id: contactId,
+    name: contactName,
     type: contactType,
     status,
-    date: new Date(Number(contact.created_at) / 1000000).toISOString().split('T')[0],
-    avatar: contact.avatar[0] || contact.name.substring(0, 2).toUpperCase(),
-    devices: contact.devices,
-    isOnline: contact.is_online,
-    nickname: contact.nickname[0],
-    metadata: contact.metadata[0],
-    contactPrincipalId: contact.contact_principal_id, // Add this line
+    date: new Date(createdAt).toISOString().split('T')[0],
+    avatar,
+    devices,
+    isOnline: Boolean(contact.is_online),
+    nickname,
+    metadata,
+    contactPrincipalId: contact.contact_principal_id || `contact_${contactId}`,
   };
+  
+  console.log('[UserApi] convertFromContact result:', result);
+  return result;
 };
 
 // Convert frontend ContactInfo to backend Contact format
@@ -400,12 +468,7 @@ const convertToContact = (info: ContactInfo, ownerPrincipalId: string): any => {
     case 'system':
       contactType = { System: null };
       break;
-    case 'business':
-      contactType = { Business: null };
-      break;
-    case 'family':
-      contactType = { Family: null };
-      break;
+    case 'friend':
     default:
       contactType = { Friend: null };
   }
@@ -455,8 +518,8 @@ export const getContactsByOwner = async (ownerPrincipalId: string): Promise<Cont
     const univoiceContact: ContactInfo = {
       id: 999, // Special ID for Univoice
       name: "Univoice",
-      type: "system",
-      status: "Active",
+      type: "system" as const,
+      status: "Active" as const,
       date: new Date().toISOString().split('T')[0],
       avatar: "UV",
       devices: [],
@@ -474,8 +537,8 @@ export const getContactsByOwner = async (ownerPrincipalId: string): Promise<Cont
       {
         id: 1,
         name: "Friend1",
-        type: "friend",
-        status: "Active",
+        type: "friend" as const,
+        status: "Active" as const,
         date: "2024-01-15",
         avatar: "F1",
         devices: ["Device1", "Device2"],
@@ -485,8 +548,8 @@ export const getContactsByOwner = async (ownerPrincipalId: string): Promise<Cont
       {
         id: 2,
         name: "Friend2",
-        type: "friend",
-        status: "Pending",
+        type: "friend" as const,
+        status: "Pending" as const,
         date: "2024-01-20",
         avatar: "F2",
         devices: ["Device1", "Device3"],
@@ -496,8 +559,8 @@ export const getContactsByOwner = async (ownerPrincipalId: string): Promise<Cont
       {
         id: 999,
         name: "Univoice",
-        type: "system",
-        status: "Active",
+        type: "system" as const,
+        status: "Active" as const,
         date: new Date().toISOString().split('T')[0],
         avatar: "UV",
         devices: [],
@@ -527,8 +590,8 @@ export const getContactsByOwnerPaginated = async (
       const univoiceContact: ContactInfo = {
         id: 999,
         name: "Univoice",
-        type: "system",
-        status: "Active",
+        type: "system" as const,
+        status: "Active" as const,
         date: new Date().toISOString().split('T')[0],
         avatar: "UV",
         devices: [],
@@ -575,23 +638,84 @@ export const createContactFromPrincipalId = async (
     const actor = getActor();
     // Convert nickname to the expected Candid format: [] or [string]
     const nicknameParam: [] | [string] = nickname ? [nickname] : [];
+    
+    console.log('[UserApi] Creating contact from principal ID...');
+    console.log('[UserApi] Input parameters:', {
+      ownerPrincipalId,
+      contactPrincipalId,
+      nickname,
+      nicknameParam
+    });
+    
     const result = await actor.create_contact_from_principal_id(ownerPrincipalId, contactPrincipalId, nicknameParam);
+    
+    console.log('[UserApi] Backend create_contact_from_principal_id result:', result);
+    console.log('[UserApi] Result type:', typeof result);
+    console.log('[UserApi] Result keys:', Object.keys(result || {}));
     
     if ('Ok' in result) {
       console.log('[UserApi] Contact created from principal ID successfully, index:', result.Ok);
+      console.log('[UserApi] Contact index type:', typeof result.Ok);
       
       // Get the created contact details
-      const contact = await actor.get_contact_by_id(result.Ok);
-      if (contact) {
-        return convertFromContact(contact);
+      try {
+        console.log('[UserApi] Calling get_contact_by_id with index:', result.Ok);
+        const contact = await actor.get_contact_by_id(result.Ok);
+        
+        console.log('[UserApi] Raw contact data from backend:', contact);
+        console.log('[UserApi] Contact data type:', typeof contact);
+        console.log('[UserApi] Contact is array:', Array.isArray(contact));
+        console.log('[UserApi] Contact length if array:', Array.isArray(contact) ? contact.length : 'N/A');
+        
+        // Handle Candid Option type: [] | [Contact]
+        let actualContact: any = null;
+        if (Array.isArray(contact)) {
+          if (contact.length > 0) {
+            actualContact = contact[0];
+            console.log('[UserApi] Extracted contact from array:', actualContact);
+          } else {
+            console.log('[UserApi] Contact array is empty');
+          }
+        } else if (contact && typeof contact === 'object') {
+          actualContact = contact;
+          console.log('[UserApi] Contact is direct object:', actualContact);
+        }
+        
+        if (actualContact && typeof actualContact === 'object') {
+          console.log('[UserApi] Contact structure:');
+          console.log('  - id:', actualContact.id, typeof actualContact.id);
+          console.log('  - name:', actualContact.name, typeof actualContact.name);
+          console.log('  - contact_type:', actualContact.contact_type, typeof actualContact.contact_type);
+          console.log('  - status:', actualContact.status, typeof actualContact.status);
+          console.log('  - contact_principal_id:', actualContact.contact_principal_id, typeof actualContact.contact_principal_id);
+          console.log('  - avatar:', actualContact.avatar, typeof actualContact.avatar);
+          console.log('  - nickname:', actualContact.nickname, typeof actualContact.nickname);
+          console.log('  - devices:', actualContact.devices, typeof actualContact.devices);
+          console.log('  - is_online:', actualContact.is_online, typeof actualContact.is_online);
+          console.log('  - created_at:', actualContact.created_at, typeof actualContact.created_at);
+          console.log('  - metadata:', actualContact.metadata, typeof actualContact.metadata);
+          
+          console.log('[UserApi] Converting contact data...');
+          const convertedContact = convertFromContact(actualContact);
+          console.log('[UserApi] Successfully converted contact:', convertedContact);
+          return convertedContact;
+        } else {
+          console.warn('[UserApi] Contact not found after creation, contact value:', contact);
+          console.warn('[UserApi] actualContact:', actualContact);
+          console.warn('[UserApi] Using fallback contact creation');
+        }
+      } catch (conversionError) {
+        console.error('[UserApi] Error converting contact data:', conversionError);
+        console.error('[UserApi] Error stack:', conversionError instanceof Error ? conversionError.stack : 'No stack trace');
       }
       
       // Fallback: create a basic contact info
-      return {
+      console.log('[UserApi] Creating fallback contact info');
+      const fallbackContact = {
         id: Number(result.Ok),
         name: contactPrincipalId,
-        type: "friend",
-        status: "Active",
+        type: "friend" as const,
+        status: "Active" as const,
         date: new Date().toISOString().split('T')[0],
         avatar: contactPrincipalId.substring(0, 2).toUpperCase(),
         devices: [],
@@ -599,11 +723,17 @@ export const createContactFromPrincipalId = async (
         contactPrincipalId,
         nickname
       };
+      console.log('[UserApi] Fallback contact created:', fallbackContact);
+      return fallbackContact;
     } else {
+      console.error('[UserApi] Backend returned error:', result.Err);
       throw new Error(`Failed to create contact from principal ID: ${result.Err}`);
     }
   } catch (error) {
     console.error('[UserApi] Error creating contact from principal ID:', error);
+    console.error('[UserApi] Error type:', typeof error);
+    console.error('[UserApi] Error message:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('[UserApi] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return null;
   }
 };
@@ -739,8 +869,8 @@ export const searchContactsByName = async (
       const univoiceContact: ContactInfo = {
         id: 999,
         name: "Univoice",
-        type: "system",
-        status: "Active",
+        type: "system" as const,
+        status: "Active" as const,
         date: new Date().toISOString().split('T')[0],
         avatar: "UV",
         devices: [],

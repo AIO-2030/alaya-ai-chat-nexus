@@ -77,8 +77,8 @@ const Contracts = () => {
         { 
           id: 1, 
           name: "Friend1", 
-          type: "friend",
-          status: "Active", 
+          type: "friend" as const,
+          status: "Active" as const, 
           date: "2024-01-15",
           avatar: "F1",
           devices: ["Device1", "Device2"],
@@ -88,8 +88,8 @@ const Contracts = () => {
         { 
           id: 2, 
           name: "Friend2", 
-          type: "friend",
-          status: "Pending", 
+          type: "friend" as const,
+          status: "Pending" as const, 
           date: "2024-01-20",
           avatar: "F2",
           devices: ["Device1", "Device3"],
@@ -99,8 +99,8 @@ const Contracts = () => {
         { 
           id: 999, 
           name: "Univoice", 
-          type: "system",
-          status: "Active", 
+          type: "system" as const,
+          status: "Active" as const, 
           date: new Date().toISOString().split('T')[0],
           avatar: "UV",
           devices: [],
@@ -120,8 +120,8 @@ const Contracts = () => {
       const newContact: ContactInfo = {
         id: Date.now(), // Temporary ID
         name: `Friend${contracts.length + 1}`,
-        type: "friend",
-        status: "Active",
+        type: "friend" as const,
+        status: "Active" as const,
         date: new Date().toISOString().split('T')[0],
         avatar: `F${contracts.length + 1}`,
         devices: ["Device1"],
