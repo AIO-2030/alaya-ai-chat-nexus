@@ -348,7 +348,7 @@ export const getEnvironmentInfo = () => ({
 export interface ContactInfo {
   id: number;
   name: string;
-  type: 'friend' | 'system'; // 只支持两种类型：好友和系统
+  type: 'friend' | 'system'; 
   status: 'Active' | 'Pending' | 'Blocked' | 'Deleted';
   date: string;
   avatar: string;

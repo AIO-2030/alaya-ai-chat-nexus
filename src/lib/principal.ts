@@ -5,7 +5,7 @@ let cachedPrincipal: string | null = null;
 export const getPrincipalId = (): string | null => {
   if (cachedPrincipal) return cachedPrincipal;
   try {
-    const saved = localStorage.getItem('plug_principal_id');
+    const saved = sessionStorage.getItem('plug_principal_id');
     if (saved) {
       cachedPrincipal = saved;
       return cachedPrincipal;
@@ -19,7 +19,7 @@ export const getPrincipalId = (): string | null => {
 export const setPrincipalId = (principal: string): void => {
   cachedPrincipal = principal;
   try {
-    localStorage.setItem('plug_principal_id', principal);
+    sessionStorage.setItem('plug_principal_id', principal);
   } catch {
     // ignore storage errors
   }
@@ -28,7 +28,7 @@ export const setPrincipalId = (principal: string): void => {
 export const clearPrincipalId = (): void => {
   cachedPrincipal = null;
   try {
-    localStorage.removeItem('plug_principal_id');
+    sessionStorage.removeItem('plug_principal_id');
   } catch {
     // ignore storage errors
   }

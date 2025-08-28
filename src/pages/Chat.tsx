@@ -11,6 +11,15 @@ import { PageLayout } from '../components/PageLayout';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ContactInfo } from '../services/api/userApi';
+import { 
+  ChatMessageInfo, 
+  sendChatMessage, 
+  getRecentChatMessages, 
+  getChatHistory,
+  startChatWithContact,
+  checkForNewMessages,
+  NotificationInfo
+} from '../services/api/chatApi';
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -30,10 +39,11 @@ const Chat = () => {
   const contactPrincipalId = searchParams.get('contactPrincipalId');
 
   const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState([
-    { id: 1, sender: 'user', content: 'Hello, how are you today?', timestamp: '10:30 AM' },
-    { id: 2, sender: 'friend', content: 'Hi! I\'m doing great, thanks for asking!', timestamp: '10:32 AM' },
-  ]);
+  const [messages, setMessages] = useState<ChatMessageInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [socialPairKey, setSocialPairKey] = useState<string>('');
+  const [notifications, setNotifications] = useState<NotificationInfo[]>([]);
+  const [isLoadingChat, setIsLoadingChat] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Build current contact object
@@ -57,26 +67,118 @@ const Chat = () => {
     }
   };
 
+  // Initialize chat when component mounts
+  useEffect(() => {
+    const initializeChat = async () => {
+      if (!user?.principalId || !contactPrincipalId) {
+        console.warn('[Chat] Missing user principal ID or contact principal ID');
+        setIsLoadingChat(false);
+        return;
+      }
+
+      try {
+        setIsLoadingChat(true);
+        console.log('[Chat] Initializing chat between:', user.principalId, 'and', contactPrincipalId);
+        
+        // Start chat and get social pair key
+        const pairKey = await startChatWithContact(user.principalId, contactPrincipalId);
+        setSocialPairKey(pairKey);
+        console.log('[Chat] Generated social pair key:', pairKey);
+        
+        // Load recent chat messages
+        const recentMessages = await getRecentChatMessages(user.principalId, contactPrincipalId);
+        setMessages(recentMessages);
+        console.log('[Chat] Loaded recent messages:', recentMessages.length);
+        
+      } catch (error) {
+        console.error('[Chat] Error initializing chat:', error);
+        // Set fallback demo messages if chat initialization fails
+        setMessages([]);
+      } finally {
+        setIsLoadingChat(false);
+      }
+    };
+
+    initializeChat();
+  }, [user?.principalId, contactPrincipalId]);
+
   // Auto scroll to bottom when messages update
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const newMsg = {
-        id: messages.length + 1,
-        sender: 'user',
-        content: newMessage,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages([...messages, newMsg]);
+  // Poll for new messages every 5 seconds
+  useEffect(() => {
+    if (!user?.principalId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const newNotifications = await checkForNewMessages(user.principalId);
+        setNotifications(newNotifications);
+        
+        // If there are new notifications for this chat, reload messages
+        if (newNotifications.some(notif => notif.socialPairKey === socialPairKey)) {
+          console.log('[Chat] socialPairKey:', socialPairKey);
+          const updatedMessages = await getRecentChatMessages(user.principalId, contactPrincipalId || '');
+          setMessages(updatedMessages);
+        }
+      } catch (error) {
+        console.error('[Chat] Error polling for new messages:', error);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [user?.principalId, socialPairKey, contactPrincipalId]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !user?.principalId || !contactPrincipalId) {
+      console.warn('[Chat] Cannot send message: missing required data');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('[Chat] Sending message:', newMessage);
+      
+      // Send message to backend
+      await sendChatMessage(user.principalId, contactPrincipalId, newMessage, 'Text');
+      
+      // Clear input immediately for better UX
       setNewMessage('');
+      
+      // Reload messages to include the new one
+      const updatedMessages = await getRecentChatMessages(user.principalId, contactPrincipalId);
+      setMessages(updatedMessages);
+      
+      console.log('[Chat] Message sent successfully');
+    } catch (error) {
+      console.error('[Chat] Error sending message:', error);
+      // Add fallback local message if backend fails
+      const fallbackMsg: ChatMessageInfo = {
+        sendBy: user.principalId,
+        content: newMessage,
+        mode: 'Text',
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, fallbackMsg]);
+      setNewMessage('');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleBackToContracts = () => {
     navigate('/contracts');
+  };
+
+  // Helper function to format timestamp
+  const formatTimestamp = (timestamp: number): string => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Helper function to determine if message is from current user
+  const isMyMessage = (message: ChatMessageInfo): boolean => {
+    return message.sendBy === user?.principalId;
   };
 
   if (authLoading) {
@@ -169,16 +271,26 @@ const Chat = () => {
                               <div className="absolute -bottom-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full border-2 border-slate-900 animate-pulse"></div>
                             )}
                           </div>
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center gap-1 sm:gap-2">
                               <h1 className="text-lg sm:text-xl font-bold text-white">{currentContact.name}</h1>
                               {currentContact.nickname && (
                                 <span className="text-sm text-cyan-400/70">({currentContact.nickname})</span>
                               )}
+                              {notifications.length > 0 && (
+                                <div className="px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full min-w-[16px] text-center">
+                                  {notifications.length}
+                                </div>
+                              )}
                             </div>
                             <p className="text-xs sm:text-sm text-white/60">
                               {currentContact.isOnline ? 'Online' : 'Offline'}
                               {currentContact.devices.length > 0 && ` • ${currentContact.devices.join(', ')}`}
+                              {socialPairKey && (
+                                <span className="block text-xs text-cyan-400/50 mt-1">
+                                  Chat ID: {socialPairKey.substring(0, 12)}...
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -200,21 +312,41 @@ const Chat = () => {
 
                 {/* Messages Area */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-900/20">
-                  {messages.map((message) => (
-                    <div 
-                      key={message.id} 
-                      className={`flex mb-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] p-2 sm:p-3 rounded-lg ${
-                        message.sender === 'user' 
-                          ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white' 
-                          : 'bg-white/10 text-white backdrop-blur-sm'
-                      }`}>
-                        <p className="text-xs sm:text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">{message.timestamp}</p>
+                  {isLoadingChat ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-white/60 text-sm">Loading chat history...</div>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-white/60 text-sm text-center">
+                        <p>No messages yet</p>
+                        <p className="text-xs mt-1">Start the conversation!</p>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    messages.map((message, index) => (
+                      <div 
+                        key={`${message.sendBy}-${message.timestamp}-${index}`}
+                        className={`flex mb-3 ${isMyMessage(message) ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[80%] p-2 sm:p-3 rounded-lg ${
+                          isMyMessage(message)
+                            ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white' 
+                            : 'bg-white/10 text-white backdrop-blur-sm'
+                        }`}>
+                          <p className="text-xs sm:text-sm">{message.content}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs opacity-70">{formatTimestamp(message.timestamp)}</p>
+                            {message.mode !== 'Text' && (
+                              <span className="text-xs opacity-70 ml-2 px-1 bg-white/20 rounded">
+                                {message.mode}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                   {/* Hidden element for auto scroll to bottom */}
                   <div ref={messagesEndRef} />
                 </div>
@@ -229,17 +361,27 @@ const Chat = () => {
                             onChange={(e) => setNewMessage(e.target.value)}
                             placeholder={t('common.typeYourMessage') as string}
                             className="w-full bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm"
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !loading) {
+                                e.preventDefault();
+                                handleSendMessage();
+                              }
+                            }}
                           />
                         </div>
                         
                         {/* Send to Chat Button */}
                         <Button
                           onClick={handleSendMessage}
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px]"
+                          disabled={loading || !newMessage.trim()}
+                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Send message to chat"
                         >
-                          <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                          {loading ? (
+                            <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                          )}
                         </Button>
                         
                         {/* Send to Device Button */}

@@ -50,6 +50,18 @@ export interface CallItem {
   'outputs' : Array<IOData>,
   'call_type' : string,
 }
+export interface ChatHistory {
+  'updated_at' : bigint,
+  'social_pair_key' : string,
+  'messages' : Array<ChatMessage>,
+  'created_at' : bigint,
+}
+export interface ChatMessage {
+  'content' : string,
+  'mode' : MessageMode,
+  'timestamp' : bigint,
+  'send_by' : string,
+}
 export interface Contact {
   'id' : bigint,
   'status' : ContactStatus,
@@ -153,6 +165,10 @@ export interface McpStackRecord {
   'stack_status' : StackStatus,
   'principal_id' : string,
 }
+export type MessageMode = { 'Emoji' : null } |
+  { 'Text' : null } |
+  { 'Image' : null } |
+  { 'Voice' : null };
 export interface Method {
   'name' : string,
   'description' : string,
@@ -166,6 +182,12 @@ export interface NewMcpGrant {
   'recipient' : string,
   'start_time' : bigint,
   'amount' : bigint,
+}
+export interface NotificationItem {
+  'social_pair_key' : string,
+  'to_who' : string,
+  'timestamp' : bigint,
+  'message_id' : bigint,
 }
 export type Platform = { 'Linux' : null } |
   { 'Both' : null } |
@@ -369,6 +391,11 @@ export interface _SERVICE {
     { 'Ok' : bigint } |
       { 'Err' : string }
   >,
+  'clear_notifications_for_pair' : ActorMethod<
+    [string, string],
+    { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
   'convert_aio_to_credits' : ActorMethod<
     [string, bigint],
     { 'Ok' : bigint } |
@@ -457,6 +484,7 @@ export interface _SERVICE {
     string
   >,
   'find_inverted_index_by_mcp' : ActorMethod<[string], string>,
+  'generate_social_pair_key' : ActorMethod<[string, string], string>,
   'get_account_info' : ActorMethod<[string], [] | [AccountInfo]>,
   'get_accounts_paginated' : ActorMethod<[bigint, bigint], Array<AccountInfo>>,
   'get_agent_item' : ActorMethod<[bigint], [] | [AgentItem]>,
@@ -483,6 +511,11 @@ export interface _SERVICE {
       'success_count' : bigint,
       'total_count' : bigint,
     }
+  >,
+  'get_chat_message_count' : ActorMethod<[string, string], bigint>,
+  'get_chat_messages_paginated' : ActorMethod<
+    [string, string, bigint, bigint],
+    Array<ChatMessage>
   >,
   'get_contact_by_id' : ActorMethod<[bigint], [] | [Contact]>,
   'get_contact_by_principal_ids' : ActorMethod<
@@ -544,6 +577,14 @@ export interface _SERVICE {
   'get_mcp_stack_records_paginated' : ActorMethod<
     [string, bigint, bigint],
     Array<McpStackRecord>
+  >,
+  'get_notifications_for_receiver' : ActorMethod<
+    [string],
+    Array<NotificationItem>
+  >,
+  'get_recent_chat_messages' : ActorMethod<
+    [string, string],
+    Array<ChatMessage>
   >,
   'get_recharge_history_api' : ActorMethod<
     [string, bigint, bigint],
@@ -684,6 +725,7 @@ export interface _SERVICE {
     { 'Ok' : Array<RewardEntry> } |
       { 'Err' : string }
   >,
+  'pop_notification' : ActorMethod<[string], [] | [NotificationItem]>,
   'recharge_and_convert_credits_api' : ActorMethod<[number], bigint>,
   'record_trace_call' : ActorMethod<
     [
@@ -712,6 +754,11 @@ export interface _SERVICE {
   >,
   'search_aio_indices_by_keyword' : ActorMethod<[string], Array<AioIndex>>,
   'search_contacts_by_name' : ActorMethod<[string, string], Array<Contact>>,
+  'send_chat_message' : ActorMethod<
+    [string, string, string, MessageMode],
+    { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
   'simulate_credit_from_icp_api' : ActorMethod<[number], bigint>,
   'stack_credit' : ActorMethod<
     [string, string, bigint],

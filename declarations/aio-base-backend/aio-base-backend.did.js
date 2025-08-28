@@ -165,6 +165,18 @@ export const idlFactory = ({ IDL }) => {
     'calls' : IDL.Vec(ProtocolCall),
     'trace_id' : IDL.Text,
   });
+  const MessageMode = IDL.Variant({
+    'Emoji' : IDL.Null,
+    'Text' : IDL.Null,
+    'Image' : IDL.Null,
+    'Voice' : IDL.Null,
+  });
+  const ChatMessage = IDL.Record({
+    'content' : IDL.Text,
+    'mode' : MessageMode,
+    'timestamp' : IDL.Nat64,
+    'send_by' : IDL.Text,
+  });
   const ContactStatus = IDL.Variant({
     'Blocked' : IDL.Null,
     'Active' : IDL.Null,
@@ -244,6 +256,12 @@ export const idlFactory = ({ IDL }) => {
     'stack_amount' : IDL.Nat64,
     'stack_status' : StackStatus,
     'principal_id' : IDL.Text,
+  });
+  const NotificationItem = IDL.Record({
+    'social_pair_key' : IDL.Text,
+    'to_who' : IDL.Text,
+    'timestamp' : IDL.Nat64,
+    'message_id' : IDL.Nat64,
   });
   const RechargeRecord = IDL.Record({
     'user' : IDL.Principal,
@@ -364,6 +382,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
         [],
       ),
+    'clear_notifications_for_pair' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
+        [],
+      ),
     'convert_aio_to_credits' : IDL.Func(
         [IDL.Text, IDL.Nat64],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
@@ -465,6 +488,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'find_inverted_index_by_mcp' : IDL.Func([IDL.Text], [IDL.Text], ['query']),
+    'generate_social_pair_key' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Text],
+        ['query'],
+      ),
     'get_account_info' : IDL.Func([IDL.Text], [IDL.Opt(AccountInfo)], []),
     'get_accounts_paginated' : IDL.Func(
         [IDL.Nat64, IDL.Nat64],
@@ -509,6 +537,16 @@ export const idlFactory = ({ IDL }) => {
             'total_count' : IDL.Nat64,
           }),
         ],
+        ['query'],
+      ),
+    'get_chat_message_count' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Nat64],
+        ['query'],
+      ),
+    'get_chat_messages_paginated' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(ChatMessage)],
         ['query'],
       ),
     'get_contact_by_id' : IDL.Func([IDL.Nat64], [IDL.Opt(Contact)], ['query']),
@@ -615,6 +653,16 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text, IDL.Nat64, IDL.Nat64],
         [IDL.Vec(McpStackRecord)],
         [],
+      ),
+    'get_notifications_for_receiver' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(NotificationItem)],
+        ['query'],
+      ),
+    'get_recent_chat_messages' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Vec(ChatMessage)],
+        ['query'],
       ),
     'get_recharge_history_api' : IDL.Func(
         [IDL.Text, IDL.Nat64, IDL.Nat64],
@@ -849,6 +897,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Vec(RewardEntry), 'Err' : IDL.Text })],
         [],
       ),
+    'pop_notification' : IDL.Func([IDL.Text], [IDL.Opt(NotificationItem)], []),
     'recharge_and_convert_credits_api' : IDL.Func(
         [IDL.Float64],
         [IDL.Nat64],
@@ -889,6 +938,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text, IDL.Text],
         [IDL.Vec(Contact)],
         ['query'],
+      ),
+    'send_chat_message' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, MessageMode],
+        [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
+        [],
       ),
     'simulate_credit_from_icp_api' : IDL.Func(
         [IDL.Float64],

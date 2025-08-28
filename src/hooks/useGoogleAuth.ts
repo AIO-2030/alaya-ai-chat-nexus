@@ -29,16 +29,16 @@ export const useGoogleAuth = (config?: GoogleAuthConfig) => {
     ...config
   };
 
-  // Check if already logged in
+  // Check if already logged in from sessionStorage (tab-isolated)
   useEffect(() => {
-    const savedUser = localStorage.getItem('google_user');
+    const savedUser = sessionStorage.getItem('google_user');
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
       } catch (err) {
         console.error('Failed to parse saved user:', err);
-        localStorage.removeItem('google_user');
+        sessionStorage.removeItem('google_user');
       }
     }
   }, []);
@@ -123,9 +123,9 @@ export const useGoogleAuth = (config?: GoogleAuthConfig) => {
         loginMethod: 'google'
       };
 
-      // Save user information
+      // Save user information to sessionStorage (tab-isolated)
       setUser(userData);
-      localStorage.setItem('google_user', JSON.stringify(userData));
+      sessionStorage.setItem('google_user', JSON.stringify(userData));
 
       // Optional: Send to backend for validation
       await validateWithBackend(userData);
@@ -156,7 +156,7 @@ export const useGoogleAuth = (config?: GoogleAuthConfig) => {
     };
     
     setUser(mockUser);
-    localStorage.setItem('google_user', JSON.stringify(mockUser));
+    sessionStorage.setItem('google_user', JSON.stringify(mockUser));
     
     return mockUser;
   };
@@ -165,9 +165,9 @@ export const useGoogleAuth = (config?: GoogleAuthConfig) => {
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      // Clear local storage
+      // Clear session storage (tab-isolated)
       setUser(null);
-      localStorage.removeItem('google_user');
+      sessionStorage.removeItem('google_user');
 
       // Logout from Google
       if (window.gapi && window.gapi.auth2) {
@@ -183,7 +183,7 @@ export const useGoogleAuth = (config?: GoogleAuthConfig) => {
       console.error('Logout error:', err);
       // Clear local state even if backend call fails
       setUser(null);
-      localStorage.removeItem('google_user');
+      sessionStorage.removeItem('google_user');
     } finally {
       setLoading(false);
     }
@@ -227,9 +227,9 @@ export const useGoogleAuth = (config?: GoogleAuthConfig) => {
 
       const googleUser = auth2.currentUser.get();
       if (!googleUser.isSignedIn()) {
-        // User has logged out, clear local state
+        // User has logged out, clear session state
         setUser(null);
-        localStorage.removeItem('google_user');
+        sessionStorage.removeItem('google_user');
         return false;
       }
 

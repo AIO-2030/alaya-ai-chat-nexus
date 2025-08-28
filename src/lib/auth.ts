@@ -34,17 +34,17 @@ export const useAuth = () => {
   } = useGoogleAuth();
 
   useEffect(() => {
-    // Check existing session
-    const savedUser = localStorage.getItem('alaya_user');
+    // Check existing session from sessionStorage (tab-isolated)
+    const savedUser = sessionStorage.getItem('alaya_user');
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         // Developer log for loaded user info from storage
-        console.log('[Auth] Loaded user info from storage:', parsedUser);
+        console.log('[Auth] Loaded user info from session storage:', parsedUser);
       } catch (err) {
         console.error('Failed to parse saved user:', err);
-        localStorage.removeItem('alaya_user');
+        sessionStorage.removeItem('alaya_user');
       }
     }
     setLoading(false);
@@ -70,7 +70,7 @@ export const useAuth = () => {
       };
       const synced = await syncUserInfo(userInfo);
       setUser(synced);
-      localStorage.setItem('alaya_user', JSON.stringify(synced));
+      sessionStorage.setItem('alaya_user', JSON.stringify(synced));
     })();
   }, [googleUser, user]);
 
@@ -92,7 +92,7 @@ export const useAuth = () => {
       const synced = await syncUserInfo(userInfo);
       console.log('[Auth] Wallet login synced user info:', synced);
       setUser(synced);
-      localStorage.setItem('alaya_user', JSON.stringify(synced));
+      sessionStorage.setItem('alaya_user', JSON.stringify(synced));
 
       return synced;
     } catch (error) {
@@ -122,7 +122,7 @@ export const useAuth = () => {
       const synced = await syncUserInfo(userInfo);
       console.log('[Auth] Google login synced user info:', synced);
       setUser(synced);
-      localStorage.setItem('alaya_user', JSON.stringify(synced));
+      sessionStorage.setItem('alaya_user', JSON.stringify(synced));
       
       return synced;
     } catch (error) {
@@ -142,13 +142,13 @@ export const useAuth = () => {
       
       // Clear local state
       setUser(null);
-      localStorage.removeItem('alaya_user');
+      sessionStorage.removeItem('alaya_user');
       clearPrincipalId();
     } catch (error) {
       console.error('Logout failed:', error);
       // Clear local state even if error occurs
       setUser(null);
-      localStorage.removeItem('alaya_user');
+      sessionStorage.removeItem('alaya_user');
       clearPrincipalId();
       try { await logoutII(); } catch {}
     }

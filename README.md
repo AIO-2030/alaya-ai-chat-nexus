@@ -492,4 +492,383 @@ const config = {
 - `services/voice/`: Voice processing services
 - `utils/voice/`: Voice utility functions
 
+## Social Chat System
+
+The Social Chat System provides a comprehensive point-to-point messaging platform with real-time communication capabilities. Built on Internet Computer Protocol (ICP), it enables secure, decentralized messaging between users with support for multiple content types and real-time notifications.
+
+### Architecture Overview
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Chat UI       │    │   Chat API      │    │  AIO Backend    │
+│   (React)       │◄──►│   Service       │◄──►│   Canister      │
+│                 │    │                 │    │                 │
+│ • Message List  │    │ • API Calls     │    │ • Social Pairs  │
+│ • Input Field   │    │ • Data Transform│    │ • Chat History  │
+│ • Send Controls │    │ • Error Handling│    │ • Notifications │
+│ • Notifications │    │ • State Mgmt    │    │ • Stable Storage│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+         ┌───────────────────────▼───────────────────────┐
+         │           Principal-based Authentication       │
+         │              & Identity Management            │
+         │                                               │
+         │ • User Principal ID                           │
+         │ • Social Pair Key Generation                  │
+         │ • Permission Management                       │
+         │ • Cross-Platform Identity                     │
+         └───────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### 1. Chat API Service (`chatApi.ts`)
+- **Purpose**: Frontend-backend communication layer for chat functionality
+- **Features**:
+  - Real-time message sending and receiving
+  - Social pair key generation for deterministic chat rooms
+  - Notification queue management
+  - Pagination support for chat history
+  - Multi-modal content support (Text, Voice, Image, Emoji)
+
+#### 2. Chat Interface (`Chat.tsx`)
+- **Purpose**: User interface for chat interactions
+- **Capabilities**:
+  - Real-time message display with sender identification
+  - Message input with send controls
+  - Auto-scrolling to latest messages
+  - Loading states and error handling
+  - Contact information display
+  - Notification indicators
+
+#### 3. Backend Integration
+- **Purpose**: Secure canister-based message storage and routing
+- **Features**:
+  - Stable memory storage for persistence
+  - Principal-based authentication
+  - Deterministic social pair key algorithm
+  - Push notification system
+  - Message indexing and retrieval
+
+### Technical Implementation
+
+#### Data Types and Interfaces
+
+```typescript
+// Frontend message representation
+interface ChatMessageInfo {
+  sendBy: string;           // Sender's principal ID
+  content: string;          // Message content (base64 for non-text modes)
+  mode: 'Text' | 'Voice' | 'Image' | 'Emoji';  // Content type
+  timestamp: number;        // Message timestamp (in milliseconds)
+}
+
+// Notification system
+interface NotificationInfo {
+  socialPairKey: string;    // Social pair this notification belongs to
+  toWho: string;           // Receiver's principal ID
+  messageId: number;       // Index of the message in chat history
+  timestamp: number;       // Notification timestamp (in milliseconds)
+}
+```
+
+#### Social Pair Key Algorithm
+
+```typescript
+// Deterministic key generation for chat rooms
+const generateSocialPairKey = (principal1: string, principal2: string): string => {
+  // Sort principals to ensure consistent key regardless of sender/receiver order
+  const sortedPrincipals = [principal1, principal2].sort();
+  const combined = `${sortedPrincipals[0]}:${sortedPrincipals[1]}`;
+  
+  // Generate hash-based key for efficient storage and lookup
+  const hash = hashFunction(combined);
+  return `social_pair_${hash}`;
+};
+```
+
+#### Message Flow Architecture
+
+```typescript
+// Send message workflow
+const sendMessage = async (sender: string, receiver: string, content: string) => {
+  // 1. Generate or retrieve social pair key
+  const socialPairKey = await generateSocialPairKey(sender, receiver);
+  
+  // 2. Send message to backend canister
+  const messageIndex = await sendChatMessage(sender, receiver, content, 'Text');
+  
+  // 3. Backend automatically pushes notification to receiver's queue
+  // 4. Update local UI state
+  // 5. Reload recent messages for real-time display
+};
+
+// Receive message workflow
+const pollForMessages = async (userPrincipal: string) => {
+  // 1. Check notification queue for new messages
+  const notifications = await checkForNewMessages(userPrincipal);
+  
+  // 2. For each notification, update relevant chat
+  for (const notification of notifications) {
+    const messages = await getRecentChatMessages(/* participants */);
+    updateChatUI(notification.socialPairKey, messages);
+  }
+  
+  // 3. Clear processed notifications
+  await clearNotificationsForPair(socialPairKey, userPrincipal);
+};
+```
+
+### Real-time Communication
+
+#### Polling-based Updates
+```typescript
+// Continuous message polling every 5 seconds
+useEffect(() => {
+  const pollInterval = setInterval(async () => {
+    try {
+      const notifications = await checkForNewMessages(userPrincipalId);
+      
+      if (notifications.length > 0) {
+        // Update UI with new messages
+        setNotifications(notifications);
+        
+        // Reload messages for active chats
+        if (notifications.some(n => n.socialPairKey === currentChatKey)) {
+          const updatedMessages = await getRecentChatMessages(/* ... */);
+          setMessages(updatedMessages);
+        }
+      }
+    } catch (error) {
+      console.error('Polling error:', error);
+    }
+  }, 5000);
+
+  return () => clearInterval(pollInterval);
+}, [userPrincipalId, currentChatKey]);
+```
+
+#### Message Synchronization
+- **Immediate UI Updates**: Messages appear instantly for sender
+- **Backend Persistence**: All messages stored in stable memory
+- **Cross-device Sync**: Messages accessible from any device with same principal
+- **Conflict Resolution**: Timestamp-based ordering for message consistency
+
+### Content Type Support
+
+#### Multi-modal Messaging
+```typescript
+// Content type handling
+const handleContentType = (mode: MessageMode, content: string) => {
+  switch (mode) {
+    case 'Text':
+      return content; // Plain text, no encoding needed
+    case 'Voice':
+      return encodeBase64(audioData); // Base64 encoded audio
+    case 'Image':
+      return encodeBase64(imageData); // Base64 encoded image
+    case 'Emoji':
+      return encodeBase64(emojiData); // Base64 encoded emoji/sticker
+  }
+};
+```
+
+#### Content Processing Pipeline
+1. **Input Validation**: Ensure content meets format requirements
+2. **Encoding**: Convert non-text content to base64
+3. **Size Validation**: Check content size limits
+4. **Transmission**: Send to backend canister
+5. **Storage**: Persist in stable memory
+6. **Retrieval**: Decode and display in UI
+
+### Security & Privacy
+
+#### Principal-based Authentication
+```typescript
+// User identity verification
+const authenticateUser = async () => {
+  // 1. Get principal ID from Internet Identity
+  const principalId = await getPrincipalFromII();
+  
+  // 2. Verify principal with backend
+  const userProfile = await getUserProfileByPrincipal(principalId);
+  
+  // 3. Authorize chat operations
+  return { principalId, userProfile };
+};
+```
+
+#### Access Control
+- **Message Ownership**: Only message sender and receiver can access
+- **Principal Verification**: All operations require valid principal ID
+- **Stable Storage**: Messages encrypted and stored securely
+- **No Central Authority**: Decentralized storage on IC network
+
+### Performance Optimizations
+
+#### Efficient Data Loading
+```typescript
+// Pagination for large chat histories
+const loadChatHistory = async (page: number = 0, pageSize: number = 20) => {
+  const offset = page * pageSize;
+  const messages = await getChatMessagesPaginated(
+    principal1, 
+    principal2, 
+    offset, 
+    pageSize
+  );
+  
+  return {
+    messages,
+    hasMore: messages.length === pageSize,
+    currentPage: page
+  };
+};
+```
+
+#### Memory Management
+- **Message Caching**: Recent messages cached locally
+- **Lazy Loading**: Load older messages on demand
+- **State Cleanup**: Automatic cleanup of inactive chat sessions
+- **Efficient Updates**: Only update changed UI components
+
+### Error Handling & Recovery
+
+#### Comprehensive Error Management
+```typescript
+// Multi-layer error handling
+const handleChatError = (error: any, context: string) => {
+  switch (context) {
+    case 'network':
+      // Network connectivity issues
+      showRetryOption();
+      cacheMessageForLaterSend();
+      break;
+      
+    case 'authentication':
+      // Principal ID or permission issues
+      promptReAuthentication();
+      break;
+      
+    case 'storage':
+      // Backend canister issues
+      showFallbackMessage();
+      useLocalStorageBackup();
+      break;
+      
+    default:
+      showGenericErrorMessage();
+  }
+};
+```
+
+#### Graceful Degradation
+- **Offline Support**: Cache messages when offline
+- **Retry Mechanisms**: Automatic retry for failed operations
+- **Fallback Storage**: Local storage as backup
+- **User Feedback**: Clear error messages and recovery options
+
+### Integration Points
+
+#### Contact System Integration
+```typescript
+// Link with contact management
+const startChatWithContact = async (contactInfo: ContactInfo) => {
+  if (!contactInfo.contactPrincipalId) {
+    throw new Error('Contact must have valid principal ID');
+  }
+  
+  // Initialize chat session
+  const socialPairKey = await generateSocialPairKey(
+    currentUserPrincipal, 
+    contactInfo.contactPrincipalId
+  );
+  
+  // Load existing chat history
+  const messages = await getRecentChatMessages(
+    currentUserPrincipal, 
+    contactInfo.contactPrincipalId
+  );
+  
+  return { socialPairKey, messages };
+};
+```
+
+#### Voice Integration
+- **Voice Message Support**: Record and send voice messages
+- **Transcription**: Convert voice to text for accessibility
+- **Audio Quality**: Optimized audio compression
+- **Playback Controls**: Play, pause, seek functionality
+
+### Future Enhancements
+
+#### Planned Features
+- **Group Chat Support**: Multi-participant conversations
+- **Message Reactions**: Emoji reactions and responses
+- **Message Editing**: Edit and delete sent messages
+- **Message Search**: Full-text search across chat history
+- **File Sharing**: Document and media file support
+- **Read Receipts**: Message delivery and read confirmations
+
+#### Scalability Improvements
+- **Message Sharding**: Distribute large chat histories
+- **CDN Integration**: Optimize media content delivery
+- **Push Notifications**: Real-time browser notifications
+- **Offline Sync**: Advanced offline message synchronization
+
+### Development & Testing
+
+#### Development Setup
+```bash
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env with backend canister IDs
+
+# Start development server
+npm run dev
+
+# Run chat-specific tests
+npm run test:chat
+```
+
+#### Testing Strategy
+- **Unit Tests**: Individual component and function testing
+- **Integration Tests**: Chat flow end-to-end testing
+- **Performance Tests**: Message load and rendering performance
+- **Security Tests**: Principal authentication and authorization
+
+### Browser Compatibility
+
+#### Supported Features
+- **WebRTC**: For future P2P features
+- **WebSocket**: Real-time communication (future enhancement)
+- **Local Storage**: Message caching and state persistence
+- **Service Workers**: Offline support (planned)
+
+#### Progressive Enhancement
+```typescript
+// Feature detection and fallbacks
+const checkChatCapabilities = () => {
+  return {
+    localStorage: !!window.localStorage,
+    webRTC: !!navigator.mediaDevices,
+    serviceWorker: !!navigator.serviceWorker,
+    notifications: !!window.Notification
+  };
+};
+```
+
+### Quick Navigation
+
+- `services/api/chatApi.ts`: Chat API service and backend integration
+- `pages/Chat.tsx`: Main chat interface component
+- `hooks/useChat.ts`: Chat state management hook (future)
+- `components/ChatMessage.tsx`: Individual message component (future)
+- `utils/chatUtils.ts`: Chat utility functions (future)
+
 
