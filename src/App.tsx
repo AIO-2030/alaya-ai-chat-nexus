@@ -14,6 +14,7 @@ import AddDevice from "./pages/AddDevice";
 import Shop from "./pages/Shop";
 import ElevenLabsChat from "./pages/ElevenLabsChat";
 import EnvironmentTest from "./pages/EnvironmentTest";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
                 <Route path="/add-device" element={<AddDevice />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/elevenlabs-chat" element={<ElevenLabsChat />} />
+                <Route path="/chat" element={<Chat />} />
                 <Route path="/env-test" element={<EnvironmentTest />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

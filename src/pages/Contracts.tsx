@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Eye, MessageCircle, User, Send, Smile, Smartphone, X, QrCode, CheckCircle } from 'lucide-react';
+import { FileText, Plus, MessageCircle, User, QrCode, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
 import QRCode from 'react-qr-code';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { 
   getContactsByOwner, 
@@ -25,13 +26,8 @@ import { copyWithFeedback } from '../utils/clipboard.js';
 const Contracts = () => {
   const { user, loading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [selectedContract, setSelectedContract] = useState<ContactInfo | null>(null);
-  const [showDialog, setShowDialog] = useState(false);
-  const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState([
-    { id: 1, sender: 'user', content: 'Hello, how are you today?', timestamp: '10:30 AM' },
-    { id: 2, sender: 'friend', content: 'Hi! I\'m doing great, thanks for asking!', timestamp: '10:32 AM' },
-  ]);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [contracts, setContracts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,23 +188,13 @@ const Contracts = () => {
     switch (status) {
       case 'Active': return 'text-green-400 bg-green-400/20';
       case 'Pending': return 'text-yellow-400 bg-yellow-400/20';
-      case 'Completed': return 'text-blue-400 bg-blue-400/20';
+      case 'Blocked': return 'text-red-400 bg-red-400/20';
+      case 'Deleted': return 'text-gray-400 bg-gray-400/20';
       default: return 'text-white/60 bg-white/10';
     }
   };
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const newMsg = {
-        id: messages.length + 1,
-        sender: 'user',
-        content: newMessage,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages([...messages, newMsg]);
-      setNewMessage('');
-    }
-  };
+
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -216,16 +202,37 @@ const Contracts = () => {
         return t('common.statusActive');
       case 'Pending':
         return t('common.statusPending');
-      case 'Completed':
-        return t('common.statusCompleted');
+      case 'Blocked':
+        return t('common.statusBlocked');
+      case 'Deleted':
+        return t('common.statusDeleted');
       default:
         return status;
     }
   };
 
   const handleContractClick = (contract: ContactInfo) => {
-    setSelectedContract(contract);
-    setShowDialog(true);
+    // 构建查询参数
+    const params = new URLSearchParams({
+      contactId: contract.id.toString(),
+      contactName: contract.name,
+      contactAvatar: contract.avatar,
+      contactType: contract.type,
+      contactStatus: contract.status,
+      contactDevices: contract.devices.join(','),
+      contactIsOnline: contract.isOnline.toString(),
+    });
+    
+    // 添加可选参数
+    if (contract.nickname) {
+      params.set('contactNickname', contract.nickname);
+    }
+    if (contract.contactPrincipalId) {
+      params.set('contactPrincipalId', contract.contactPrincipalId);
+    }
+    
+    // 导航到聊天页面
+    navigate(`/chat?${params.toString()}`);
   };
 
   if (authLoading) {
@@ -436,119 +443,7 @@ const Contracts = () => {
           <BottomNavigation />
         </div>
 
-        {/* Dialog Box */}
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-sm sm:max-w-md mx-auto shadow-2xl">
-            <DialogHeader className="pb-3 sm:pb-4">
-              <DialogTitle className="text-white flex items-center gap-2 sm:gap-3 text-base sm:text-lg">
-                <Avatar className="w-6 h-6 sm:w-8 sm:h-8">
-                  <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white text-xs sm:text-sm">
-                    {selectedContract?.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                {selectedContract?.name}
-                {selectedContract?.nickname && (
-                  <span className="text-xs sm:text-sm text-cyan-400/70">({selectedContract.nickname})</span>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-3 sm:space-y-4">
-              {/* Contact Info */}
-              <div className="p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
-                <div className="text-xs sm:text-sm text-white/80 space-y-1">
-                  <p><span className="text-cyan-400">Type:</span> {selectedContract?.type}</p>
-                  <p><span className="text-cyan-400">Status:</span> {selectedContract?.status}</p>
-                  <p><span className="text-cyan-400">Devices:</span> {selectedContract?.devices && selectedContract.devices.length > 0 ? selectedContract.devices.join(', ') : 'None'}</p>
-                  <p><span className="text-cyan-400">Online:</span> {selectedContract?.isOnline ? 'Yes' : 'No'}</p>
-                  {selectedContract?.metadata && (
-                    <p><span className="text-cyan-400">Info:</span> {selectedContract.metadata}</p>
-                  )}
-                </div>
-              </div>
 
-              {/* Messages */}
-              <div className="h-48 sm:h-64 overflow-y-auto space-y-2 sm:space-y-3 p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
-                {messages.map((message) => (
-                  <div 
-                    key={message.id} 
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[80%] p-2 sm:p-3 rounded-lg ${
-                      message.sender === 'user' 
-                        ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white' 
-                        : 'bg-white/10 text-white backdrop-blur-sm'
-                    }`}>
-                      <p className="text-xs sm:text-sm">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-1">{message.timestamp}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Input Area */}
-              <div className="space-y-3 sm:space-y-4">
-                {/* Message Input Row */}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <Input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder={t('common.typeYourMessage') as string}
-                      className="w-full bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm"
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    />
-                  </div>
-                  
-                  {/* Send to Chat Button */}
-                  <Button
-                    onClick={handleSendMessage}
-                    className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px]"
-                    title="Send message to chat"
-                  >
-                    <Send className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                  
-                  {/* Send to Device Button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm text-xs px-3 py-2 min-w-[44px] transition-all duration-200"
-                    onClick={() => {
-                      if (newMessage.trim()) {
-                        // TODO: Implement device message sending
-                        console.log('Sending to device:', newMessage);
-                        setNewMessage('');
-                      }
-                    }}
-                    disabled={!newMessage.trim()}
-                    title="Send message to device"
-                  >
-                    <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                </div>
-                
-                {/* Function Buttons Row */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm text-xs px-3 py-2 flex-1"
-                  >
-                    <Smile className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                    {t('common.emoji')}
-                  </Button>
-                  
-                  {/* Device Status Indicator */}
-                  <div className="inline-flex items-center gap-1 px-3 py-2 bg-white/5 rounded-lg border border-white/10">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-white/60">Device Connected</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Share QR Dialog */}
         <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
