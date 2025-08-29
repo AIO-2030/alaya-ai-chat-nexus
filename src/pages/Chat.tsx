@@ -171,6 +171,10 @@ const Chat = () => {
     navigate('/contracts');
   };
 
+  const handleEmojiClick = () => {
+    navigate('/gallery');
+  };
+
   // Helper function to format timestamp
   const formatTimestamp = (timestamp: number): string => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -409,6 +413,7 @@ const Chat = () => {
                           variant="outline"
                           size="sm"
                           className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm text-xs px-3 py-2 flex-1"
+                          onClick={handleEmojiClick}
                         >
                           <Smile className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                           {t('common.emoji')}

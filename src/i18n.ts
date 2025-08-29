@@ -52,6 +52,26 @@ const resources = {
         langShortEN: 'EN',
         langShortZH: '中文'
       },
+      gallery: {
+        title: 'Gallery',
+        public: 'Public',
+        myCreator: 'My Creator',
+        create: 'Create',
+        createNew: '+ Create'
+      },
+      pixel: {
+        title: 'Pixel Art',
+        format: 'Format',
+        format32x32: '32x32 Square',
+        format32x16: '32x16 Wide',
+        preview: 'Pixel Preview',
+        processing: 'Processing...',
+        colorReduction: 'Color Reduction',
+        dithering: 'Dithering',
+        smoothing: 'Smoothing',
+        apply: 'Apply Pixel Effect',
+        reset: 'Reset to Original'
+      },
       userManagement: {
         title: 'My Profile',
         subtitle: 'Manage your personal information',
@@ -141,6 +161,26 @@ const resources = {
         languageChinese: '中文',
         langShortEN: 'EN',
         langShortZH: '中文'
+      },
+      gallery: {
+        title: '图库',
+        public: '公开',
+        myCreator: '我的创作',
+        create: '创建',
+        createNew: '+ 创建'
+      },
+      pixel: {
+        title: '像素艺术',
+        format: '格式',
+        format32x32: '32x32 方形',
+        format32x16: '32x16 宽屏',
+        preview: '像素预览',
+        processing: '处理中...',
+        colorReduction: '颜色简化',
+        dithering: '抖动处理',
+        smoothing: '平滑处理',
+        apply: '应用像素效果',
+        reset: '重置为原始'
       },
       userManagement: {
         title: '我的档案',
