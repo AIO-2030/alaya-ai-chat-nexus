@@ -189,6 +189,7 @@ export const idlFactory = ({ IDL }) => {
     'Emoji' : IDL.Null,
     'Text' : IDL.Null,
     'Image' : IDL.Null,
+    'PixelArt' : IDL.Null,
     'Voice' : IDL.Null,
   });
   const ChatMessage = IDL.Record({

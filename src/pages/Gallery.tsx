@@ -11,6 +11,7 @@ import { PageLayout } from '../components/PageLayout';
 import { pixelizeEmoji, PixelFormat, PixelProcessingResult } from '../lib/pixelProcessor';
 import { PixelCreationApi, ProjectListItem } from '../services/api/pixelCreationApi';
 import { useAuth } from '../lib/auth';
+import { PixelArtInfo } from '../services/api/chatApi';
 
 interface GalleryItem {
   id: number;
@@ -59,11 +60,179 @@ const Gallery = () => {
   const galleryScrollRef = useRef<HTMLDivElement>(null);
 
   const handleBackToChat = () => {
-    navigate('/chat');
+    // Set sessionStorage flag and use URL parameter as backup
+    sessionStorage.setItem('returning_from_gallery', 'true');
+    console.log('[Gallery] Returning to chat with sessionStorage flag set');
+    navigate('/chat?from=gallery');
   };
 
   const handleCreateClick = () => {
     navigate('/creation');
+  };
+
+  // Helper function: build Chat URL parameters with pixel art data
+  const buildChatUrlWithPixelArt = (pixelArtData: PixelArtInfo): string => {
+    // Set sessionStorage flag and include in URL parameters
+    sessionStorage.setItem('returning_from_gallery', 'true');
+    
+    const params = new URLSearchParams();
+    params.set('pixelArt', JSON.stringify(pixelArtData));
+    params.set('from', 'gallery'); // Add source parameter
+    console.log('[Gallery] Sending pixel art to chat with sessionStorage flag set, contact info will be restored automatically');
+    return `/chat?${params.toString()}`;
+  };
+
+  // Convert canvas to base64 image for chat display
+  const canvasToBase64 = (canvas: HTMLCanvasElement): string => {
+    return canvas.toDataURL('image/png');
+  };
+
+  // Generate device format JSON from pixel result
+  const generateDeviceFormat = (pixelResult: PixelProcessingResult, title: string): string => {
+    // Extract pixel data from canvas
+    const canvas = pixelResult.canvas;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '{}';
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels: number[][] = [];
+    
+    // Convert RGBA data to color indices
+    for (let y = 0; y < canvas.height; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < canvas.width; x++) {
+        const i = (y * canvas.width + x) * 4;
+        const r = imageData.data[i];
+        const g = imageData.data[i + 1];
+        const b = imageData.data[i + 2];
+        const a = imageData.data[i + 3];
+        
+        // Convert to hex color
+        const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        
+        // Find color index in palette (simplified)
+        let colorIndex = 0;
+        if (pixelResult.palette) {
+          colorIndex = pixelResult.palette.findIndex(color => color === hex);
+          if (colorIndex === -1) colorIndex = 0;
+        }
+        
+        row.push(a === 0 ? -1 : colorIndex); // -1 for transparent pixels
+      }
+      pixels.push(row);
+    }
+
+    return JSON.stringify({
+      title,
+      width: canvas.width,
+      height: canvas.height,
+      palette: pixelResult.palette || ['#000000'],
+      pixels,
+      format: 'device',
+      timestamp: Date.now()
+    });
+  };
+
+  // Generate device format for user creation
+  const generateCreationDeviceFormat = (item: UserCreationItem): string => {
+    if (!item.pixelArt) return '{}';
+
+    return JSON.stringify({
+      title: item.title,
+      projectId: item.id,
+      width: item.pixelArt.width,
+      height: item.pixelArt.height,
+      palette: item.pixelArt.palette,
+      pixels: item.pixelArt.pixels,
+      format: 'device',
+      timestamp: Date.now()
+    });
+  };
+
+  // Handle Use button click for public gallery items
+  const handleUsePublicItem = async (item: GalleryItem) => {
+    try {
+      if (!item.pixelResult) {
+        console.error('No pixel result available for item:', item.title);
+        return;
+      }
+
+      // Generate chat format (base64 image)
+      const chatFormat = canvasToBase64(item.pixelResult.canvas);
+      
+      // Generate device format
+      const deviceFormat = generateDeviceFormat(item.pixelResult, item.title);
+      
+      // Create PixelArtInfo object
+      const pixelArtData: PixelArtInfo = {
+        chatFormat,
+        deviceFormat,
+        width: item.pixelResult.canvas.width,
+        height: item.pixelResult.canvas.height,
+        palette: item.pixelResult.palette || ['#000000'],
+        sourceType: 'emoji',
+        sourceId: undefined
+      };
+
+      // Navigate to chat with pixel art data and contact info
+      const chatUrl = buildChatUrlWithPixelArt(pixelArtData);
+      navigate(chatUrl);
+    } catch (error) {
+      console.error('Error using public gallery item:', error);
+    }
+  };
+
+  // Handle Use button click for user creation items
+  const handleUseCreationItem = async (item: UserCreationItem) => {
+    try {
+      // Generate chat format from canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx || !item.pixelArt) {
+        console.error('Cannot generate chat format for item:', item.title);
+        return;
+      }
+
+      canvas.width = item.pixelArt.width;
+      canvas.height = item.pixelArt.height;
+      ctx.imageSmoothingEnabled = false;
+
+      // Draw pixel art
+      const cellWidth = canvas.width / item.pixelArt.width;
+      const cellHeight = canvas.height / item.pixelArt.height;
+
+      for (let y = 0; y < item.pixelArt.height; y++) {
+        for (let x = 0; x < item.pixelArt.width; x++) {
+          if (item.pixelArt.pixels[y] && item.pixelArt.pixels[y][x] !== undefined) {
+            const colorIndex = item.pixelArt.pixels[y][x];
+            const color = item.pixelArt.palette[colorIndex] || '#000000';
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+          }
+        }
+      }
+
+      const chatFormat = canvasToBase64(canvas);
+      const deviceFormat = generateCreationDeviceFormat(item);
+
+      // Create PixelArtInfo object
+      const pixelArtData: PixelArtInfo = {
+        chatFormat,
+        deviceFormat,
+        width: item.pixelArt.width,
+        height: item.pixelArt.height,
+        palette: item.pixelArt.palette,
+        sourceType: 'creation',
+        sourceId: item.id
+      };
+
+      // Navigate to chat with pixel art data and contact info
+      const chatUrl = buildChatUrlWithPixelArt(pixelArtData);
+      navigate(chatUrl);
+    } catch (error) {
+      console.error('Error using creation item:', error);
+    }
   };
 
   // Mock data for demonstration with emoji
@@ -489,7 +658,12 @@ const Gallery = () => {
                               <div className="flex items-center justify-between">
                                 <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
                                 <div className="flex gap-1">
-                                  <Button size="sm" variant="outline" className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
+                                    onClick={() => handleUsePublicItem(item)}
+                                  >
                                     Use
                                   </Button>
                                   <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
@@ -586,10 +760,7 @@ const Gallery = () => {
                                         size="sm" 
                                         variant="outline" 
                                         className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
-                                        onClick={() => {
-                                          // TODO: Navigate to edit page with project ID
-                                          console.log('Use project:', item.id);
-                                        }}
+                                        onClick={() => handleUseCreationItem(item)}
                                       >
                                         Use
                                       </Button>

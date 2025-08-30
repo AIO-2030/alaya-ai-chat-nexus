@@ -19,6 +19,7 @@ export interface PixelProcessingResult {
   dataUrl: string;
   originalDimensions: { width: number; height: number };
   pixelDimensions: { width: number; height: number };
+  palette?: string[]; // Color palette extracted from the processed image
 }
 
 /**
@@ -83,11 +84,15 @@ export class PixelProcessor {
       this.applyDithering(pixelCtx, pixelDimensions.width, pixelDimensions.height);
     }
     
+    // Extract color palette
+    const palette = this.extractPalette(pixelCtx, pixelDimensions.width, pixelDimensions.height);
+    
     return {
       canvas: pixelCanvas,
       dataUrl: pixelCanvas.toDataURL('image/png'),
       originalDimensions: { width: img.width, height: img.height },
-      pixelDimensions
+      pixelDimensions,
+      palette
     };
   }
 
@@ -321,6 +326,31 @@ export class PixelProcessor {
     }
     
     ctx.putImageData(imageData, 0, 0);
+  }
+
+  /**
+   * Extract color palette from processed canvas
+   */
+  private extractPalette(ctx: CanvasRenderingContext2D, width: number, height: number): string[] {
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const pixels = imageData.data;
+    const colorSet = new Set<string>();
+    
+    // Extract unique colors
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const a = pixels[i + 3];
+      
+      // Only include non-transparent pixels
+      if (a > 0) {
+        const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        colorSet.add(hex);
+      }
+    }
+    
+    return Array.from(colorSet);
   }
 }
 

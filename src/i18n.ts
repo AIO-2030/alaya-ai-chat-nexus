@@ -34,6 +34,7 @@ const resources = {
         emoji: 'Emoji',
         toDevice: 'To Device',
         shareSelf:"Business Card",
+        none: 'None',
         shareQrTitle: 'Share QR to Add Friend',
         shareQrHint: 'Scan to add a friend. If scanning fails, copy the link to share:',
         statusActive: 'Active',
@@ -92,6 +93,28 @@ const resources = {
       },
       nft: {
         mintMessage: 'Mint your creation as NFT — Earn rewards & recognition.'
+      },
+      chat: {
+        readyToSend: 'Ready to send',
+        backToContacts: 'Back to Contacts',
+        pixelArt: 'Pixel Art',
+        debug: {
+          info: 'Debug info'
+        },
+        error: {
+          emptyMessage: 'Message is Empty',
+          emptyMessageDesc: 'Please enter message content or select pixel art before sending',
+          authFailed: 'User Authentication Failed',
+          authFailedDesc: 'Please re-login and try again',
+          authRequired: 'Authentication Required',
+          authRequiredDesc: 'Please login to start chatting',
+          contactMissing: 'Contact Information Missing',
+          contactMissingDesc: 'Cannot determine recipient, please return to contacts list and select again',
+          contactInfoMissing: 'Contact Information Missing',
+          contactInfoMissingDesc: 'Unable to retrieve contact\'s Principal ID, which is required for chat communication.',
+          contactRestoreFailed: 'Contact Restoration Failed',
+          contactRestoreFailedDesc: 'Unable to restore contact information. Please return to contacts list and select the contact again.'
+        }
       },
       userManagement: {
         title: 'My Profile',
@@ -165,6 +188,7 @@ const resources = {
         emoji: '表情',
         toDevice: '发送到设备',
         shareSelf:"名片",
+        none: '无',
         shareQrTitle: '分享二维码添加好友',
         shareQrHint: '扫码添加好友；若无法识别，请复制链接分享：',
         statusActive: '已激活',
@@ -223,6 +247,26 @@ const resources = {
       },
       nft: {
         mintMessage: '将您的创作铸造为NFT — 获得奖励与认可。'
+      },
+      chat: {
+        readyToSend: '准备发送',
+        backToContacts: '返回联系人列表',
+        pixelArt: '像素艺术',
+        debug: {
+          info: '调试信息'
+        },
+        error: {
+          emptyMessage: '消息为空',
+          emptyMessageDesc: '请输入消息内容或选择像素艺术后再发送',
+          authFailed: '用户认证失败',
+          authFailedDesc: '请重新登录后再试',
+          contactMissing: '联系人信息缺失',
+          contactMissingDesc: '无法确定接收方，请返回联系人列表重新选择',
+          contactInfoMissing: '联系人信息缺失',
+          contactInfoMissingDesc: '无法获取到联系人的Principal ID，这是进行聊天所必需的信息。',
+          contactRestoreFailed: '联系人信息恢复失败',
+          contactRestoreFailedDesc: '无法恢复联系人信息，请返回联系人列表重新选择联系人。'
+        }
       },
       userManagement: {
         title: '我的档案',

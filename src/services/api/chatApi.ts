@@ -57,12 +57,24 @@ const isErr = <T>(result: CanisterResult<T>): result is { 'Err': string } => {
   return 'Err' in result;
 };
 
+// Frontend types for pixel art data
+export interface PixelArtInfo {
+  chatFormat: string;       // Base64 encoded image for chat display (PNG/JPEG)
+  deviceFormat: string;     // JSON string for device (compact pixel array)
+  width: number;            // Original width
+  height: number;           // Original height
+  palette: string[];        // Color palette
+  sourceType: string;       // "emoji" or "creation"
+  sourceId?: string;        // Project ID for user creations
+}
+
 // Frontend types for chat functionality
 export interface ChatMessageInfo {
   sendBy: string;           // Sender's principal ID
-  content: string;          // Message content (base64 for non-text modes)
-  mode: 'Text' | 'Voice' | 'Image' | 'Emoji';  // Content type
+  content: string;          // Message content (base64 for non-text modes, JSON for PixelArt)
+  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt';  // Content type
   timestamp: number;        // Message timestamp (in milliseconds)
+  pixelArt?: PixelArtInfo;  // Parsed pixel art data when mode is PixelArt
 }
 
 export interface NotificationInfo {
@@ -74,7 +86,8 @@ export interface NotificationInfo {
 
 // Convert backend ChatMessage to frontend ChatMessageInfo
 const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
-  let mode: 'Text' | 'Voice' | 'Image' | 'Emoji' = 'Text';
+  let mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' = 'Text';
+  let pixelArt: PixelArtInfo | undefined;
   
   if (message.mode && typeof message.mode === 'object') {
     if ('Voice' in message.mode) {
@@ -83,6 +96,23 @@ const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
       mode = 'Image';
     } else if ('Emoji' in message.mode) {
       mode = 'Emoji';
+    } else if ('PixelArt' in message.mode) {
+      mode = 'PixelArt';
+      // Parse pixel art data from content
+      try {
+        const pixelData = JSON.parse(message.content);
+        pixelArt = {
+          chatFormat: pixelData.chat_format || pixelData.chatFormat,
+          deviceFormat: pixelData.device_format || pixelData.deviceFormat,
+          width: pixelData.width,
+          height: pixelData.height,
+          palette: pixelData.palette || [],
+          sourceType: pixelData.source_type || pixelData.sourceType || 'emoji',
+          sourceId: pixelData.source_id || pixelData.sourceId
+        };
+      } catch (error) {
+        console.error('[ChatApi] Failed to parse pixel art data:', error);
+      }
     }
   }
 
@@ -91,11 +121,12 @@ const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
     content: message.content,
     mode,
     timestamp: Number(message.timestamp) / 1000000, // Convert nanoseconds to milliseconds
+    pixelArt
   };
 };
 
 // Convert frontend ChatMessageInfo to backend MessageMode
-const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji'): MessageMode => {
+const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt'): MessageMode => {
   switch (mode) {
     case 'Voice':
       return { Voice: null };
@@ -103,6 +134,8 @@ const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji'): Messa
       return { Image: null };
     case 'Emoji':
       return { Emoji: null };
+    case 'PixelArt':
+      return { PixelArt: null };
     default:
       return { Text: null };
   }
@@ -248,15 +281,15 @@ export const generateSocialPairKey = async (principal1: string, principal2: stri
  * Send a chat message between two users
  * @param senderPrincipal Sender's principal ID
  * @param receiverPrincipal Receiver's principal ID
- * @param content Message content (base64 for non-text modes)
- * @param mode Message mode: 'Text', 'Voice', 'Image', or 'Emoji'
+ * @param content Message content (base64 for non-text modes, JSON for PixelArt)
+ * @param mode Message mode: 'Text', 'Voice', 'Image', 'Emoji', or 'PixelArt'
  * @returns Message index if successful
  */
 export const sendChatMessage = async (
   senderPrincipal: string,
   receiverPrincipal: string,
   content: string,
-  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' = 'Text'
+  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' = 'Text'
 ): Promise<number> => {
   try {
     console.log('[ChatApi] Sending chat message:', { senderPrincipal, receiverPrincipal, mode });
@@ -451,6 +484,39 @@ export const checkForNewMessages = async (receiverPrincipal: string): Promise<No
   } catch (error) {
     console.error('[ChatApi] Error checking for new messages:', error);
     return [];
+  }
+};
+
+/**
+ * Send a pixel art message
+ * @param senderPrincipal Sender's principal ID
+ * @param receiverPrincipal Receiver's principal ID
+ * @param pixelArtData Pixel art data for both chat and device
+ * @returns Message index if successful
+ */
+export const sendPixelArtMessage = async (
+  senderPrincipal: string,
+  receiverPrincipal: string,
+  pixelArtData: PixelArtInfo
+): Promise<number> => {
+  try {
+    console.log('[ChatApi] Sending pixel art message:', { senderPrincipal, receiverPrincipal, pixelArtData });
+    
+    // Serialize pixel art data as JSON content
+    const content = JSON.stringify({
+      chat_format: pixelArtData.chatFormat,
+      device_format: pixelArtData.deviceFormat,
+      width: pixelArtData.width,
+      height: pixelArtData.height,
+      palette: pixelArtData.palette,
+      source_type: pixelArtData.sourceType,
+      source_id: pixelArtData.sourceId
+    });
+    
+    return await sendChatMessage(senderPrincipal, receiverPrincipal, content, 'PixelArt');
+  } catch (error) {
+    console.error('[ChatApi] Error sending pixel art message:', error);
+    throw error;
   }
 };
 

@@ -169,6 +169,7 @@ export interface McpStackRecord {
 export type MessageMode = { 'Emoji' : null } |
   { 'Text' : null } |
   { 'Image' : null } |
+  { 'PixelArt' : null } |
   { 'Voice' : null };
 export interface Method {
   'name' : string,
@@ -189,6 +190,15 @@ export interface NotificationItem {
   'to_who' : string,
   'timestamp' : bigint,
   'message_id' : bigint,
+}
+export interface PixelArtData {
+  'height' : number,
+  'device_format' : string,
+  'chat_format' : string,
+  'source_id' : [] | [string],
+  'palette' : Array<string>,
+  'source_type' : string,
+  'width' : number,
 }
 export interface PixelArtSource {
   'height' : number,
