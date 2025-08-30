@@ -588,10 +588,10 @@ const Gallery = () => {
                                         className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
                                         onClick={() => {
                                           // TODO: Navigate to edit page with project ID
-                                          console.log('Edit project:', item.id);
+                                          console.log('Use project:', item.id);
                                         }}
                                       >
-                                        Edit
+                                        Use
                                       </Button>
                                       {item.pixelArt && (
                                         <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">

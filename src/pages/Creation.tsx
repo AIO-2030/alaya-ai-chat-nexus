@@ -9,8 +9,9 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
-import { PixelCreationApi } from '../services/api/pixelCreationApi';
+import { PixelCreationApi, convertImageToPixelArt, ImageImportOptions } from '../services/api/pixelCreationApi';
 import { useAuth } from '../lib/auth';
+import { useToast } from '../hooks/use-toast';
 
 // Types
 type Tool = "pen" | "eraser" | "fill" | "picker";
@@ -33,6 +34,7 @@ const Creation = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   
   // Basic creation info
   const [title, setTitle] = useState('');
@@ -40,6 +42,14 @@ const Creation = () => {
   
   // Save state management
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Image import state management
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Color picker state management
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef<HTMLInputElement>(null);
   
   // Canvas settings (fixed, no UI controls needed)
   const cols = 32;
@@ -164,7 +174,11 @@ const Creation = () => {
     try {
       // Check authentication before saving
       if (!isAuthenticated()) {
-        alert(t('auth.loginRequired'));
+        toast({
+          title: "Authentication Required",
+          description: t('auth.loginRequired'),
+          variant: "destructive",
+        });
         setIsSaving(false);
         return;
       }
@@ -200,20 +214,220 @@ const Creation = () => {
         console.log('Successfully saved pixel art project:', result.projectId);
         
         // Show success message
-        alert(t('gallery.saveSuccess'));
+        toast({
+          title: "Success!",
+          description: t('gallery.saveSuccess'),
+          variant: "default",
+        });
         
         // Navigate back to gallery
         navigate('/gallery');
       } else {
         console.error('Failed to save pixel art:', result.error);
-        alert(`${t('gallery.saveError')}: ${result.error}`);
+        toast({
+          title: "Save Failed",
+          description: `${t('gallery.saveError')}: ${result.error}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error saving pixel art:', error);
-      alert(t('gallery.saveError'));
+      toast({
+        title: "Error",
+        description: t('gallery.saveError'),
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Handle image import
+  const handleImageImport = async (file: File) => {
+    if (isImporting) return;
+    
+    setIsImporting(true);
+    
+    try {
+      const options: ImageImportOptions = {
+        targetWidth: 32,
+        targetHeight: 32,
+        maxColors: palette.length,
+        enableDithering: false,
+        preserveAspectRatio: true,
+        scaleMode: 'fill' // Use 'fill' to maximize canvas usage
+      };
+
+      const result = await convertImageToPixelArt(file, options);
+      
+      if (result.success && result.pixelArt) {
+        const importedPixelArt = result.pixelArt;
+        
+        // Convert 2D array to flat array for pixels
+        // The conversion API now guarantees 32x32 output, so we can directly use it
+        const flatPixels = new Uint8Array(32 * 32);
+        
+        // Copy imported pixels directly (should be exactly 32x32)
+        for (let y = 0; y < 32; y++) {
+          for (let x = 0; x < 32; x++) {
+            if (y < importedPixelArt.height && x < importedPixelArt.width) {
+              flatPixels[y * 32 + x] = importedPixelArt.pixels[y][x];
+            } else {
+              // This shouldn't happen as API guarantees 32x32, but safety fallback
+              flatPixels[y * 32 + x] = getEraserColorIndex();
+            }
+          }
+        }
+        
+        // Update the canvas with imported data
+        setPixels(flatPixels);
+        setPalette(importedPixelArt.palette);
+        
+        // Update metadata if provided
+        if (importedPixelArt.title) {
+          setTitle(importedPixelArt.title);
+        }
+        if (importedPixelArt.description) {
+          setDescription(importedPixelArt.description);
+        }
+        
+        // Add to history
+        pushHistory(flatPixels);
+        
+        toast({
+          title: "Import Successful!",
+          description: `Image imported and converted to 32x32 pixel art format`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: result.error || 'Unknown error occurred during import',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error importing image:', error);
+      toast({
+        title: "Import Error",
+        description: 'An error occurred while importing the image',
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check if it's an image file
+      if (file.type.startsWith('image/')) {
+        handleImageImport(file);
+      } else {
+        toast({
+          title: "Invalid File",
+          description: 'Please select a valid image file (PNG, JPG, GIF, etc.)',
+          variant: "destructive",
+        });
+      }
+    }
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Trigger file input
+  const triggerImageImport = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Get eraser color index (white or closest to white)
+  const getEraserColorIndex = useCallback(() => {
+    // Look for white color in palette
+    const whiteIndex = palette.findIndex(color => 
+      color.toLowerCase() === '#ffffff' || color.toLowerCase() === '#fff'
+    );
+    
+    if (whiteIndex !== -1) {
+      return whiteIndex;
+    }
+    
+    // If no white, find the lightest color
+    let lightestIndex = 0;
+    let maxBrightness = 0;
+    
+    palette.forEach((color, index) => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const brightness = (r + g + b) / 3;
+      
+      if (brightness > maxBrightness) {
+        maxBrightness = brightness;
+        lightestIndex = index;
+      }
+    });
+    
+    return lightestIndex;
+  }, [palette]);
+
+  // Color picker functions
+  const triggerColorPicker = () => {
+    if (colorPickerRef.current) {
+      colorPickerRef.current.click();
+    }
+  };
+
+  const handleColorPickerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedColor = event.target.value;
+    
+    // Check if this color already exists in the palette
+    if (!palette.includes(selectedColor)) {
+      // Add the new color to the palette and select it
+      const newPalette = [...palette, selectedColor];
+      setPalette(newPalette);
+      setColorIdx(newPalette.length - 1); // Select the newly added color
+      
+      // Add to history for undo/redo
+      pushHistory();
+    } else {
+      // If color already exists, just select it
+      const existingIndex = palette.indexOf(selectedColor);
+      setColorIdx(existingIndex);
+    }
+  };
+
+  // Remove color from palette (with double-click)
+  const handleColorDoubleClick = (colorIndex: number) => {
+    // Don't allow removing colors if only a few left
+    if (palette.length <= 2) {
+      toast({
+        title: "Cannot Remove Color",
+        description: 'At least 2 colors are required in the palette',
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create new palette without the selected color
+    const newPalette = palette.filter((_, i) => i !== colorIndex);
+    setPalette(newPalette);
+    
+    // Adjust color index if necessary
+    if (colorIdx >= newPalette.length) {
+      setColorIdx(newPalette.length - 1);
+    } else if (colorIdx === colorIndex && colorIdx > 0) {
+      setColorIdx(colorIdx - 1);
+    }
+    
+    // Add to history for undo/redo
+    pushHistory();
   };
 
   // Mouse/touch interaction
@@ -238,12 +452,12 @@ const Creation = () => {
     lastPosRef.current = { x, y };
 
     if (tool === "pen") setPixel(x, y, colorIdx);
-    else if (tool === "eraser") setPixel(x, y, 0);
+    else if (tool === "eraser") setPixel(x, y, getEraserColorIndex());
     else if (tool === "picker") setColorIdx(getPixel(x, y));
     else if (tool === "fill") floodFill(x, y, getPixel(x, y), colorIdx);
 
     pushHistory();
-  }, [eventToCell, tool, colorIdx, setPixel, getPixel, floodFill, pushHistory]);
+  }, [eventToCell, tool, colorIdx, setPixel, getPixel, floodFill, pushHistory, getEraserColorIndex]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawingRef.current) return;
@@ -251,7 +465,7 @@ const Creation = () => {
     const last = lastPosRef.current;
 
     if ((tool === "pen" || tool === "eraser") && last) {
-      const color = tool === "pen" ? colorIdx : 0;
+      const color = tool === "pen" ? colorIdx : getEraserColorIndex();
       let x0 = last.x, y0 = last.y;
       let x1 = x, y1 = y;
       const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
@@ -268,7 +482,7 @@ const Creation = () => {
     }
 
     lastPosRef.current = { x, y };
-  }, [eventToCell, tool, colorIdx, setPixel]);
+  }, [eventToCell, tool, colorIdx, setPixel, getEraserColorIndex]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
@@ -441,9 +655,9 @@ const Creation = () => {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0 flex flex-col min-h-0">
+          <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
             <div className="flex-1 p-1 md:p-2 min-h-0">
-              <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col">
+              <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col overflow-hidden">
                 
                 {/* Creation Header */}
                 <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-white/10 bg-white/5">
@@ -504,10 +718,10 @@ const Creation = () => {
                 </div>
 
                 {/* Pixel Editor Content */}
-                <div className="flex-1 min-h-0 flex flex-col relative">
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   
                   {/* NFT Hero Banner Section */}
-                  <div className="absolute top-0 left-0 right-0 h-20 sm:h-24 md:h-28 z-10 overflow-hidden">
+                  <div className="flex-shrink-0 h-20 sm:h-24 md:h-28 z-10 overflow-hidden relative">
                     {/* Animated background elements */}
                     <div className="absolute inset-0">
                       <div className="absolute top-2 left-4 w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 rounded-full blur-xl animate-pulse"></div>
@@ -558,15 +772,15 @@ const Creation = () => {
                     </div>
                   </div>
                   
-                  {/* Canvas Area - Main Drawing Space - Reserve space for toolbar */}
-                  <div className="absolute top-20 sm:top-24 md:top-28 left-0 right-0 bottom-40 bg-white/10 backdrop-blur-sm overflow-hidden">
-                    <div className="h-full w-full flex items-center justify-center">
+                  {/* Canvas Area - Main Drawing Space */}
+                  <div className="flex-1 min-h-0 bg-white/10 backdrop-blur-sm overflow-hidden">
+                    <div className="h-full w-full flex items-center justify-center p-4 min-h-[200px]">
                       <canvas
                         ref={displayRef}
                         onPointerDown={handlePointerDown}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
-                        className="bg-white/5"
+                        className="bg-white/5 max-w-full max-h-full"
                         style={{
                           imageRendering: 'pixelated',
                           touchAction: 'none',
@@ -580,12 +794,12 @@ const Creation = () => {
                     </div>
                   </div>
 
-                  {/* Bottom Control Panel - Overlay Style */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-white/10 backdrop-blur-sm border-t border-white/20">
+                  {/* Bottom Control Panel - Fixed at bottom */}
+                  <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm border-t border-white/20 max-h-80 overflow-y-auto scrollbar-thin scrollbar-track-white/10 scrollbar-thumb-white/30 hover:scrollbar-thumb-white/50">
                     
                     {/* Drawing Tools Row - Responsive Layout */}
                     <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
-                        {/* Undo/Redo/Clear */}
+                        {/* Undo/Redo/Clear/Import */}
                         <div className="flex gap-1 bg-white/5 rounded-lg p-1">
                           <Button
                             variant="outline"
@@ -613,6 +827,16 @@ const Creation = () => {
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={triggerImageImport}
+                            disabled={isImporting}
+                            className="bg-white/5 border-white/20 text-white hover:bg-green-500/20 hover:border-green-400/40 p-1.5 min-w-0"
+                            title="Import Image"
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
 
                         {/* Main Tools */}
@@ -629,9 +853,17 @@ const Creation = () => {
                             variant={tool === "eraser" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("eraser")}
-                            className={`p-1.5 min-w-0 ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1.5 min-w-0 relative ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            title={`Eraser (erases to ${palette[getEraserColorIndex()]})`}
                           >
                             <Eraser className="h-3.5 w-3.5" />
+                            {/* Small indicator showing eraser color */}
+                            {tool === "eraser" && (
+                              <div 
+                                className="absolute -top-1 -right-1 w-2 h-2 rounded-full border border-white/50"
+                                style={{ backgroundColor: palette[getEraserColorIndex()] }}
+                              />
+                            )}
                           </Button>
                           <Button
                             variant={tool === "fill" ? "default" : "outline"}
@@ -685,18 +917,19 @@ const Creation = () => {
                         </div>
                       </div>
 
-                    {/* Color Palette Row - Responsive Layout */}
-                    <div className="flex flex-wrap items-center justify-center gap-2 p-2">
-                      <div className="flex flex-wrap gap-1 sm:gap-2 bg-white/5 rounded-lg p-1 sm:p-2 max-w-full">
+                    {/* Color Palette Row - Responsive Layout with scroll support */}
+                    <div className="flex items-center justify-center gap-2 p-2">
+                      <div className="flex flex-wrap gap-1 sm:gap-2 bg-white/5 rounded-lg p-1 sm:p-2 max-w-full overflow-x-auto">
                         {palette.map((hex, i) => (
                           <button
                             key={i}
                             onClick={() => setColorIdx(i)}
+                            onDoubleClick={() => handleColorDoubleClick(i)}
                             className={`w-5 h-5 sm:w-6 sm:h-6 rounded border-2 transition-all duration-200 hover:scale-110 flex-shrink-0 ${
                               i === colorIdx ? 'border-cyan-400 shadow-md shadow-cyan-400/30' : 'border-white/30 hover:border-white/60'
                             }`}
                             style={{ backgroundColor: hex }}
-                            title={`Color ${i}: ${hex}`}
+                            title={`Color ${i}: ${hex} (Double-click to remove)`}
                           />
                         ))}
                       </div>
@@ -704,8 +937,9 @@ const Creation = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setPalette([...palette, "#ff0000"])}
+                        onClick={triggerColorPicker}
                         className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0 flex-shrink-0"
+                        title="Add new color"
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
@@ -717,6 +951,23 @@ const Creation = () => {
             </div>
           </div>
         </div>
+        
+        {/* Hidden file input for image import */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileInputChange}
+          style={{ display: 'none' }}
+        />
+        
+        {/* Hidden color picker input for palette management */}
+        <input
+          ref={colorPickerRef}
+          type="color"
+          onChange={handleColorPickerChange}
+          style={{ display: 'none' }}
+        />
     </div>
   );
 };
