@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Save, Download, Upload, Palette, RotateCcw, RotateCw, Grid3X3, Pen, Eraser, PaintBucket, Pipette, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Save, Download, Upload, Palette, RotateCcw, RotateCw, Grid3X3, Pen, Eraser, PaintBucket, Pipette, Plus, Minus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +9,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
-import { PageLayout } from '../components/PageLayout';
+import { PixelCreationApi } from '../services/api/pixelCreationApi';
+import { useAuth } from '../lib/auth';
 
 // Types
 type Tool = "pen" | "eraser" | "fill" | "picker";
@@ -31,10 +32,14 @@ function download(filename: string, blob: Blob) {
 const Creation = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   
   // Basic creation info
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  
+  // Save state management
+  const [isSaving, setIsSaving] = useState(false);
   
   // Canvas settings (fixed, no UI controls needed)
   const cols = 32;
@@ -66,6 +71,8 @@ const Creation = () => {
   const handleBackToGallery = () => {
     navigate('/gallery');
   };
+
+  // Authentication is now handled by useAuth hook
 
   // Resize pixels when cols/rows change
   useEffect(() => {
@@ -113,6 +120,12 @@ const Creation = () => {
     });
   }, [history]);
 
+  const clearCanvas = useCallback(() => {
+    const clearPixels = new Uint8Array(rows * cols).fill(1); // Fill with white (index 1)
+    setPixels(clearPixels);
+    pushHistory(clearPixels);
+  }, [rows, cols, pushHistory]);
+
   // Drawing operations
   const setPixel = useCallback((x: number, y: number, idx: number) => {
     if (x < 0 || x >= cols || y < 0 || y >= rows) return;
@@ -143,22 +156,64 @@ const Creation = () => {
     setPixels(out);
   }, [pixels, cols, rows]);
 
-  const handleSave = () => {
-    // Export as PNG data URL
-    const display = displayRef.current;
-    if (display) {
-      const dataUrl = display.toDataURL('image/png');
-      console.log('Saving creation:', { 
-        title, 
-        description, 
-        cols,
-        rows,
-        palette,
-        pixels: Array.from(pixels),
-        dataUrl
+  const handleSave = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // Check authentication before saving
+      if (!isAuthenticated()) {
+        alert(t('auth.loginRequired'));
+        setIsSaving(false);
+        return;
+      }
+
+      // Convert Uint8Array pixels to 2D number array for API
+      const pixels2D: number[][] = [];
+      for (let y = 0; y < rows; y++) {
+        const row: number[] = [];
+        for (let x = 0; x < cols; x++) {
+          row.push(pixels[y * cols + x]);
+        }
+        pixels2D.push(row);
+      }
+
+      // Prepare pixel art data
+      const pixelArtData = {
+        title: title.trim() || undefined,
+        description: description.trim() || undefined,
+        width: cols,
+        height: rows,
+        palette: palette,
+        pixels: pixels2D,
+        tags: ['pixel-art', 'created-with-alaya'] // Add default tags
+      };
+
+      // Create project in backend
+      const result = await PixelCreationApi.createProject({
+        pixelArt: pixelArtData,
+        message: 'Initial version'
       });
+
+      if (result.success) {
+        console.log('Successfully saved pixel art project:', result.projectId);
+        
+        // Show success message
+        alert(t('gallery.saveSuccess'));
+        
+        // Navigate back to gallery
+        navigate('/gallery');
+      } else {
+        console.error('Failed to save pixel art:', result.error);
+        alert(`${t('gallery.saveError')}: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving pixel art:', error);
+      alert(t('gallery.saveError'));
+    } finally {
+      setIsSaving(false);
     }
-    navigate('/gallery');
   };
 
   // Mouse/touch interaction
@@ -250,20 +305,20 @@ const Creation = () => {
     }
     bctx.putImageData(image, 0, 0);
 
-    // Scale to display - Maximize canvas to fill all available space
+    // Scale to display - Maximize canvas to fill all available space including control panel area
     const container = display.parentElement;
     let currentScale = scale;
     
     if (container) {
-      // Get container dimensions
+      // Get container dimensions with minimal padding
       const containerRect = container.getBoundingClientRect();
-      const maxWidth = containerRect.width - 16; // Minimal padding
-      const maxHeight = containerRect.height - 16;
+      const maxWidth = containerRect.width - 4; // Minimal padding
+      const maxHeight = containerRect.height - 4; // Minimal padding, use full height including control panel area
       
       // Calculate maximum possible scale to fill the container completely
       const scaleX = Math.floor(maxWidth / cols);
       const scaleY = Math.floor(maxHeight / rows);
-      // Use the smaller scale to ensure canvas fits, then maximize it
+      // Use the smaller scale to ensure canvas fits completely in container
       currentScale = Math.min(scaleX, scaleY);
       
       // Ensure minimum scale for visibility but allow very large scales
@@ -342,8 +397,7 @@ const Creation = () => {
   }, [undo, redo]);
 
   return (
-    <PageLayout>
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden flex flex-col">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
@@ -380,20 +434,20 @@ const Creation = () => {
         {/* Header */}
         <AppHeader />
 
-        <div className="flex h-[calc(100vh-65px)] w-full">
+        <div className="flex flex-1 w-full min-h-0">
           {/* Sidebar for desktop only */}
           <div className="hidden lg:block">
             <AppSidebar />
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            <div className="h-full p-2 md:p-4">
+          <div className="flex-1 min-w-0 flex flex-col min-h-0">
+            <div className="flex-1 p-1 md:p-2 min-h-0">
               <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col">
                 
                 {/* Creation Header */}
                 <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-white/10 bg-white/5">
-                  <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 mb-4">
                     {/* Back Button */}
                     <Button
                       variant="outline"
@@ -412,26 +466,107 @@ const Creation = () => {
                     {/* Save Button */}
                     <Button
                       onClick={handleSave}
-                      className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white"
+                      disabled={isSaving}
+                      className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Save className="h-4 w-4 mr-2" />
-                      {t('userManagement.save')}
+                      {isSaving ? t('gallery.saving') : t('userManagement.save')}
                     </Button>
+                  </div>
+                  
+                  {/* Metadata Input Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">
+                        {t('gallery.artTitle')}
+                      </label>
+                      <Input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={t('gallery.titlePlaceholder')}
+                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white/80 mb-2">
+                        {t('gallery.artDescription')}
+                      </label>
+                      <Input
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder={t('gallery.descriptionPlaceholder')}
+                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400"
+                        maxLength={200}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Pixel Editor Content */}
-                <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 min-h-0 flex flex-col relative">
                   
-                  {/* Canvas Area - Main Drawing Space */}
-                  <div className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 m-2 mb-0 rounded-t-xl overflow-hidden min-h-0">
-                    <div className="h-full w-full flex items-center justify-center p-1">
+                  {/* NFT Hero Banner Section */}
+                  <div className="absolute top-0 left-0 right-0 h-20 sm:h-24 md:h-28 z-10 overflow-hidden">
+                    {/* Animated background elements */}
+                    <div className="absolute inset-0">
+                      <div className="absolute top-2 left-4 w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 rounded-full blur-xl animate-pulse"></div>
+                      <div className="absolute top-4 right-8 w-12 h-12 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-lg animate-pulse animation-delay-500"></div>
+                      <div className="absolute bottom-2 left-1/3 w-8 h-8 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-full blur-md animate-pulse animation-delay-1000"></div>
+                    </div>
+                    
+                    {/* Main content */}
+                    <div className="relative h-full flex items-center justify-center p-4">
+                      <div className="w-full max-w-2xl">
+                        {/* Background card */}
+                        <div className="relative bg-gradient-to-br from-white/15 via-white/10 to-white/5 backdrop-blur-lg rounded-2xl border border-white/30 shadow-2xl overflow-hidden">
+                          {/* Glow effect */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
+                          
+                          {/* Content */}
+                          <div className="relative p-2 sm:p-3 md:p-4">
+                            {/* Icon/Symbol */}
+                            <div className="flex justify-center mb-1 sm:mb-2">
+                              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-xs sm:text-sm">💎</span>
+                              </div>
+                            </div>
+                            
+                            {/* Main text */}
+                            <div className="text-center">
+                              <h2 className="text-white text-xs sm:text-sm md:text-base lg:text-lg font-bold mb-1 leading-tight">
+                                <span className="bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent animate-pulse">
+                                  {t('nft.mintMessage')}
+                                </span>
+                              </h2>
+                              
+                              {/* Subtitle/Description */}
+                              <p className="text-white/80 text-xs sm:text-sm font-medium">
+                                <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
+                                  ⭐ Create • Mint • Earn ⭐
+                                </span>
+                              </p>
+                            </div>
+                            
+                            {/* Decorative elements */}
+                            <div className="absolute top-1 left-1 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></div>
+                            <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
+                            <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Canvas Area - Main Drawing Space - Reserve space for toolbar */}
+                  <div className="absolute top-20 sm:top-24 md:top-28 left-0 right-0 bottom-40 bg-white/10 backdrop-blur-sm overflow-hidden">
+                    <div className="h-full w-full flex items-center justify-center">
                       <canvas
                         ref={displayRef}
                         onPointerDown={handlePointerDown}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
-                        className="border border-white/20 rounded bg-white/5 shadow-lg"
+                        className="bg-white/5"
                         style={{
                           imageRendering: 'pixelated',
                           touchAction: 'none',
@@ -445,112 +580,120 @@ const Creation = () => {
                     </div>
                   </div>
 
-                  {/* Bottom Control Panel - Compact Layout */}
-                  <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm border-t border-white/20 m-2 mt-0 rounded-b-xl">
+                  {/* Bottom Control Panel - Overlay Style */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-white/10 backdrop-blur-sm border-t border-white/20">
                     
-                    {/* Drawing Tools Row */}
-                    <div className="flex items-center justify-center gap-3 p-3 pb-2">
-                        {/* Undo/Redo */}
-                        <div className="flex gap-2 bg-white/5 rounded-lg p-2">
+                    {/* Drawing Tools Row - Responsive Layout */}
+                    <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
+                        {/* Undo/Redo/Clear */}
+                        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={undo}
                             disabled={histIndex <= 0}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-2"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
                           >
-                            <RotateCcw className="h-4 w-4" />
+                            <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={redo}
                             disabled={histIndex >= history.length - 1}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-2"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
                           >
-                            <RotateCw className="h-4 w-4" />
+                            <RotateCw className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={clearCanvas}
+                            className="bg-white/5 border-white/20 text-white hover:bg-red-500/20 hover:border-red-400/40 p-1.5 min-w-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
 
                         {/* Main Tools */}
-                        <div className="flex gap-2 bg-white/5 rounded-lg p-2">
+                        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
                           <Button
                             variant={tool === "pen" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("pen")}
-                            className={`p-2 ${tool === "pen" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1.5 min-w-0 ${tool === "pen" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <Pen className="h-4 w-4" />
+                            <Pen className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant={tool === "eraser" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("eraser")}
-                            className={`p-2 ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1.5 min-w-0 ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <Eraser className="h-4 w-4" />
+                            <Eraser className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant={tool === "fill" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("fill")}
-                            className={`p-2 ${tool === "fill" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1.5 min-w-0 ${tool === "fill" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <PaintBucket className="h-4 w-4" />
+                            <PaintBucket className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant={tool === "picker" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("picker")}
-                            className={`p-2 ${tool === "picker" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1.5 min-w-0 ${tool === "picker" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <Pipette className="h-4 w-4" />
+                            <Pipette className="h-3.5 w-3.5" />
                           </Button>
                         </div>
 
                         {/* View Controls */}
-                        <div className="flex gap-2 bg-white/5 rounded-lg p-2">
+                        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setScale(s => clamp(s - 1, 1, 40))}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-2"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3.5 w-3.5" />
                           </Button>
-                          <div className="px-3 py-2 bg-white/5 rounded border border-white/20 text-white text-sm min-w-[60px] text-center">
+                          <div className="px-2 py-1.5 bg-white/5 rounded border border-white/20 text-white text-xs min-w-[40px] text-center">
                             {scale}x
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setScale(s => clamp(s + 1, 1, 40))}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-2"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3.5 w-3.5" />
                           </Button>
                         </div>
 
                         {/* Grid Toggle */}
-                        <div className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
-                          <Grid3X3 className="h-4 w-4 text-white/60" />
+                        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+                          <Grid3X3 className="h-3.5 w-3.5 text-white/60" />
                           <Switch
                             checked={showGrid}
                             onCheckedChange={setShowGrid}
-                            className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-cyan-500 data-[state=checked]:to-purple-500"
+                            className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-cyan-500 data-[state=checked]:to-purple-500 scale-75"
                           />
                         </div>
                       </div>
 
-                    {/* Color Palette Row */}
-                    <div className="flex items-center justify-center gap-4 p-3 pt-2">
-                      <div className="flex gap-2 bg-white/5 rounded-lg p-2">
+                    {/* Color Palette Row - Responsive Layout */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 p-2">
+                      <div className="flex flex-wrap gap-1 sm:gap-2 bg-white/5 rounded-lg p-1 sm:p-2 max-w-full">
                         {palette.map((hex, i) => (
                           <button
                             key={i}
                             onClick={() => setColorIdx(i)}
-                            className={`w-7 h-7 rounded-lg border-2 transition-all duration-200 hover:scale-110 ${
-                              i === colorIdx ? 'border-cyan-400 shadow-lg shadow-cyan-400/30' : 'border-white/30 hover:border-white/60'
+                            className={`w-5 h-5 sm:w-6 sm:h-6 rounded border-2 transition-all duration-200 hover:scale-110 flex-shrink-0 ${
+                              i === colorIdx ? 'border-cyan-400 shadow-md shadow-cyan-400/30' : 'border-white/30 hover:border-white/60'
                             }`}
                             style={{ backgroundColor: hex }}
                             title={`Color ${i}: ${hex}`}
@@ -562,9 +705,9 @@ const Creation = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setPalette([...palette, "#ff0000"])}
-                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-2"
+                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0 flex-shrink-0"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -574,8 +717,7 @@ const Creation = () => {
             </div>
           </div>
         </div>
-      </div>
-    </PageLayout>
+    </div>
   );
 };
 

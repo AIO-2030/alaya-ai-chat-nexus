@@ -105,6 +105,7 @@ export interface EmissionPolicy {
   'kappa_factor' : number,
   'staking_bonus' : number,
 }
+export interface Frame { 'pixels' : Array<PixelRow>, 'duration_ms' : number }
 export type GrantAction = { 'NewUser' : null } |
   { 'NewDeveloper' : null };
 export interface GrantPolicy {
@@ -189,9 +190,27 @@ export interface NotificationItem {
   'timestamp' : bigint,
   'message_id' : bigint,
 }
+export interface PixelArtSource {
+  'height' : number,
+  'metadata' : [] | [SourceMeta],
+  'palette' : Array<string>,
+  'pixels' : Array<PixelRow>,
+  'frames' : [] | [Array<Frame>],
+  'width' : number,
+}
+export type PixelRow = Uint16Array | number[];
 export type Platform = { 'Linux' : null } |
   { 'Both' : null } |
   { 'Windows' : null };
+export interface Project {
+  'updated_at' : bigint,
+  'owner' : Principal,
+  'history' : Array<Version>,
+  'created_at' : bigint,
+  'current_version' : Version,
+  'project_id' : ProjectId,
+}
+export type ProjectId = string;
 export interface ProtocolCall {
   'id' : number,
   'protocol' : string,
@@ -236,6 +255,11 @@ export interface Source {
   'author' : string,
   'version' : string,
   'github' : string,
+}
+export interface SourceMeta {
+  'title' : [] | [string],
+  'tags' : [] | [Array<string>],
+  'description' : [] | [string],
 }
 export interface StackPositionRecord {
   'id' : bigint,
@@ -326,6 +350,14 @@ export interface UserProfile {
   'principal_id' : string,
   'devices' : Array<string>,
 }
+export interface Version {
+  'version_id' : VersionId,
+  'source' : PixelArtSource,
+  'editor' : Principal,
+  'created_at' : bigint,
+  'message' : [] | [string],
+}
+export type VersionId = string;
 export interface WorkItem {
   'id' : bigint,
   'status' : WorkStatus,
@@ -426,6 +458,11 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'create_pixel_project' : ActorMethod<
+    [string, PixelArtSource, [] | [string]],
+    { 'Ok' : ProjectId } |
+      { 'Err' : string }
+  >,
   'create_token_grant' : ActorMethod<
     [TokenGrant],
     { 'Ok' : null } |
@@ -456,6 +493,11 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'delete_pixel_project' : ActorMethod<
+    [string, ProjectId],
+    { 'Ok' : boolean } |
+      { 'Err' : string }
+  >,
   'delete_recharge_principal_account_api' : ActorMethod<
     [],
     { 'Ok' : null } |
@@ -473,6 +515,11 @@ export interface _SERVICE {
   >,
   'export_aio_index_to_json' : ActorMethod<
     [string],
+    { 'Ok' : string } |
+      { 'Err' : string }
+  >,
+  'export_pixel_for_device' : ActorMethod<
+    [ProjectId, [] | [VersionId]],
     { 'Ok' : string } |
       { 'Err' : string }
   >,
@@ -582,6 +629,14 @@ export interface _SERVICE {
     [string],
     Array<NotificationItem>
   >,
+  'get_pixel_current_source' : ActorMethod<[ProjectId], [] | [PixelArtSource]>,
+  'get_pixel_project' : ActorMethod<[ProjectId], [] | [Project]>,
+  'get_pixel_project_count_by_owner' : ActorMethod<[Principal], bigint>,
+  'get_pixel_projects_paginated' : ActorMethod<
+    [bigint, bigint],
+    Array<Project>
+  >,
+  'get_pixel_version' : ActorMethod<[ProjectId, VersionId], [] | [Version]>,
   'get_recent_chat_messages' : ActorMethod<
     [string, string],
     Array<ChatMessage>
@@ -629,6 +684,7 @@ export interface _SERVICE {
   >,
   'get_total_aiotoken_claimable' : ActorMethod<[], bigint>,
   'get_total_contacts_by_owner' : ActorMethod<[string], bigint>,
+  'get_total_pixel_project_count' : ActorMethod<[], bigint>,
   'get_total_stacked_credits' : ActorMethod<[], bigint>,
   'get_total_user_profiles' : ActorMethod<[], bigint>,
   'get_trace' : ActorMethod<[string], [] | [TraceLog]>,
@@ -711,6 +767,10 @@ export interface _SERVICE {
   'greet' : ActorMethod<[string], string>,
   'init_emission_policy' : ActorMethod<[], undefined>,
   'init_grant_policy' : ActorMethod<[[] | [GrantPolicy]], undefined>,
+  'list_pixel_projects_by_owner' : ActorMethod<
+    [Principal, number, number],
+    Array<Project>
+  >,
   'list_recharge_principal_accounts_api' : ActorMethod<
     [],
     Array<RechargePrincipalAccount>
@@ -751,6 +811,11 @@ export interface _SERVICE {
   'revert_Index_find_by_keywords_strategy' : ActorMethod<
     [Array<string>],
     string
+  >,
+  'save_pixel_version' : ActorMethod<
+    [string, ProjectId, PixelArtSource, [] | [string], [] | [string]],
+    { 'Ok' : VersionId } |
+      { 'Err' : string }
   >,
   'search_aio_indices_by_keyword' : ActorMethod<[string], Array<AioIndex>>,
   'search_contacts_by_name' : ActorMethod<[string, string], Array<Contact>>,

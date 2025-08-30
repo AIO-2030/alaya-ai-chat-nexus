@@ -92,6 +92,25 @@ export const idlFactory = ({ IDL }) => {
     'start_time' : IDL.Nat64,
     'amount' : IDL.Nat64,
   });
+  const SourceMeta = IDL.Record({
+    'title' : IDL.Opt(IDL.Text),
+    'tags' : IDL.Opt(IDL.Vec(IDL.Text)),
+    'description' : IDL.Opt(IDL.Text),
+  });
+  const PixelRow = IDL.Vec(IDL.Nat16);
+  const Frame = IDL.Record({
+    'pixels' : IDL.Vec(PixelRow),
+    'duration_ms' : IDL.Nat32,
+  });
+  const PixelArtSource = IDL.Record({
+    'height' : IDL.Nat32,
+    'metadata' : IDL.Opt(SourceMeta),
+    'palette' : IDL.Vec(IDL.Text),
+    'pixels' : IDL.Vec(PixelRow),
+    'frames' : IDL.Opt(IDL.Vec(Frame)),
+    'width' : IDL.Nat32,
+  });
+  const ProjectId = IDL.Text;
   const TokenGrant = IDL.Record({
     'status' : TokenGrantStatus,
     'claimed_amount' : IDL.Nat64,
@@ -99,6 +118,7 @@ export const idlFactory = ({ IDL }) => {
     'start_time' : IDL.Nat64,
     'amount' : IDL.Nat64,
   });
+  const VersionId = IDL.Text;
   SchemaProperty.fill(
     IDL.Record({
       'description' : IDL.Opt(IDL.Text),
@@ -263,6 +283,21 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Nat64,
     'message_id' : IDL.Nat64,
   });
+  const Version = IDL.Record({
+    'version_id' : VersionId,
+    'source' : PixelArtSource,
+    'editor' : IDL.Principal,
+    'created_at' : IDL.Nat64,
+    'message' : IDL.Opt(IDL.Text),
+  });
+  const Project = IDL.Record({
+    'updated_at' : IDL.Nat64,
+    'owner' : IDL.Principal,
+    'history' : IDL.Vec(Version),
+    'created_at' : IDL.Nat64,
+    'current_version' : Version,
+    'project_id' : ProjectId,
+  });
   const RechargeRecord = IDL.Record({
     'user' : IDL.Principal,
     'timestamp' : IDL.Nat64,
@@ -417,6 +452,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
+    'create_pixel_project' : IDL.Func(
+        [IDL.Text, PixelArtSource, IDL.Opt(IDL.Text)],
+        [IDL.Variant({ 'Ok' : ProjectId, 'Err' : IDL.Text })],
+        [],
+      ),
     'create_token_grant' : IDL.Func(
         [TokenGrant],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
@@ -447,6 +487,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
+    'delete_pixel_project' : IDL.Func(
+        [IDL.Text, ProjectId],
+        [IDL.Variant({ 'Ok' : IDL.Bool, 'Err' : IDL.Text })],
+        [],
+      ),
     'delete_recharge_principal_account_api' : IDL.Func(
         [],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
@@ -464,6 +509,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'export_aio_index_to_json' : IDL.Func(
         [IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
+        ['query'],
+      ),
+    'export_pixel_for_device' : IDL.Func(
+        [ProjectId, IDL.Opt(VersionId)],
         [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
         ['query'],
       ),
@@ -659,6 +709,27 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(NotificationItem)],
         ['query'],
       ),
+    'get_pixel_current_source' : IDL.Func(
+        [ProjectId],
+        [IDL.Opt(PixelArtSource)],
+        ['query'],
+      ),
+    'get_pixel_project' : IDL.Func([ProjectId], [IDL.Opt(Project)], ['query']),
+    'get_pixel_project_count_by_owner' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Nat64],
+        ['query'],
+      ),
+    'get_pixel_projects_paginated' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(Project)],
+        ['query'],
+      ),
+    'get_pixel_version' : IDL.Func(
+        [ProjectId, VersionId],
+        [IDL.Opt(Version)],
+        ['query'],
+      ),
     'get_recent_chat_messages' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Vec(ChatMessage)],
@@ -733,6 +804,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat64],
         ['query'],
       ),
+    'get_total_pixel_project_count' : IDL.Func([], [IDL.Nat64], ['query']),
     'get_total_stacked_credits' : IDL.Func([], [IDL.Nat64], ['query']),
     'get_total_user_profiles' : IDL.Func([], [IDL.Nat64], ['query']),
     'get_trace' : IDL.Func([IDL.Text], [IDL.Opt(TraceLog)], ['query']),
@@ -882,6 +954,11 @@ export const idlFactory = ({ IDL }) => {
     'greet' : IDL.Func([IDL.Text], [IDL.Text], ['query']),
     'init_emission_policy' : IDL.Func([], [], []),
     'init_grant_policy' : IDL.Func([IDL.Opt(GrantPolicy)], [], []),
+    'list_pixel_projects_by_owner' : IDL.Func(
+        [IDL.Principal, IDL.Nat32, IDL.Nat32],
+        [IDL.Vec(Project)],
+        ['query'],
+      ),
     'list_recharge_principal_accounts_api' : IDL.Func(
         [],
         [IDL.Vec(RechargePrincipalAccount)],
@@ -928,6 +1005,17 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Text)],
         [IDL.Text],
         ['query'],
+      ),
+    'save_pixel_version' : IDL.Func(
+        [
+          IDL.Text,
+          ProjectId,
+          PixelArtSource,
+          IDL.Opt(IDL.Text),
+          IDL.Opt(IDL.Text),
+        ],
+        [IDL.Variant({ 'Ok' : VersionId, 'Err' : IDL.Text })],
+        [],
       ),
     'search_aio_indices_by_keyword' : IDL.Func(
         [IDL.Text],

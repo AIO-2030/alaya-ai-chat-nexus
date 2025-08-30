@@ -52,12 +52,30 @@ const resources = {
         langShortEN: 'EN',
         langShortZH: '中文'
       },
+      auth: {
+        loginRequired: 'Login Required',
+        loginWithGoogle: 'Login with Google',
+        loginWithWallet: 'Login with Wallet'
+      },
       gallery: {
         title: 'Gallery',
         public: 'Public',
         myCreator: 'My Creator',
         create: 'Create',
-        createNew: '+ Create'
+        createNew: '+ Create',
+        noCreations: 'No Creations Yet',
+        startCreating: 'Start creating your first pixel art masterpiece!',
+        loadingCreations: 'Loading your creations...',
+        loginToViewCreations: 'Please login to view your pixel art creations',
+        loadingMore: 'Loading more...',
+        allLoaded: 'All creations loaded',
+        saveSuccess: 'Your pixel art has been saved successfully!',
+        saveError: 'Failed to save your creation',
+        saving: 'Saving...',
+        artTitle: 'Title',
+        titlePlaceholder: 'Enter a title for your pixel art...',
+        artDescription: 'Description',
+        descriptionPlaceholder: 'Describe your creation...'
       },
       pixel: {
         title: 'Pixel Art',
@@ -71,6 +89,9 @@ const resources = {
         smoothing: 'Smoothing',
         apply: 'Apply Pixel Effect',
         reset: 'Reset to Original'
+      },
+      nft: {
+        mintMessage: 'Mint your creation as NFT — Earn rewards & recognition.'
       },
       userManagement: {
         title: 'My Profile',
@@ -162,12 +183,30 @@ const resources = {
         langShortEN: 'EN',
         langShortZH: '中文'
       },
+      auth: {
+        loginRequired: '需要登录',
+        loginWithGoogle: '使用 Google 登录',
+        loginWithWallet: '使用钱包登录'
+      },
       gallery: {
         title: '图库',
         public: '公开',
         myCreator: '我的创作',
         create: '创建',
-        createNew: '+ 创建'
+        createNew: '+ 创建',
+        noCreations: '暂无创作',
+        startCreating: '开始创建您的第一个像素艺术杰作吧！',
+        loadingCreations: '正在加载您的作品...',
+        loginToViewCreations: '请登录查看您的像素艺术作品',
+        loadingMore: '加载更多...',
+        allLoaded: '所有作品已加载完成',
+        saveSuccess: '您的像素艺术已成功保存！',
+        saveError: '保存作品失败',
+        saving: '保存中...',
+        artTitle: '标题',
+        titlePlaceholder: '为您的像素艺术输入标题...',
+        artDescription: '描述',
+        descriptionPlaceholder: '描述您的创作...'
       },
       pixel: {
         title: '像素艺术',
@@ -181,6 +220,9 @@ const resources = {
         smoothing: '平滑处理',
         apply: '应用像素效果',
         reset: '重置为原始'
+      },
+      nft: {
+        mintMessage: '将您的创作铸造为NFT — 获得奖励与认可。'
       },
       userManagement: {
         title: '我的档案',
