@@ -255,68 +255,7 @@ class RealDeviceService {
         }
       }
 
-      // If still no networks found, use realistic mock data
-      if (networks.length === 0) {
-        console.log('No real networks found, using realistic mock data...');
-        
-        // Simulate real WiFi scanning with more realistic data
-        const mockNetworks: WiFiNetwork[] = [
-          { 
-            id: 'wifi_1', 
-            name: "MyHome_WiFi_5G", 
-            security: "WPA2", 
-            strength: -35,
-            frequency: 5180,
-            channel: 36
-          },
-          { 
-            id: 'wifi_2', 
-            name: "MyHome_WiFi_2.4G", 
-            security: "WPA2", 
-            strength: -45,
-            frequency: 2412,
-            channel: 1
-          },
-          { 
-            id: 'wifi_3', 
-            name: "Guest_Network", 
-            security: "Open", 
-            strength: -55,
-            frequency: 2412,
-            channel: 6
-          },
-          { 
-            id: 'wifi_4', 
-            name: "Office_5G", 
-            security: "WPA3", 
-            strength: -65,
-            frequency: 5220,
-            channel: 40
-          },
-          { 
-            id: 'wifi_5', 
-            name: "Neighbor_WiFi", 
-            security: "WPA2", 
-            strength: -70,
-            frequency: 2437,
-            channel: 6
-          },
-          { 
-            id: 'wifi_6', 
-            name: "Public_WiFi", 
-            security: "Open", 
-            strength: -80,
-            frequency: 2412,
-            channel: 1
-          },
-        ];
-
-        // Simulate scanning delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        networks.push(...mockNetworks);
-      }
-
+      // Return whatever networks we found (could be empty array)
       this.wifiNetworks = networks;
       this.isScanningWifi = false;
       console.log('[WiFi] isScanningWifi set -> false');
@@ -341,160 +280,141 @@ class RealDeviceService {
 
       // Check if Web Bluetooth is supported
       if (!this.isWebBluetoothSupported()) {
-        console.log('Web Bluetooth not supported, using realistic mock data');
-        // Fallback to realistic mock data
-        const mockDevices: BluetoothDevice[] = [
-          { 
-            id: 'bt_1', 
-            name: "Smart Speaker Pro", 
-            rssi: -45, 
-            type: "speaker", 
-            mac: "AA:BB:CC:DD:EE:FF",
-            paired: false,
-            connectable: true
-          },
-          { 
-            id: 'bt_2', 
-            name: "IoT Camera", 
-            rssi: -55, 
-            type: "camera", 
-            mac: "11:22:33:44:55:66",
-            paired: false,
-            connectable: true
-          },
-          { 
-            id: 'bt_3', 
-            name: "Smart Light Bulb", 
-            rssi: -60, 
-            type: "light", 
-            mac: "AA:11:BB:22:CC:33",
-            paired: false,
-            connectable: true
-          },
-          { 
-            id: 'bt_4', 
-            name: "Temperature Sensor", 
-            rssi: -65, 
-            type: "sensor", 
-            mac: "DD:44:EE:55:FF:66",
-            paired: false,
-            connectable: true
-          },
-          { 
-            id: 'bt_5', 
-            name: "Smart Thermostat", 
-            rssi: -70, 
-            type: "thermostat", 
-            mac: "FF:77:AA:88:BB:99",
-            paired: false,
-            connectable: true
-          },
-        ];
+        console.log('Web Bluetooth not supported, returning empty array');
+        this.bluetoothDevices = devices;
+        this.isScanningBluetooth = false;
+        console.log('[BLE] isScanningBluetooth set -> false');
+        console.log('Bluetooth scan completed, found', devices.length, 'devices');
+        return devices;
+      }
 
-        // Simulate scanning delay
-        await new Promise(resolve => setTimeout(resolve, 3000));
+      // Try to use real Web Bluetooth API
+      try {
+        console.log('Attempting real Bluetooth scan...');
         
-        devices.push(...mockDevices);
-      } else {
-        // Try to use real Web Bluetooth API
-        try {
-          console.log('Attempting real Bluetooth scan...');
-          
-          // Request Bluetooth permission and scan for devices
-          const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: ['generic_access', 'device_information', 'battery_service']
-          });
+        // Request Bluetooth permission and scan for devices
+        const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['generic_access']
+        });
 
-          console.log('Bluetooth device selected:', bluetoothDevice.name);
+        console.log('Bluetooth device selected:', bluetoothDevice.name);
+        
+        // Add device to list even if GATT connection fails
+        devices.push({
+          id: bluetoothDevice.id || 'real_device',
+          name: bluetoothDevice.name || 'Unknown Device',
+          rssi: -50, // Web Bluetooth API doesn't provide RSSI
+          type: 'unknown',
+          mac: bluetoothDevice.id || 'Unknown',
+          paired: true,
+          connectable: true
+        });
+        
+        console.log('Device added to list:', bluetoothDevice.name);
+        
+        // Try to connect to GATT server to get additional device information
+        try {
+          console.log('Attempting to connect to GATT server...');
           
-          // Connect to GATT server to get device information
-          const server = await bluetoothDevice.gatt?.connect();
+          // 添加超时处理，避免无限等待
+          const gattPromise = bluetoothDevice.gatt?.connect();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('GATT connection timeout')), 10000)
+          );
+          
+          const server = await Promise.race([gattPromise, timeoutPromise]);
+          
           if (server) {
             console.log('Connected to GATT server');
             
-            // Get device information service
-            const deviceInfoService = await server.getPrimaryService('device_information');
-            if (deviceInfoService) {
-              const manufacturerCharacteristic = await deviceInfoService.getCharacteristic('manufacturer_name_string');
-              const manufacturer = await manufacturerCharacteristic?.readValue();
-              
-              devices.push({
-                id: bluetoothDevice.id || 'real_device',
-                name: bluetoothDevice.name || 'Unknown Device',
-                rssi: -50, // Web Bluetooth API doesn't provide RSSI
-                type: 'unknown',
-                mac: bluetoothDevice.id || 'Unknown',
-                paired: true,
-                connectable: true
-              });
+            // Try to get device information service
+            try {
+              const deviceInfoService = await server.getPrimaryService('device_information');
+              if (deviceInfoService) {
+                console.log('Device information service found');
+                // Update device type if we can get manufacturer info
+                const manufacturerCharacteristic = await deviceInfoService.getCharacteristic('manufacturer_name_string');
+                if (manufacturerCharacteristic) {
+                  const manufacturer = await manufacturerCharacteristic.readValue();
+                  console.log('Manufacturer info retrieved');
+                }
+              }
+            } catch (serviceError) {
+              console.log('Device information service not available:', serviceError);
             }
+          } else {
+            console.log('Failed to connect to GATT server, but device is still available');
           }
-          
-          // If no real devices found, add some realistic mock devices
-          if (devices.length === 0) {
-            console.log('No real Bluetooth devices found, adding mock devices');
-            const mockDevices: BluetoothDevice[] = [
-              { 
-                id: 'bt_1', 
-                name: "Smart Speaker Pro", 
-                rssi: -45, 
-                type: "speaker", 
-                mac: "AA:BB:CC:DD:EE:FF",
-                paired: false,
-                connectable: true
-              },
-              { 
-                id: 'bt_2', 
-                name: "IoT Camera", 
-                rssi: -55, 
-                type: "camera", 
-                mac: "11:22:33:44:55:66",
-                paired: false,
-                connectable: true
-              },
-            ];
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            devices.push(...mockDevices);
-          }
-          
-        } catch (bluetoothError) {
-          console.log('Web Bluetooth scan failed, using mock data:', bluetoothError);
-          // Fallback to mock data
-          const mockDevices: BluetoothDevice[] = [
-            { 
-              id: 'bt_1', 
-              name: "Smart Speaker Pro", 
-              rssi: -45, 
-              type: "speaker", 
-              mac: "AA:BB:CC:DD:EE:FF",
-              paired: false,
-              connectable: true
-            },
-            { 
-              id: 'bt_2', 
-              name: "IoT Camera", 
-              rssi: -55, 
-              type: "camera", 
-              mac: "11:22:33:44:55:66",
-              paired: false,
-              connectable: true
-            },
-            { 
-              id: 'bt_3', 
-              name: "Smart Light Bulb", 
-              rssi: -60, 
-              type: "light", 
-              mac: "AA:11:BB:22:CC:33",
-              paired: false,
-              connectable: true
-            },
-          ];
-
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          devices.push(...mockDevices);
+        } catch (gattError) {
+          console.log('GATT connection failed, but device is still available:', gattError);
         }
+        
+      } catch (bluetoothError) {
+        console.log('Web Bluetooth scan failed:', bluetoothError);
+        // Return empty array instead of mock data
+      }
+
+      this.bluetoothDevices = devices;
+      this.isScanningBluetooth = false;
+      console.log('[BLE] isScanningBluetooth set -> false');
+      console.log('Bluetooth scan completed, found', devices.length, 'devices');
+      return devices;
+    } catch (error) {
+      this.isScanningBluetooth = false;
+      console.log('[BLE] isScanningBluetooth set -> false');
+      console.error('Bluetooth scan failed:', error);
+      throw new Error('Bluetooth scan failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  // Simple Bluetooth scan without GATT connection
+  async scanBluetoothDevicesSimple(): Promise<BluetoothDevice[]> {
+    try {
+      console.log('Starting simple Bluetooth device scan...');
+      this.isScanningBluetooth = true;
+      console.log('[BLE] isScanningBluetooth set -> true');
+
+      const devices: BluetoothDevice[] = [];
+
+      // Check if Web Bluetooth is supported
+      if (!this.isWebBluetoothSupported()) {
+        console.log('Web Bluetooth not supported, returning empty array');
+        this.bluetoothDevices = devices;
+        this.isScanningBluetooth = false;
+        console.log('[BLE] isScanningBluetooth set -> false');
+        console.log('Bluetooth scan completed, found', devices.length, 'devices');
+        return devices;
+      }
+
+      // Try to use real Web Bluetooth API with minimal services
+      try {
+        console.log('Attempting simple Bluetooth scan...');
+        
+        // Request Bluetooth permission with minimal services
+        const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [] // 不请求任何服务，只获取设备信息
+        });
+
+        console.log('Bluetooth device selected:', bluetoothDevice.name);
+        
+        // Add device to list immediately without GATT connection
+        devices.push({
+          id: bluetoothDevice.id || 'real_device',
+          name: bluetoothDevice.name || 'Unknown Device',
+          rssi: -50, // Web Bluetooth API doesn't provide RSSI
+          type: 'unknown',
+          mac: bluetoothDevice.id || 'Unknown',
+          paired: true,
+          connectable: true
+        });
+        
+        console.log('Device added to list:', bluetoothDevice.name);
+        
+      } catch (bluetoothError) {
+        console.log('Simple Bluetooth scan failed:', bluetoothError);
+        // Return empty array instead of mock data
       }
 
       this.bluetoothDevices = devices;
@@ -541,16 +461,12 @@ class RealDeviceService {
             throw new Error('Failed to connect to GATT server');
           }
         } catch (bluetoothError) {
-          console.log('Web Bluetooth connection failed, simulating success:', bluetoothError);
-          // Simulate successful connection for demo
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          return true;
+          console.log('Web Bluetooth connection failed:', bluetoothError);
+          throw new Error('Bluetooth connection failed: ' + (bluetoothError instanceof Error ? bluetoothError.message : 'Unknown error'));
         }
       } else {
-        // Simulate connection for non-supported browsers
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('Bluetooth connection successful (simulated):', device.name);
-        return true;
+        console.log('Web Bluetooth not supported');
+        throw new Error('Web Bluetooth API not supported');
       }
     } catch (error) {
       console.error('Bluetooth connection failed:', error);
@@ -576,22 +492,9 @@ class RealDeviceService {
       // 2. Send configuration commands
       // 3. Verify the device connects to WiFi
       
-      // Simulate the configuration process
-      const steps = [
-        { progress: 20, message: "Establishing Bluetooth connection..." },
-        { progress: 40, message: "Transmitting WiFi configuration..." },
-        { progress: 60, message: "Device connecting to WiFi..." },
-        { progress: 80, message: "Verifying connection status..." },
-        { progress: 100, message: "Configuration successful!" }
-      ];
-
-      for (const step of steps) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log(step.message, step.progress + '%');
-      }
-      
-      console.log('WiFi configuration successful');
-      return true;
+      // For now, return false since we don't have real device communication
+      console.log('No real device communication implemented');
+      throw new Error('WiFi configuration via Bluetooth not yet implemented');
     } catch (error) {
       console.error('WiFi configuration failed:', error);
       throw new Error('WiFi configuration failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -600,43 +503,61 @@ class RealDeviceService {
 
   // Get connection progress
   async getConnectionProgress(): Promise<ConnectionProgress[]> {
-    return [
-      { progress: 20, message: "Establishing Bluetooth connection..." },
-      { progress: 40, message: "Transmitting WiFi configuration..." },
-      { progress: 60, message: "Device connecting to WiFi..." },
-      { progress: 80, message: "Verifying connection status..." },
-      { progress: 100, message: "Connection successful!" }
-    ];
+    // No real connection progress available yet
+    return [];
   }
 
-  // Submit device record to backend
-  async submitDeviceRecord(record: DeviceRecord): Promise<boolean> {
+  // Request WiFi scan from device via Bluetooth
+  async requestWiFiScanFromDevice(device: BluetoothDevice): Promise<WiFiNetwork[]> {
     try {
-      console.log('Submitting device record to backend:', record);
+      console.log('Requesting WiFi scan from device via Bluetooth:', device.name);
       
-      // In a real app, this would be an actual API call
-      const response = await fetch('/api/devices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(record),
-      });
+      // In a real implementation, you would:
+      // 1. Send WiFi scan command to device via Bluetooth
+      // 2. Wait for device to scan nearby WiFi networks
+      // 3. Receive WiFi network list from device
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      // For now, return empty array since we don't have real device communication
+      console.log('No real device communication implemented, returning empty array');
+      return [];
+    } catch (error) {
+      console.error('Failed to request WiFi networks from device:', error);
+      throw new Error('WiFi scan request failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  // Submit device record to backend canister (mock implementation)
+  async submitDeviceRecordToCanister(record: DeviceRecord): Promise<boolean> {
+    try {
+      console.log('Submitting device record to backend canister:', record);
       
-      const result = await response.json();
-      console.log('Device record submitted successfully:', result);
+      // TODO: Implement actual canister integration
+      // In a real implementation, this would:
+      // 1. Call IC canister method to store device record
+      // 2. Handle authentication and authorization
+      // 3. Return actual response from canister
+      
+      // Mock canister call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Simulate canister response
+      const canisterResponse = {
+        success: true,
+        deviceId: `device_${Date.now()}`,
+        message: "Device record stored successfully in canister"
+      };
+      
+      console.log('Device record submitted to canister successfully:', canisterResponse);
       return true;
     } catch (error) {
-      console.error('Failed to submit device record:', error);
-      // For demo purposes, simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Device record submitted successfully (simulated)');
-      return true;
+      console.error('Failed to submit device record to canister:', error);
+      throw new Error('Canister submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
+  }
+
+  // Legacy method - kept for backward compatibility
+  async submitDeviceRecord(record: DeviceRecord): Promise<boolean> {
+    return this.submitDeviceRecordToCanister(record);
   }
 
   // Get device list
@@ -653,17 +574,8 @@ class RealDeviceService {
       return result.devices || [];
     } catch (error) {
       console.error('Failed to get device list:', error);
-      // Return mock data as fallback
-      return [
-        {
-          name: "Smart Speaker Pro",
-          type: "speaker",
-          macAddress: "AA:BB:CC:DD:EE:FF",
-          wifiNetwork: "MyHome_WiFi_5G",
-          status: "Connected",
-          connectedAt: new Date().toISOString()
-        }
-      ];
+      // Return empty array instead of mock data
+      return [];
     }
   }
 

@@ -1,7 +1,7 @@
 // Device Management Hook - Manage device initialization and state
 import { useState, useEffect, useCallback } from 'react';
 import { deviceInitManager, DeviceInitStep, DeviceInitState } from '../services/deviceInitManager';
-import { deviceService, DeviceRecord } from '../services/deviceService';
+import { realDeviceService, DeviceRecord } from '../services/realDeviceService';
 
 export interface UseDeviceManagementReturn {
   // State
@@ -50,7 +50,7 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
   const loadDevices = useCallback(async () => {
     try {
       setIsLoading(true);
-      const deviceList = await deviceService.getDeviceList();
+      const deviceList = await realDeviceService.getDeviceList();
       setDevices(deviceList);
     } catch (error) {
       console.error('Failed to load devices:', error);

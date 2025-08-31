@@ -11,19 +11,19 @@ import { PageLayout } from '../components/PageLayout';
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { DeviceInitStep } from '../services/deviceInitManager';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const AddDevice = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [selectedWifi, setSelectedWifi] = useState<any>(null);
   const [wifiPassword, setWifiPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  // Device management hook
+  // Device management hook - only for device initialization
   const {
     deviceInitState,
-    devices: managedDevices,
     isLoading: deviceLoading,
     error: deviceError,
     startDeviceInit,
@@ -37,49 +37,63 @@ const AddDevice = () => {
   } = useDeviceManagement();
 
   const handleStartDeviceInit = async () => {
-    await startDeviceInit();
+    try {
+      await startDeviceInit();
+    } catch (error) {
+      console.error('Device initialization failed:', error);
+    }
   };
 
   const handleWifiSelected = async (wifi: any) => {
-    setSelectedWifi(wifi);
     setShowPasswordDialog(true);
   };
 
   const handleWifiPasswordSubmit = async () => {
-    if (!selectedWifi) return;
+    if (!wifiPassword.trim()) return;
     
     try {
-      // Add password to WiFi network
+      // Use the selected WiFi network from deviceInitState
+      if (!deviceInitState.selectedWifi) {
+        console.error('No WiFi network selected');
+        return;
+      }
+      
+      // Create WiFi network with password
       const wifiWithPassword = {
-        ...selectedWifi,
+        ...deviceInitState.selectedWifi,
         password: wifiPassword
       };
       
       await selectWiFi(wifiWithPassword);
       setShowPasswordDialog(false);
       setWifiPassword('');
-      setSelectedWifi(null);
     } catch (error) {
-      console.error('Failed to select WiFi:', error);
+      console.error('Failed to configure WiFi:', error);
     }
   };
 
   const handleBluetoothDeviceSelected = async (device: any) => {
-    await selectBluetoothDevice(device);
+    try {
+      await selectBluetoothDevice(device);
+    } catch (error) {
+      console.error('Failed to connect to Bluetooth device:', error);
+    }
   };
 
   const handleSubmitDeviceRecord = async () => {
-    const success = await submitDeviceRecord();
-    if (success) {
-      navigate('/my-devices');
+    try {
+      const success = await submitDeviceRecord();
+      if (success) {
+        navigate('/my-devices');
+      }
+    } catch (error) {
+      console.error('Failed to submit device record:', error);
     }
   };
 
   const handleGoBack = () => {
     navigate('/my-devices');
   };
-
-
 
   if (authLoading) {
     return (
@@ -89,7 +103,7 @@ const AddDevice = () => {
           <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
           <div className="mt-4 text-center">
             <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
-              Initializing AI...
+              {t('common.initializingAI')}
             </div>
           </div>
         </div>
@@ -165,9 +179,9 @@ const AddDevice = () => {
                   </div>
                   <div>
                     <h1 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
-                      Add New Device
+                      {t('common.addNewDevice')}
                     </h1>
-                    <p className="text-white/60 text-sm md:text-base">Set up your new device with WiFi and Bluetooth</p>
+                    <p className="text-white/60 text-sm md:text-base">{t('common.setupDeviceDescription')}</p>
                   </div>
                 </div>
               </div>
@@ -180,10 +194,11 @@ const AddDevice = () => {
                     <div className="mb-6">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white/60 text-sm">Step {currentStep === DeviceInitStep.INIT ? 0 : 
-                          currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT ? 1 :
-                          currentStep === DeviceInitStep.BLUETOOTH_SCAN || currentStep === DeviceInitStep.BLUETOOTH_SELECT ? 2 :
-                          currentStep === DeviceInitStep.CONNECTING ? 3 :
-                          currentStep === DeviceInitStep.SUCCESS ? 4 : 0} of 4</span>
+                          currentStep === DeviceInitStep.BLUETOOTH_SCAN || currentStep === DeviceInitStep.BLUETOOTH_SELECT ? 1 :
+                          currentStep === DeviceInitStep.BLUETOOTH_CONNECT ? 2 :
+                          currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT ? 3 :
+                          currentStep === DeviceInitStep.WIFI_CONFIG ? 4 :
+                          currentStep === DeviceInitStep.SUCCESS ? 5 : 0} of 5</span>
                         <span className="text-cyan-400 text-sm font-medium">{stepDescription}</span>
                       </div>
                       <div className="w-full bg-white/10 rounded-full h-2">
@@ -191,9 +206,10 @@ const AddDevice = () => {
                           className="h-2 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full transition-all duration-500"
                           style={{ 
                             width: `${currentStep === DeviceInitStep.INIT ? 0 :
-                              currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT ? 25 :
-                              currentStep === DeviceInitStep.BLUETOOTH_SCAN || currentStep === DeviceInitStep.BLUETOOTH_SELECT ? 50 :
-                              currentStep === DeviceInitStep.CONNECTING ? 75 :
+                              currentStep === DeviceInitStep.BLUETOOTH_SCAN || currentStep === DeviceInitStep.BLUETOOTH_SELECT ? 20 :
+                              currentStep === DeviceInitStep.BLUETOOTH_CONNECT ? 40 :
+                              currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT ? 60 :
+                              currentStep === DeviceInitStep.WIFI_CONFIG ? 80 :
                               currentStep === DeviceInitStep.SUCCESS ? 100 : 0}%` 
                           }}
                         ></div>
@@ -207,28 +223,28 @@ const AddDevice = () => {
                           <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
                             <Smartphone className="h-10 w-10 md:h-12 md:w-12 text-white" />
                           </div>
-                          <h3 className="text-xl md:text-2xl font-semibold text-white mb-3 md:mb-4">Device Initialization</h3>
-                          <p className="text-white/60 text-base md:text-lg">We will help you set up your new device</p>
+                          <h3 className="text-xl md:text-2xl font-semibold text-white mb-3 md:mb-4">{t('common.deviceInitialization')}</h3>
+                          <p className="text-white/60 text-base md:text-lg">{t('common.deviceInitializationDescription')}</p>
                         </div>
-                        
+
                         <div className="space-y-3 md:space-y-4 max-w-md mx-auto">
-                          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-white/5 rounded-lg">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-cyan-400/20 rounded flex items-center justify-center">
-                              <Wifi className="h-4 w-4 md:h-5 md:w-5 text-cyan-400" />
-                            </div>
-                            <div>
-                              <div className="text-white font-medium text-sm md:text-base">1. Scan and select WiFi network</div>
-                              <div className="text-white/60 text-xs md:text-sm">Choose the WiFi network for your device</div>
-                            </div>
-                          </div>
-                          
                           <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-white/5 rounded-lg">
                             <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-400/20 rounded flex items-center justify-center">
                               <Bluetooth className="h-4 w-4 md:h-5 md:w-5 text-purple-400" />
                             </div>
                             <div>
-                              <div className="text-white font-medium text-sm md:text-base">2. Scan Bluetooth devices</div>
-                              <div className="text-white/60 text-xs md:text-sm">Scan nearby Bluetooth devices</div>
+                              <div className="text-white font-medium text-sm md:text-base">1. Scan and connect Bluetooth device</div>
+                              <div className="text-white/60 text-xs md:text-sm">Find and connect to your device</div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-white/5 rounded-lg">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-cyan-400/20 rounded flex items-center justify-center">
+                              <Wifi className="h-4 w-4 md:h-5 md:w-5 text-cyan-400" />
+                            </div>
+                            <div>
+                              <div className="text-white font-medium text-sm md:text-base">2. Request WiFi networks from device</div>
+                              <div className="text-white/60 text-xs md:text-sm">Device scans for nearby WiFi networks</div>
                             </div>
                           </div>
                           
@@ -237,8 +253,8 @@ const AddDevice = () => {
                               <Check className="h-4 w-4 md:h-5 md:w-5 text-green-400" />
                             </div>
                             <div>
-                              <div className="text-white font-medium text-sm md:text-base">3. Auto-configure connection</div>
-                              <div className="text-white/60 text-xs md:text-sm">Configure device via Bluetooth</div>
+                              <div className="text-white font-medium text-sm md:text-base">3. Configure WiFi and complete setup</div>
+                              <div className="text-white/60 text-xs md:text-sm">Send WiFi credentials to device</div>
                             </div>
                           </div>
                         </div>
@@ -248,7 +264,7 @@ const AddDevice = () => {
                             onClick={handleStartDeviceInit}
                             className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 px-6 md:px-8 py-2 md:py-3 text-base md:text-lg"
                           >
-                            Start Initialization
+                            {t('common.startInitialization')}
                           </Button>
                         </div>
                       </div>
@@ -259,8 +275,8 @@ const AddDevice = () => {
                       <div className="space-y-6 text-center">
                         <div className="py-12">
                           <Loader2 className="h-16 w-16 text-cyan-400 animate-spin mx-auto mb-6" />
-                          <h3 className="text-2xl font-semibold text-white mb-4">Scanning WiFi Networks...</h3>
-                          <p className="text-white/60 text-lg">Please wait, searching for nearby WiFi networks</p>
+                          <h3 className="text-2xl font-semibold text-white mb-4">Requesting WiFi Networks from Device...</h3>
+                          <p className="text-white/60 text-lg">Device is scanning for nearby WiFi networks via Bluetooth</p>
                         </div>
                       </div>
                     )}
@@ -275,42 +291,52 @@ const AddDevice = () => {
                         </div>
                         
                         <div className="space-y-3 max-h-96 overflow-y-auto">
-                          {deviceInitState.wifiNetworks.map((network) => (
-                            <div 
-                              key={network.id} 
-                              className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
-                              onClick={() => handleWifiSelected(network)}
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-cyan-400/20 rounded flex items-center justify-center">
-                                  <Wifi className="h-6 w-6 text-cyan-400" />
-                                </div>
-                                <div>
-                                  <div className="text-white font-medium text-lg">{network.name}</div>
-                                  <div className="text-white/60 flex items-center gap-2">
-                                    <Shield className="h-4 w-4" />
-                                    {network.security} • Signal: {network.strength} dBm
-                                    {network.frequency && (
-                                      <span> • {network.frequency > 5000 ? '5GHz' : '2.4GHz'}</span>
-                                    )}
+                          {deviceInitState.wifiNetworks && deviceInitState.wifiNetworks.length > 0 ? (
+                            deviceInitState.wifiNetworks.map((network) => (
+                              <div 
+                                key={network.id} 
+                                className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                                onClick={() => handleWifiSelected(network)}
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 bg-cyan-400/20 rounded flex items-center justify-center">
+                                    <Wifi className="h-6 w-6 text-cyan-400" />
                                   </div>
+                                  <div>
+                                    <div className="text-white font-medium text-lg">{network.name}</div>
+                                    <div className="text-white/60 flex items-center gap-2">
+                                      <Shield className="h-4 w-4" />
+                                      {network.security} • Signal: {network.strength} dBm
+                                      {network.frequency && (
+                                        <span> • {network.frequency > 5000 ? '5GHz' : '2.4GHz'}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex flex-col items-end">
+                                    <div className="text-white/60 text-xs">
+                                      {network.strength > -50 ? 'Excellent' : 
+                                       network.strength > -60 ? 'Good' : 
+                                       network.strength > -70 ? 'Fair' : 'Poor'}
+                                    </div>
+                                    <div className="text-cyan-400 text-xs">
+                                      {network.channel ? `Ch ${network.channel}` : ''}
+                                    </div>
+                                  </div>
+                                  <Signal className="h-6 w-6 text-cyan-400" />
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <div className="flex flex-col items-end">
-                                  <div className="text-white/60 text-xs">
-                                    {network.strength > -50 ? 'Excellent' : 
-                                     network.strength > -60 ? 'Good' : 
-                                     network.strength > -70 ? 'Fair' : 'Poor'}
-                                  </div>
-                                  <div className="text-cyan-400 text-xs">
-                                    {network.channel ? `Ch ${network.channel}` : ''}
-                                  </div>
-                                </div>
-                                <Signal className="h-6 w-6 text-cyan-400" />
+                            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <div className="text-white/40 mb-4">
+                                <Wifi className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                <p className="text-lg font-medium text-white/60 mb-2">No WiFi networks found</p>
+                                <p className="text-sm text-white/40">Try scanning again or check device connection</p>
                               </div>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     )}
@@ -336,37 +362,58 @@ const AddDevice = () => {
                         </div>
                         
                         <div className="space-y-3 max-h-96 overflow-y-auto">
-                          {deviceInitState.bluetoothDevices.map((device) => (
-                            <div 
-                              key={device.id} 
-                              className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
-                              onClick={() => handleBluetoothDeviceSelected(device)}
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-purple-400/20 rounded flex items-center justify-center">
-                                  <Smartphone className="h-6 w-6 text-purple-400" />
-                                </div>
-                                <div>
-                                  <div className="text-white font-medium text-lg">{device.name}</div>
-                                  <div className="text-white/60">
-                                    {device.type} • Signal: {device.rssi} dBm
+                          {deviceInitState.bluetoothDevices && deviceInitState.bluetoothDevices.length > 0 ? (
+                            deviceInitState.bluetoothDevices.map((device) => (
+                              <div 
+                                key={device.id} 
+                                className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                                onClick={() => handleBluetoothDeviceSelected(device)}
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 bg-purple-400/20 rounded flex items-center justify-center">
+                                    <Smartphone className="h-6 w-6 text-purple-400" />
+                                  </div>
+                                  <div>
+                                    <div className="text-white font-medium text-lg">{device.name}</div>
+                                    <div className="text-white/60">
+                                      {device.type || 'Unknown'} • Signal: {device.rssi} dBm
+                                    </div>
                                   </div>
                                 </div>
+                                <Bluetooth className="h-6 w-6 text-purple-400" />
                               </div>
-                              <Bluetooth className="h-6 w-6 text-purple-400" />
+                            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <div className="text-white/40 mb-4">
+                                <Bluetooth className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                <p className="text-lg font-medium text-white/60 mb-2">No Bluetooth devices found</p>
+                                <p className="text-sm text-white/40">Try scanning again or check device visibility</p>
+                              </div>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     )}
 
-                    {/* Connecting */}
-                    {currentStep === DeviceInitStep.CONNECTING && (
+                    {/* Bluetooth Connection */}
+                    {currentStep === DeviceInitStep.BLUETOOTH_CONNECT && (
+                      <div className="space-y-6 text-center">
+                        <div className="py-12">
+                          <Loader2 className="h-16 w-16 text-purple-400 animate-spin mx-auto mb-6" />
+                          <h3 className="text-2xl font-semibold text-white mb-4">Connecting to Bluetooth Device...</h3>
+                          <p className="text-white/60 text-lg">Establishing connection with {deviceInitState.selectedBluetoothDevice?.name}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* WiFi Configuration */}
+                    {currentStep === DeviceInitStep.WIFI_CONFIG && (
                       <div className="space-y-6">
                         <div className="text-center">
                           <Loader2 className="h-16 w-16 text-green-400 animate-spin mx-auto mb-6" />
-                          <h3 className="text-2xl font-semibold text-white mb-4">Configuring Device...</h3>
-                          <p className="text-white/60 text-lg">Configuring device via Bluetooth</p>
+                          <h3 className="text-2xl font-semibold text-white mb-4">Configuring WiFi on Device...</h3>
+                          <p className="text-white/60 text-lg">Sending WiFi credentials to device via Bluetooth</p>
                         </div>
                         
                         <div className="space-y-4 max-w-md mx-auto">
@@ -384,19 +431,19 @@ const AddDevice = () => {
                         <div className="space-y-3 max-w-md mx-auto">
                           <div className="flex items-center gap-3 text-white/80">
                             <Check className="h-5 w-5 text-green-400" />
-                            <span>Establishing Bluetooth connection</span>
+                            <span>{t('common.bluetoothConnectionEstablished')}</span>
                           </div>
                           <div className="flex items-center gap-3 text-white/80">
                             <Check className="h-5 w-5 text-green-400" />
-                            <span>Transmitting WiFi configuration</span>
+                            <span>{t('common.transmittingWifiCredentials')}</span>
                           </div>
                           <div className="flex items-center gap-3 text-white/80">
                             <Check className="h-5 w-5 text-green-400" />
-                            <span>Device connecting to WiFi</span>
+                            <span>{t('common.deviceConnectingToWifi')}</span>
                           </div>
                           <div className="flex items-center gap-3 text-white/80">
                             <Check className="h-5 w-5 text-green-400" />
-                            <span>Verifying connection status</span>
+                            <span>{t('common.verifyingWifiConnection')}</span>
                           </div>
                         </div>
                       </div>
@@ -409,8 +456,8 @@ const AddDevice = () => {
                           <div className="w-24 h-24 bg-green-400/20 rounded-full flex items-center justify-center mx-auto mb-6">
                             <Check className="h-12 w-12 text-green-400" />
                           </div>
-                          <h3 className="text-2xl font-semibold text-white mb-4">Device Connected Successfully!</h3>
-                          <p className="text-white/60 text-lg">Device has been successfully connected to WiFi</p>
+                          <h3 className="text-2xl font-semibold text-white mb-4">{t('common.deviceConnectedSuccessfully')}</h3>
+                          <p className="text-white/60 text-lg">{t('common.deviceConnectedDescription')}</p>
                         </div>
                         
                         <div className="space-y-4 p-6 bg-white/5 rounded-lg max-w-md mx-auto">
@@ -437,10 +484,10 @@ const AddDevice = () => {
                             {deviceLoading ? (
                               <>
                                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                                Submitting...
+                                {t('common.submitting')}
                               </>
                             ) : (
-                              'Complete Setup'
+                              t('common.completeSetup')
                             )}
                           </Button>
                         </div>
@@ -458,7 +505,7 @@ const AddDevice = () => {
                             size="sm"
                             className="bg-white/5 border-white/20 text-white hover:bg-white/10"
                           >
-                            Try Again
+                            {t('common.tryAgain')}
                           </Button>
                         </div>
                       </div>
@@ -481,23 +528,23 @@ const AddDevice = () => {
             <DialogHeader className="pb-4">
               <DialogTitle className="text-white flex items-center gap-3">
                 <Wifi className="h-5 w-5 text-cyan-400" />
-                Enter WiFi Password
+                {t('common.enterWifiPassword')}
               </DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="text-white/60 text-sm">
-                Network: <span className="text-white font-medium">{selectedWifi?.name}</span>
+                {t('common.network')}: <span className="text-white font-medium">{deviceInitState.selectedWifi?.name}</span>
               </div>
               
               <div className="space-y-2">
-                <label className="text-white text-sm font-medium">Password</label>
+                <label className="text-white text-sm font-medium">{t('common.password')}</label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
                     value={wifiPassword}
                     onChange={(e) => setWifiPassword(e.target.value)}
-                    placeholder="Enter WiFi password"
+                    placeholder={t('common.enterWifiPasswordPlaceholder')}
                     className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm pr-10"
                     onKeyPress={(e) => e.key === 'Enter' && handleWifiPasswordSubmit()}
                   />
@@ -519,14 +566,14 @@ const AddDevice = () => {
                   variant="outline"
                   className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={handleWifiPasswordSubmit}
                   disabled={!wifiPassword.trim()}
                   className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0"
                 >
-                  Connect
+                  {t('common.connect')}
                 </Button>
               </div>
             </div>

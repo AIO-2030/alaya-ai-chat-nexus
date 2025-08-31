@@ -1,38 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Wifi, Battery, Settings, Bluetooth, Monitor, Plus, X, Check, User, Loader2, Signal, Shield } from 'lucide-react';
+import { Smartphone, Wifi, Settings, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
-import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '../components/LanguageSwitcher';
+
+// 设备类型定义
+interface Device {
+  id: number;
+  name: string;
+  type: string;
+  status: string;
+}
 
 const MyDevices = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { t } = useTranslation();
   const [showWifiDialog, setShowWifiDialog] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState<any>(null);
-  
-  // Device management hook
-  const {
-    devices: managedDevices,
-    isLoading: deviceLoading,
-    error: deviceError,
-  } = useDeviceManagement();
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const devices = [
-    { id: 1, name: "iPhone 15 Pro", type: "Mobile", status: "Connected", network: "WiFi", battery: 85 },
-    { id: 2, name: "MacBook Pro", type: "Laptop", status: "Connected", network: "Ethernet", battery: 72 },
-    { id: 3, name: "Smart Speaker", type: "IoT", status: "Disconnected", network: "WiFi", battery: 45 },
-    { id: 4, name: "Tablet Pro", type: "Tablet", status: "Connected", network: "Cellular", battery: 92 },
-  ];
+  // get devices from backend
+  const fetchDevices = async (): Promise<Device[]> => {
+    // TODO: get devices from backend
+    return [];
+  };
+
+  // 组件加载时获取设备列表
+  useEffect(() => {
+    const loadDevices = async () => {
+      setIsLoading(true);
+      try {
+        const deviceList = await fetchDevices();
+        setDevices(deviceList);
+      } catch (error) {
+        console.error('Failed to fetch devices:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDevices();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -43,23 +59,11 @@ const MyDevices = () => {
     }
   };
 
-  const getBatteryColor = (battery: number) => {
-    if (battery > 60) return 'text-green-400';
-    if (battery > 30) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
   const handleAddDevice = () => {
     navigate('/add-device');
   };
 
-  const handleConnectBluetooth = (device: any) => {
-    console.log('Connecting to Bluetooth device:', device.name);
-    // Navigate to add device page instead of showing dialog
-    navigate('/add-device');
-  };
-
-  const handleLinkToWifi = (device: any) => {
+  const handleLinkToWifi = (device: Device) => {
     setSelectedDevice(device);
     setShowWifiDialog(true);
   };
@@ -160,56 +164,54 @@ const MyDevices = () => {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {devices.map((device) => (
-                        <div key={device.id} className="p-6 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-200 backdrop-blur-sm hover:shadow-lg">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <Smartphone className="h-8 w-8 text-cyan-400" />
-                              <div>
-                                <h3 className="text-white font-medium">{device.name}</h3>
-                                <p className="text-sm text-white/60">{device.type}</p>
-                              </div>
-                            </div>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(device.status)} backdrop-blur-sm`}>
-                              {t(`common.device${device.status}` as any)}
-                            </span>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <Wifi className="h-4 w-4 text-cyan-400" />
-                              <span className="text-sm text-white/80">{device.network}</span>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <Battery className={`h-4 w-4 ${getBatteryColor(device.battery)}`} />
-                               <span className="text-sm text-white/80">Battery: {device.battery}%</span>
-                            </div>
-
-                            <div className="w-full bg-white/10 rounded-full h-2 mt-2">
-                              <div 
-                                className={`h-2 rounded-full ${device.battery > 60 ? 'bg-green-400' : device.battery > 30 ? 'bg-yellow-400' : 'bg-red-400'}`}
-                                style={{ width: `${device.battery}%` }}
-                              ></div>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2 mt-4">
-                            <Button variant="outline" size="sm" className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
-                              <Settings className="h-4 w-4 mr-2" />
-                              {t('common.manage')}
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => handleLinkToWifi(device)}
-                              className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
-                            >
-                              <Wifi className="h-4 w-4" />
-                            </Button>
+                      {isLoading ? (
+                        <div className="col-span-full flex items-center justify-center py-12">
+                          <div className="flex items-center gap-3">
+                            <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
+                            <span className="text-white/60">{t('common.loading')}</span>
                           </div>
                         </div>
-                      ))}
+                      ) : devices.length === 0 ? (
+                        <div className="col-span-full text-center py-12">
+                          <div className="text-white/40 mb-4">
+                            <Smartphone className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                            <p className="text-lg font-medium text-white/60 mb-2">{t('common.noDevices')}</p>
+                            <p className="text-sm text-white/40">{t('common.addYourFirstDevice')}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        devices.map((device) => (
+                          <div key={device.id} className="p-6 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-200 backdrop-blur-sm hover:shadow-lg">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <Smartphone className="h-8 w-8 text-cyan-400" />
+                                <div>
+                                  <h3 className="text-white font-medium">{device.name}</h3>
+                                  <p className="text-sm text-white/60">{device.type}</p>
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(device.status)} backdrop-blur-sm`}>
+                                {t(`common.device${device.status}` as any)}
+                              </span>
+                            </div>
+
+                            <div className="flex gap-2 mt-4">
+                              <Button variant="outline" size="sm" className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
+                                <Settings className="h-4 w-4 mr-2" />
+                                {t('common.manage')}
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleLinkToWifi(device)}
+                                className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                              >
+                                <Wifi className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
@@ -242,16 +244,16 @@ const MyDevices = () => {
               
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {[
-                  { id: 1, name: "MyHome_WiFi", security: "WPA2", strength: -30 },
-                  { id: 2, name: "Guest_Network", security: "Open", strength: -50 },
-                  { id: 3, name: "Office_5G", security: "WPA3", strength: -65 },
+                  { id: 1, name: t('common.wifiNetworks.myHomeWiFi'), security: t('common.wifiSecurity.wpa2'), strength: -30 },
+                  { id: 2, name: t('common.wifiNetworks.guestNetwork'), security: t('common.wifiSecurity.open'), strength: -50 },
+                  { id: 3, name: t('common.wifiNetworks.office5G'), security: t('common.wifiSecurity.wpa3'), strength: -65 },
                 ].map((network: any) => (
                   <div key={network.id} className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10 hover:bg-white/10 transition-colors backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                       <Wifi className="h-4 w-4 text-cyan-400" />
                       <div>
                         <div className="text-white font-medium">{network.name}</div>
-                        <div className="text-white/60 text-xs">{network.security} • Signal: {network.strength} dBm</div>
+                        <div className="text-white/60 text-xs">{network.security} • {t('common.signalStrength')}: {network.strength} dBm</div>
                       </div>
                     </div>
                     <Button

@@ -84,18 +84,39 @@ This app bridges user identity to ICP principals using Internet Identity (II).
 
 ## Device Initialization (Add Device)
 
-- Page `pages/AddDevice.tsx` updates:
-  - Responsive header and height rules to avoid bottom nav overlap
-  - WiFi password dialog with show/hide and Enter-to-submit
-  - Improved content scroll areas on various screen sizes
-- Real device services:
-  - New `services/realDeviceService.ts` attempts real WiFi/Bluetooth operations:
-    - WiFi: tries Web WiFi / Network Information APIs; falls back to realistic mock data when unsupported
-    - Bluetooth: uses Web Bluetooth for selection and GATT connection; falls back to realistic mock data
-  - `services/deviceInitManager.ts` switched from the mock `deviceService` to `realDeviceService` for:
-    - WiFi scanning → selection (with password) → Bluetooth scanning → connection → WiFi provisioning → record submission
+### New Bluetooth-First Configuration Flow
 
-> Limitations: Real WiFi enumeration is not broadly available on the web for security reasons. The app attempts available APIs and gracefully falls back to simulated data. Web Bluetooth requires a supported browser and HTTPS context.
+The device initialization process has been completely redesigned to follow industry-standard IoT device onboarding patterns with Bluetooth-first connectivity:
+
+**Updated Flow (5 Steps):**
+1. **Scan Bluetooth devices** - Discover nearby IoT devices  
+2. **Select and connect to Bluetooth device** - Establish secure connection
+3. **Request WiFi networks from device** - Device scans and returns available networks via Bluetooth
+4. **Configure WiFi credentials** - User selects network and provides password, sent to device via Bluetooth
+5. **Submit device record to backend canister** - Save configured device to IC backend
+
+**Technical Implementation:**
+- **Page Updates** (`pages/AddDevice.tsx`):
+  - 5-step progress indicator with Bluetooth-first flow
+  - Enhanced responsive design and scroll handling
+  - New Bluetooth connection status UI
+  - Improved WiFi password dialog with show/hide toggle
+- **Core Services**:
+  - `services/deviceInitManager.ts`: Complete flow redesign with new step sequence
+  - `services/realDeviceService.ts`: 
+    - Enhanced Bluetooth device discovery and connection
+    - New `requestWiFiScanFromDevice()` method for device-side WiFi scanning
+    - `submitDeviceRecordToCanister()` for IC backend integration
+  - `hooks/useDeviceManagement.ts`: Updated to support new flow and error handling
+
+**Key Improvements:**
+- **Industry Standard Approach**: Bluetooth-first configuration matches real IoT device patterns
+- **Reduced Browser Limitations**: Avoids web WiFi API restrictions by using device-side scanning
+- **Better User Experience**: Clear 5-step process with real-time progress feedback
+- **IC Integration**: Direct backend canister integration for device management
+- **Enhanced Error Handling**: Comprehensive error recovery and user guidance
+
+> **Browser Support**: Web Bluetooth requires supported browsers (Chrome/Edge) and HTTPS context. Graceful fallbacks provided for unsupported environments.
 
 ## Environment Setup (Vite)
 
@@ -114,9 +135,10 @@ VITE_ENVIRONMENT=development
 - `hooks/useGoogleAuth.ts`: Google OAuth logic
 - `components/GoogleAuthProvider.tsx`: Google API loader and initializer
 - `lib/auth.ts`: auth abstraction with Google integration
-- `services/realDeviceService.ts`: real WiFi/Bluetooth attempts with fallbacks
-- `services/deviceInitManager.ts`: device setup pipeline using real services
-- `pages/AddDevice.tsx`: full device init UI/flow
+- `services/realDeviceService.ts`: **Updated** - Bluetooth-first device configuration with IC integration
+- `services/deviceInitManager.ts`: **Redesigned** - 5-step device setup pipeline
+- `hooks/useDeviceManagement.ts`: **Enhanced** - Updated device management hook
+- `pages/AddDevice.tsx`: **Improved** - Bluetooth-first device onboarding UI
 
 ## Univoice AI Agent Implementation
 

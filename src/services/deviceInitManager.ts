@@ -3,11 +3,12 @@ import { realDeviceService, WiFiNetwork, BluetoothDevice, DeviceRecord, Connecti
 
 export enum DeviceInitStep {
   INIT = 'init',
-  WIFI_SCAN = 'wifi_scan',
-  WIFI_SELECT = 'wifi_select',
   BLUETOOTH_SCAN = 'bluetooth_scan',
   BLUETOOTH_SELECT = 'bluetooth_select',
-  CONNECTING = 'connecting',
+  BLUETOOTH_CONNECT = 'bluetooth_connect',
+  WIFI_SCAN = 'wifi_scan',
+  WIFI_SELECT = 'wifi_select',
+  WIFI_CONFIG = 'wifi_config',
   SUCCESS = 'success'
 }
 
@@ -19,7 +20,8 @@ export interface DeviceInitState {
   bluetoothDevices: BluetoothDevice[];
   isScanningWifi: boolean;
   isScanningBluetooth: boolean;
-  isConnecting: boolean;
+  isConnectingBluetooth: boolean;
+  isConfiguringWifi: boolean;
   connectionProgress: number;
   error: string | null;
 }
@@ -36,7 +38,8 @@ export class DeviceInitManager {
       bluetoothDevices: [],
       isScanningWifi: false,
       isScanningBluetooth: false,
-      isConnecting: false,
+      isConnectingBluetooth: false,
+      isConfiguringWifi: false,
       connectionProgress: 0,
       error: null
     };
@@ -47,29 +50,9 @@ export class DeviceInitManager {
     return { ...this.state };
   }
 
-  // Start device initialization process
+  // Start device initialization process - Step 1: Scan Bluetooth devices
   async startDeviceInit(): Promise<void> {
     try {
-      this.state.step = DeviceInitStep.WIFI_SCAN;
-      this.state.isScanningWifi = true;
-      this.state.error = null;
-
-      // Scan WiFi networks
-      const networks = await realDeviceService.scanWiFiNetworks();
-      this.state.wifiNetworks = networks;
-      this.state.isScanningWifi = false;
-      this.state.step = DeviceInitStep.WIFI_SELECT;
-    } catch (error) {
-      this.state.error = error instanceof Error ? error.message : 'WiFi scan failed';
-      this.state.isScanningWifi = false;
-      throw error;
-    }
-  }
-
-  // Select WiFi network
-  async selectWiFi(wifiNetwork: WiFiNetwork): Promise<void> {
-    try {
-      this.state.selectedWifi = wifiNetwork;
       this.state.step = DeviceInitStep.BLUETOOTH_SCAN;
       this.state.isScanningBluetooth = true;
       this.state.error = null;
@@ -86,56 +69,80 @@ export class DeviceInitManager {
     }
   }
 
-  // Select Bluetooth device and start connection process
+  // Step 2: Select Bluetooth device and connect
   async selectBluetoothDevice(device: BluetoothDevice): Promise<void> {
     try {
       this.state.selectedBluetoothDevice = device;
-      this.state.step = DeviceInitStep.CONNECTING;
-      this.state.isConnecting = true;
+      this.state.step = DeviceInitStep.BLUETOOTH_CONNECT;
+      this.state.isConnectingBluetooth = true;
       this.state.error = null;
 
-      // Start connection process
-      await this.connectDeviceToWifi();
+      // Connect to Bluetooth device
+      await realDeviceService.connectBluetooth(device);
+      this.state.isConnectingBluetooth = false;
+      
+      // Move to WiFi scanning step
+      this.state.step = DeviceInitStep.WIFI_SCAN;
+      await this.requestWiFiNetworksFromDevice();
     } catch (error) {
-      this.state.error = error instanceof Error ? error.message : 'Device connection failed';
-      this.state.isConnecting = false;
+      this.state.error = error instanceof Error ? error.message : 'Bluetooth connection failed';
+      this.state.isConnectingBluetooth = false;
       throw error;
     }
   }
 
-  // Connect device to WiFi via Bluetooth
-  private async connectDeviceToWifi(): Promise<void> {
+  // Step 3: Request WiFi networks from device via Bluetooth
+  private async requestWiFiNetworksFromDevice(): Promise<void> {
     try {
-      if (!this.state.selectedBluetoothDevice || !this.state.selectedWifi) {
-        throw new Error('No device or WiFi selected');
+      this.state.isScanningWifi = true;
+      this.state.error = null;
+
+      if (!this.state.selectedBluetoothDevice) {
+        throw new Error('No Bluetooth device selected');
       }
 
-      const steps = await realDeviceService.getConnectionProgress();
-      
-      for (const step of steps) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        this.state.connectionProgress = step.progress;
+      // Request WiFi scan from device via Bluetooth
+      const networks = await realDeviceService.requestWiFiScanFromDevice(this.state.selectedBluetoothDevice);
+      this.state.wifiNetworks = networks;
+      this.state.isScanningWifi = false;
+      this.state.step = DeviceInitStep.WIFI_SELECT;
+    } catch (error) {
+      this.state.error = error instanceof Error ? error.message : 'WiFi scan request failed';
+      this.state.isScanningWifi = false;
+      throw error;
+    }
+  }
+
+  // Step 4: Select WiFi and configure device
+  async selectWiFi(wifiNetwork: WiFiNetwork): Promise<void> {
+    try {
+      this.state.selectedWifi = wifiNetwork;
+      this.state.step = DeviceInitStep.WIFI_CONFIG;
+      this.state.isConfiguringWifi = true;
+      this.state.error = null;
+
+      if (!this.state.selectedBluetoothDevice) {
+        throw new Error('No Bluetooth device connected');
       }
 
-      // Establish Bluetooth connection
-      await realDeviceService.connectBluetooth(this.state.selectedBluetoothDevice);
-
-      // Configure WiFi via Bluetooth
+      // Configure WiFi on device via Bluetooth
       await realDeviceService.configureWiFiViaBluetooth(
         this.state.selectedBluetoothDevice,
-        this.state.selectedWifi
+        wifiNetwork
       );
 
-      this.state.isConnecting = false;
+      this.state.isConfiguringWifi = false;
       this.state.step = DeviceInitStep.SUCCESS;
     } catch (error) {
-      this.state.error = error instanceof Error ? error.message : 'Connection failed';
-      this.state.isConnecting = false;
+      this.state.error = error instanceof Error ? error.message : 'WiFi configuration failed';
+      this.state.isConfiguringWifi = false;
       throw error;
     }
   }
 
-  // Submit device record to backend
+
+
+  // Step 5: Submit device record to backend canister
   async submitDeviceRecord(): Promise<boolean> {
     try {
       if (!this.state.selectedBluetoothDevice || !this.state.selectedWifi) {
@@ -151,7 +158,8 @@ export class DeviceInitManager {
         connectedAt: new Date().toISOString()
       };
 
-      const success = await realDeviceService.submitDeviceRecord(record);
+      // Submit to backend canister
+      const success = await realDeviceService.submitDeviceRecordToCanister(record);
       
       if (success) {
         // Reset state after successful submission
@@ -175,7 +183,8 @@ export class DeviceInitManager {
       bluetoothDevices: [],
       isScanningWifi: false,
       isScanningBluetooth: false,
-      isConnecting: false,
+      isConnectingBluetooth: false,
+      isConfiguringWifi: false,
       connectionProgress: 0,
       error: null
     };
@@ -186,18 +195,20 @@ export class DeviceInitManager {
     switch (this.state.step) {
       case DeviceInitStep.INIT:
         return 'Device Initialization';
-      case DeviceInitStep.WIFI_SCAN:
-        return 'Scanning WiFi Networks';
-      case DeviceInitStep.WIFI_SELECT:
-        return 'Select WiFi Network';
       case DeviceInitStep.BLUETOOTH_SCAN:
         return 'Scanning Bluetooth Devices';
       case DeviceInitStep.BLUETOOTH_SELECT:
         return 'Select Bluetooth Device';
-      case DeviceInitStep.CONNECTING:
-        return 'Connecting Device';
+      case DeviceInitStep.BLUETOOTH_CONNECT:
+        return 'Connecting to Bluetooth Device';
+      case DeviceInitStep.WIFI_SCAN:
+        return 'Requesting WiFi Networks from Device';
+      case DeviceInitStep.WIFI_SELECT:
+        return 'Select WiFi Network';
+      case DeviceInitStep.WIFI_CONFIG:
+        return 'Configuring WiFi on Device';
       case DeviceInitStep.SUCCESS:
-        return 'Connection Successful';
+        return 'Device Setup Successful';
       default:
         return 'Unknown Step';
     }
@@ -206,12 +217,14 @@ export class DeviceInitManager {
   // Check if current step is complete
   isStepComplete(): boolean {
     switch (this.state.step) {
-      case DeviceInitStep.WIFI_SCAN:
-        return !this.state.isScanningWifi && this.state.wifiNetworks.length > 0;
       case DeviceInitStep.BLUETOOTH_SCAN:
         return !this.state.isScanningBluetooth && this.state.bluetoothDevices.length > 0;
-      case DeviceInitStep.CONNECTING:
-        return !this.state.isConnecting && this.state.connectionProgress === 100;
+      case DeviceInitStep.BLUETOOTH_CONNECT:
+        return !this.state.isConnectingBluetooth;
+      case DeviceInitStep.WIFI_SCAN:
+        return !this.state.isScanningWifi && this.state.wifiNetworks.length > 0;
+      case DeviceInitStep.WIFI_CONFIG:
+        return !this.state.isConfiguringWifi;
       default:
         return true;
     }
