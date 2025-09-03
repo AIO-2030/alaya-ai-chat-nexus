@@ -1,8 +1,59 @@
 // Device API Service - Handle backend communication for device management
-import { DeviceRecord, WiFiNetwork, BluetoothDevice } from '../deviceService';
+import { Actor, HttpAgent, ActorSubclass } from '@dfinity/agent';
+import { idlFactory } from '../../../declarations/aio-base-backend/aio-base-backend.did.js';
+import type { 
+  _SERVICE,
+  DeviceInfo,
+  DeviceType,
+  DeviceStatus,
+  DeviceCapability,
+  DeviceFilter,
+  DeviceListResponse as BackendDeviceListResponse
+} from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+// Import environment configuration from shared module
+import { 
+  getAioBaseBackendCanisterId, 
+  getHost, 
+  isLocalNet, 
+  logEnvironmentConfig 
+} from '../../lib/environment';
 
+// Canister configuration using shared environment module
+const CANISTER_ID = getAioBaseBackendCanisterId();
+const HOST = getHost();
+
+// Log environment configuration for this module
+logEnvironmentConfig('AIO_BASE_BACKEND');
+
+// Initialize agent with proper configuration
+const agent = new HttpAgent({ 
+  host: HOST,
+  // Add identity if available (for authenticated calls)
+  // identity: await getIdentity()
+});
+
+// Configure agent for local development
+if (isLocalNet()) {
+  agent.fetchRootKey().catch(console.error);
+}
+
+// Actor singleton for re-use
+let actor: ActorSubclass<_SERVICE> | null = null;
+
+// Get or create actor instance
+const getActor = (): ActorSubclass<_SERVICE> => {
+  if (!actor) {
+    console.log('[DeviceApi] Creating new actor instance for canister:', CANISTER_ID);
+    actor = Actor.createActor(idlFactory, { 
+      agent, 
+      canisterId: CANISTER_ID 
+    });
+  }
+  return actor;
+};
+
+// Type definitions for frontend compatibility
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -10,11 +61,17 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-export interface DeviceListResponse {
-  devices: DeviceRecord[];
-  total: number;
-  page: number;
-  limit: number;
+export interface DeviceRecord {
+  id: string;
+  name: string;
+  deviceType: DeviceType;
+  owner: string;
+  status: DeviceStatus;
+  capabilities: DeviceCapability[];
+  metadata: Record<string, string>;
+  createdAt: number;
+  updatedAt: number;
+  lastSeen: number;
 }
 
 export interface DeviceConnectionRequest {
@@ -25,33 +82,88 @@ export interface DeviceConnectionRequest {
 
 export interface DeviceStatusUpdate {
   deviceId: string;
-  status: 'connected' | 'disconnected' | 'error';
-  lastSeen?: string;
+  status: DeviceStatus;
+  lastSeen?: number;
+}
+
+export interface DeviceListResponse {
+  devices: DeviceRecord[];
+  total: number;
+  offset: number;
+  limit: number;
 }
 
 class DeviceApiService {
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  // Helper method to convert DeviceInfo to DeviceRecord
+  private convertDeviceInfoToRecord(deviceInfo: DeviceInfo): DeviceRecord {
+    return {
+      id: deviceInfo.id,
+      name: deviceInfo.name,
+      deviceType: deviceInfo.device_type,
+      owner: deviceInfo.owner.toString(),
+      status: deviceInfo.status,
+      capabilities: deviceInfo.capabilities,
+      metadata: Object.fromEntries(deviceInfo.metadata),
+      createdAt: Number(deviceInfo.created_at),
+      updatedAt: Number(deviceInfo.updated_at),
+      lastSeen: Number(deviceInfo.last_seen),
+    };
+  }
+
+  // Helper method to convert DeviceRecord to DeviceInfo
+  private convertRecordToDeviceInfo(record: DeviceRecord): DeviceInfo {
+    return {
+      id: record.id,
+      name: record.name,
+      device_type: record.deviceType,
+      owner: record.owner as any, // Principal will be handled by the backend
+      status: record.status,
+      capabilities: record.capabilities,
+      metadata: Object.entries(record.metadata),
+      created_at: BigInt(record.createdAt),
+      updated_at: BigInt(record.updatedAt),
+      last_seen: BigInt(record.lastSeen),
+    };
+  }
+
+  // Helper method to handle canister responses
+  private handleCanisterResponse<T>(result: any): ApiResponse<T> {
+    if ('Ok' in result) {
+      return {
+        success: true,
+        data: result.Ok,
+      };
+    } else if ('Err' in result) {
+      return {
+        success: false,
+        error: result.Err,
+      };
+    }
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  // Get all devices with pagination
+  async getDevices(offset: number = 0, limit: number = 10): Promise<ApiResponse<DeviceListResponse>> {
     try {
-      const url = `${API_BASE_URL}${endpoint}`;
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      });
+      const actor = getActor();
+      const result: BackendDeviceListResponse = await actor.get_all_devices(BigInt(offset), BigInt(limit));
+      
+      const response: DeviceListResponse = {
+        devices: result.devices.map(device => this.convertDeviceInfoToRecord(device)),
+        total: Number(result.total),
+        offset: Number(result.offset),
+        limit: Number(result.limit),
+      };
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      return {
+        success: true,
+        data: response,
+      };
     } catch (error) {
-      console.error('API request failed:', error);
+      console.error('Failed to get devices:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -59,157 +171,203 @@ class DeviceApiService {
     }
   }
 
-  // Get device list
-  async getDevices(page: number = 1, limit: number = 10): Promise<ApiResponse<DeviceListResponse>> {
-    return this.request<DeviceListResponse>(`/devices?page=${page}&limit=${limit}`);
-  }
-
-  // Get single device
+  // Get single device by ID
   async getDevice(deviceId: string): Promise<ApiResponse<DeviceRecord>> {
-    return this.request<DeviceRecord>(`/devices/${deviceId}`);
+    try {
+      const actor = getActor();
+      const result = await actor.get_device_by_id(deviceId);
+      
+      if (result.length === 0) {
+        return {
+          success: false,
+          error: 'Device not found',
+        };
+      }
+
+      const device = this.convertDeviceInfoToRecord(result[0]);
+      return {
+        success: true,
+        data: device,
+      };
+    } catch (error) {
+      console.error('Failed to get device:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
-  // Submit device record
+  // Get devices by owner
+  async getDevicesByOwner(owner: string): Promise<ApiResponse<DeviceRecord[]>> {
+    try {
+      const actor = getActor();
+      const result = await actor.get_devices_by_owner(owner);
+      
+      const devices = result.map(device => this.convertDeviceInfoToRecord(device));
+      return {
+        success: true,
+        data: devices,
+      };
+    } catch (error) {
+      console.error('Failed to get devices by owner:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // Add new device
   async submitDeviceRecord(record: DeviceRecord): Promise<ApiResponse<DeviceRecord>> {
-    return this.request<DeviceRecord>('/devices', {
-      method: 'POST',
-      body: JSON.stringify(record),
-    });
+    try {
+      const actor = getActor();
+      const deviceInfo = this.convertRecordToDeviceInfo(record);
+      const result = await actor.add_device(deviceInfo);
+      
+      return this.handleCanisterResponse<DeviceRecord>(result);
+    } catch (error) {
+      console.error('Failed to add device:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // Update device information
+  async updateDevice(deviceId: string, record: DeviceRecord): Promise<ApiResponse<boolean>> {
+    try {
+      const actor = getActor();
+      const deviceInfo = this.convertRecordToDeviceInfo(record);
+      const result = await actor.update_device(deviceId, deviceInfo);
+      
+      return this.handleCanisterResponse<boolean>(result);
+    } catch (error) {
+      console.error('Failed to update device:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   // Update device status
-  async updateDeviceStatus(update: DeviceStatusUpdate): Promise<ApiResponse<DeviceRecord>> {
-    return this.request<DeviceRecord>(`/devices/${update.deviceId}/status`, {
-      method: 'PUT',
-      body: JSON.stringify(update),
-    });
+  async updateDeviceStatus(update: DeviceStatusUpdate): Promise<ApiResponse<boolean>> {
+    try {
+      const actor = getActor();
+      const result = await actor.update_device_status(update.deviceId, update.status);
+      
+      return this.handleCanisterResponse<boolean>(result);
+    } catch (error) {
+      console.error('Failed to update device status:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
-  // Disconnect device
-  async disconnectDevice(deviceId: string): Promise<ApiResponse<boolean>> {
-    return this.request<boolean>(`/devices/${deviceId}/disconnect`, {
-      method: 'POST',
-    });
+  // Update device last seen timestamp
+  async updateDeviceLastSeen(deviceId: string): Promise<ApiResponse<boolean>> {
+    try {
+      const actor = getActor();
+      const result = await actor.update_device_last_seen(deviceId);
+      
+      return this.handleCanisterResponse<boolean>(result);
+    } catch (error) {
+      console.error('Failed to update device last seen:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   // Delete device
   async deleteDevice(deviceId: string): Promise<ApiResponse<boolean>> {
-    return this.request<boolean>(`/devices/${deviceId}`, {
-      method: 'DELETE',
+    try {
+      const actor = getActor();
+      const result = await actor.delete_device(deviceId);
+      
+      return this.handleCanisterResponse<boolean>(result);
+    } catch (error) {
+      console.error('Failed to delete device:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // Search devices with filters
+  async searchDevices(filter: DeviceFilter): Promise<ApiResponse<DeviceRecord[]>> {
+    try {
+      const actor = getActor();
+      const result = await actor.search_devices(filter);
+      
+      const devices = result.map(device => this.convertDeviceInfoToRecord(device));
+      return {
+        success: true,
+        data: devices,
+      };
+    } catch (error) {
+      console.error('Failed to search devices:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+
+  // Legacy methods for backward compatibility (not implemented in backend yet)
+  // These methods can be implemented as needed or removed if not required
+
+  // Disconnect device (legacy method)
+  async disconnectDevice(deviceId: string): Promise<ApiResponse<boolean>> {
+    // Update device status to offline
+    return this.updateDeviceStatus({
+      deviceId,
+      status: { Offline: null },
     });
   }
 
-  // Scan WiFi networks
-  async scanWiFiNetworks(): Promise<ApiResponse<WiFiNetwork[]>> {
-    return this.request<WiFiNetwork[]>('/devices/scan/wifi', {
-      method: 'POST',
-    });
-  }
-
-  // Scan Bluetooth devices
-  async scanBluetoothDevices(): Promise<ApiResponse<BluetoothDevice[]>> {
-    return this.request<BluetoothDevice[]>('/devices/scan/bluetooth', {
-      method: 'POST',
-    });
-  }
-
-  // Connect device to WiFi
-  async connectDeviceToWifi(request: DeviceConnectionRequest): Promise<ApiResponse<boolean>> {
-    return this.request<boolean>('/devices/connect', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-
-  // Get device statistics
+  // Get device statistics (computed from device list)
   async getDeviceStats(): Promise<ApiResponse<{
     total: number;
     connected: number;
     disconnected: number;
     error: number;
   }>> {
-    return this.request('/devices/stats');
-  }
+    try {
+      const devicesResponse = await this.getDevices(0, 1000); // Get all devices
+      if (!devicesResponse.success || !devicesResponse.data) {
+        return {
+          success: false,
+          error: 'Failed to get devices for statistics',
+        };
+      }
 
-  // Get device logs
-  async getDeviceLogs(deviceId: string, limit: number = 50): Promise<ApiResponse<{
-    logs: Array<{
-      timestamp: string;
-      level: 'info' | 'warning' | 'error';
-      message: string;
-    }>;
-  }>> {
-    return this.request(`/devices/${deviceId}/logs?limit=${limit}`);
-  }
-
-  // Test device connection
-  async testDeviceConnection(deviceId: string): Promise<ApiResponse<{
-    connected: boolean;
-    latency?: number;
-    signalStrength?: number;
-  }>> {
-    return this.request(`/devices/${deviceId}/test-connection`, {
-      method: 'POST',
-    });
-  }
-
-  // Get device configuration
-  async getDeviceConfig(deviceId: string): Promise<ApiResponse<{
-    wifi: {
-      ssid: string;
-      security: string;
-      signalStrength: number;
-    };
-    bluetooth: {
-      name: string;
-      address: string;
-      rssi: number;
-    };
-    system: {
-      firmware: string;
-      uptime: number;
-      temperature: number;
-    };
-  }>> {
-    return this.request(`/devices/${deviceId}/config`);
-  }
-
-  // Update device configuration
-  async updateDeviceConfig(
-    deviceId: string,
-    config: {
-      wifi?: {
-        ssid: string;
-        password?: string;
+      const devices = devicesResponse.data.devices;
+      const stats = {
+        total: devices.length,
+        connected: devices.filter(d => 'Online' in d.status).length,
+        disconnected: devices.filter(d => 'Offline' in d.status).length,
+        error: devices.filter(d => 'Maintenance' in d.status || 'Disabled' in d.status).length,
       };
-      bluetooth?: {
-        name: string;
-        discoverable: boolean;
+
+      return {
+        success: true,
+        data: stats,
       };
-      system?: {
-        autoConnect: boolean;
-        powerSaving: boolean;
+    } catch (error) {
+      console.error('Failed to get device statistics:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
-  ): Promise<ApiResponse<boolean>> {
-    return this.request(`/devices/${deviceId}/config`, {
-      method: 'PUT',
-      body: JSON.stringify(config),
-    });
-  }
-
-  // Restart device
-  async restartDevice(deviceId: string): Promise<ApiResponse<boolean>> {
-    return this.request(`/devices/${deviceId}/restart`, {
-      method: 'POST',
-    });
-  }
-
-  // Factory reset device
-  async factoryResetDevice(deviceId: string): Promise<ApiResponse<boolean>> {
-    return this.request(`/devices/${deviceId}/factory-reset`, {
-      method: 'POST',
-    });
   }
 }
 

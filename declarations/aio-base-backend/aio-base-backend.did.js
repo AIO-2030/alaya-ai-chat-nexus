@@ -33,6 +33,41 @@ export const idlFactory = ({ IDL }) => {
     'version' : IDL.Text,
     'output_example' : IDL.Opt(IDL.Text),
   });
+  const DeviceStatus = IDL.Variant({
+    'Online' : IDL.Null,
+    'Disabled' : IDL.Null,
+    'Maintenance' : IDL.Null,
+    'Offline' : IDL.Null,
+  });
+  const DeviceCapability = IDL.Variant({
+    'Storage' : IDL.Null,
+    'Network' : IDL.Null,
+    'Compute' : IDL.Null,
+    'Custom' : IDL.Text,
+    'Sensor' : IDL.Null,
+    'Audio' : IDL.Null,
+    'Video' : IDL.Null,
+  });
+  const DeviceType = IDL.Variant({
+    'IoT' : IDL.Null,
+    'Server' : IDL.Null,
+    'Embedded' : IDL.Null,
+    'Other' : IDL.Text,
+    'Desktop' : IDL.Null,
+    'Mobile' : IDL.Null,
+  });
+  const DeviceInfo = IDL.Record({
+    'id' : IDL.Text,
+    'status' : DeviceStatus,
+    'updated_at' : IDL.Nat64,
+    'capabilities' : IDL.Vec(DeviceCapability),
+    'owner' : IDL.Principal,
+    'metadata' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+    'name' : IDL.Text,
+    'device_type' : DeviceType,
+    'created_at' : IDL.Nat64,
+    'last_seen' : IDL.Nat64,
+  });
   const McpItem = IDL.Record({
     'id' : IDL.Nat64,
     'tools' : IDL.Bool,
@@ -157,6 +192,12 @@ export const idlFactory = ({ IDL }) => {
     'version' : IDL.Text,
     'keywords' : IDL.Vec(IDL.Text),
     'github' : IDL.Text,
+  });
+  const DeviceListResponse = IDL.Record({
+    'total' : IDL.Nat64,
+    'offset' : IDL.Nat64,
+    'limit' : IDL.Nat64,
+    'devices' : IDL.Vec(DeviceInfo),
   });
   const IOValue = IDL.Record({
     'value' : IDL.Variant({
@@ -365,6 +406,12 @@ export const idlFactory = ({ IDL }) => {
     'grant_amount' : IDL.Nat64,
     'grant_action' : GrantAction,
   });
+  const DeviceFilter = IDL.Record({
+    'status' : IDL.Opt(DeviceStatus),
+    'owner' : IDL.Opt(IDL.Principal),
+    'device_type' : IDL.Opt(DeviceType),
+    'capability' : IDL.Opt(DeviceCapability),
+  });
   return IDL.Service({
     'add_account' : IDL.Func(
         [IDL.Text],
@@ -373,6 +420,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'add_agent_item' : IDL.Func(
         [AgentItem, IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
+        [],
+      ),
+    'add_device' : IDL.Func(
+        [DeviceInfo],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
         [],
       ),
@@ -478,6 +530,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Bool, 'Err' : IDL.Text })],
         [],
       ),
+    'delete_device' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
     'delete_inverted_index_by_mcp' : IDL.Func(
         [IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
@@ -571,6 +628,11 @@ export const idlFactory = ({ IDL }) => {
     'get_all_accounts' : IDL.Func([], [IDL.Vec(AccountInfo)], ['query']),
     'get_all_agent_items' : IDL.Func([], [IDL.Vec(AgentItem)], ['query']),
     'get_all_aio_indices' : IDL.Func([], [IDL.Vec(AioIndex)], ['query']),
+    'get_all_devices' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [DeviceListResponse],
+        ['query'],
+      ),
     'get_all_inverted_index_items' : IDL.Func([], [IDL.Text], ['query']),
     'get_all_keywords' : IDL.Func([], [IDL.Text], ['query']),
     'get_all_mcp_grants' : IDL.Func([], [IDL.Vec(NewMcpGrant)], ['query']),
@@ -648,6 +710,12 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_credits_per_icp_api' : IDL.Func([], [IDL.Nat64], ['query']),
+    'get_device_by_id' : IDL.Func([IDL.Text], [IDL.Opt(DeviceInfo)], ['query']),
+    'get_devices_by_owner' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(DeviceInfo)],
+        ['query'],
+      ),
     'get_emission_policy' : IDL.Func(
         [],
         [IDL.Variant({ 'Ok' : EmissionPolicy, 'Err' : IDL.Text })],
@@ -1028,6 +1096,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Contact)],
         ['query'],
       ),
+    'search_devices' : IDL.Func(
+        [DeviceFilter],
+        [IDL.Vec(DeviceInfo)],
+        ['query'],
+      ),
     'send_chat_message' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, MessageMode],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
@@ -1096,6 +1169,21 @@ export const idlFactory = ({ IDL }) => {
     'update_contact_status' : IDL.Func(
         [IDL.Text, IDL.Text, ContactStatus],
         [IDL.Variant({ 'Ok' : Contact, 'Err' : IDL.Text })],
+        [],
+      ),
+    'update_device' : IDL.Func(
+        [IDL.Text, DeviceInfo],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'update_device_last_seen' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'update_device_status' : IDL.Func(
+        [IDL.Text, DeviceStatus],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
     'update_emission_policy' : IDL.Func(

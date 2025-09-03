@@ -1,4 +1,7 @@
 // Real Device Service - Implement actual WiFi and Bluetooth functionality
+import { deviceApiService, DeviceRecord as ApiDeviceRecord } from './api/deviceApi';
+import type { DeviceType, DeviceStatus } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+
 export interface WiFiNetwork {
   id: string;
   name: string;
@@ -26,6 +29,7 @@ export interface DeviceRecord {
   wifiNetwork: string;
   status: string;
   connectedAt: string;
+  principalId: string;
 }
 
 export interface ConnectionProgress {
@@ -36,7 +40,7 @@ export interface ConnectionProgress {
 class RealDeviceService {
   private wifiNetworks: WiFiNetwork[] = [];
   private bluetoothDevices: BluetoothDevice[] = [];
-  private isScanningWifi = false;
+
   private isScanningBluetooth = false;
 
   // Check if Web Bluetooth API is available
@@ -46,105 +50,7 @@ class RealDeviceService {
     return supported;
   }
 
-  // Check if Web WiFi API is available (experimental)
-  private isWebWiFiSupported(): boolean {
-    const supported = 'wifi' in navigator || 'networkInformation' in navigator;
-    console.log('[WiFi] Web WiFi/NetworkInformation supported:', supported);
-    return supported;
-  }
 
-  // Try to get WiFi networks using native APIs
-  private async getNativeWiFiNetworks(): Promise<WiFiNetwork[]> {
-    const networks: WiFiNetwork[] = [];
-    
-    try {
-      // Method 1: Try using Network Information API
-      if ('networkInformation' in navigator) {
-        const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-        if (connection && connection.effectiveType) {
-          console.log('Current network info:', connection);
-          // This gives us current network info, not available networks
-        }
-      }
-
-      // Method 2: Try using Web WiFi API (Chrome OS only)
-      if ('wifi' in navigator) {
-        try {
-          const wifiManager = (navigator as any).wifi;
-          if (wifiManager && wifiManager.getCurrentNetwork) {
-            const currentNetwork = await wifiManager.getCurrentNetwork();
-            if (currentNetwork) {
-              networks.push({
-                id: 'current',
-                name: currentNetwork.ssid,
-                security: currentNetwork.security || 'Unknown',
-                strength: currentNetwork.signalStrength || -50,
-                frequency: currentNetwork.frequency
-              });
-            }
-          }
-        } catch (error) {
-          console.log('Web WiFi API not available or failed:', error);
-        }
-      }
-
-      // Method 3: Try using Network Information API to get available networks
-      if ('networkInformation' in navigator) {
-        try {
-          // Some browsers might support getting available networks
-          const connection = (navigator as any).connection;
-          if (connection && connection.getNetworkList) {
-            const networkList = await connection.getNetworkList();
-            console.log('Available networks:', networkList);
-          }
-        } catch (error) {
-          console.log('Network list not available:', error);
-        }
-      }
-
-      // Method 4: Try using experimental WiFi scanning API
-      if ('wifi' in navigator) {
-        try {
-          const wifiManager = (navigator as any).wifi;
-          if (wifiManager && wifiManager.getNetworks) {
-            const availableNetworks = await wifiManager.getNetworks();
-            console.log('Available WiFi networks:', availableNetworks);
-            
-            availableNetworks.forEach((network: any) => {
-              networks.push({
-                id: network.ssid,
-                name: network.ssid,
-                security: network.security || 'Unknown',
-                strength: network.signalStrength || -60,
-                frequency: network.frequency,
-                channel: network.channel
-              });
-            });
-          }
-        } catch (error) {
-          console.log('WiFi scanning API not available:', error);
-        }
-      }
-
-      // Method 5: Try using experimental Network Information API
-      if ('networkInformation' in navigator) {
-        try {
-          const connection = (navigator as any).connection;
-          if (connection && connection.getNetworkList) {
-            const networks = await connection.getNetworkList();
-            console.log('Network list:', networks);
-          }
-        } catch (error) {
-          console.log('Network list API not available:', error);
-        }
-      }
-
-    } catch (error) {
-      console.log('Native WiFi scanning failed:', error);
-    }
-
-    return networks;
-  }
 
   // Request Bluetooth permission
   private async requestBluetoothPermission(): Promise<boolean> {
@@ -166,108 +72,7 @@ class RealDeviceService {
     }
   }
 
-  // Scan WiFi networks using available APIs
-  async scanWiFiNetworks(): Promise<WiFiNetwork[]> {
-    try {
-      console.log('Starting real WiFi network scan...');
-      this.isScanningWifi = true;
-      console.log('[WiFi] isScanningWifi set -> true');
 
-      // Try to get real WiFi networks first
-      let networks = await this.getNativeWiFiNetworks();
-      
-      console.log('Real WiFi networks found:', networks.length);
-
-      // If no real networks found, try additional methods
-      if (networks.length === 0) {
-        console.log('No real WiFi networks found, trying additional methods...');
-        
-        // Method 1: Try using experimental WiFi scanning API
-        if ('wifi' in navigator) {
-          try {
-            const wifiManager = (navigator as any).wifi;
-            if (wifiManager && wifiManager.getNetworks) {
-              const availableNetworks = await wifiManager.getNetworks();
-              console.log('Available WiFi networks from API:', availableNetworks);
-              
-              availableNetworks.forEach((network: any) => {
-                networks.push({
-                  id: network.ssid,
-                  name: network.ssid,
-                  security: network.security || 'Unknown',
-                  strength: network.signalStrength || -60,
-                  frequency: network.frequency,
-                  channel: network.channel
-                });
-              });
-            }
-          } catch (error) {
-            console.log('WiFi scanning API failed:', error);
-          }
-        }
-
-        // Method 2: Try using Network Information API
-        if ('networkInformation' in navigator) {
-          try {
-            const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-            if (connection && connection.effectiveType) {
-              console.log('Current network info:', connection);
-              // Add current network if available
-              if (connection.ssid) {
-                networks.push({
-                  id: 'current',
-                  name: connection.ssid,
-                  security: connection.security || 'Unknown',
-                  strength: connection.signalStrength || -50,
-                  frequency: connection.frequency
-                });
-              }
-            }
-          } catch (error) {
-            console.log('Network Information API failed:', error);
-          }
-        }
-
-        // Method 3: Try using experimental Network Information API
-        if ('networkInformation' in navigator) {
-          try {
-            const connection = (navigator as any).connection;
-            if (connection && connection.getNetworkList) {
-              const networkList = await connection.getNetworkList();
-              console.log('Network list from API:', networkList);
-              
-              if (Array.isArray(networkList)) {
-                networkList.forEach((network: any) => {
-                  networks.push({
-                    id: network.ssid || network.id,
-                    name: network.ssid || network.name,
-                    security: network.security || 'Unknown',
-                    strength: network.signalStrength || -60,
-                    frequency: network.frequency,
-                    channel: network.channel
-                  });
-                });
-              }
-            }
-          } catch (error) {
-            console.log('Network list API failed:', error);
-          }
-        }
-      }
-
-      // Return whatever networks we found (could be empty array)
-      this.wifiNetworks = networks;
-      this.isScanningWifi = false;
-      console.log('[WiFi] isScanningWifi set -> false');
-      console.log('WiFi scan completed, found', networks.length, 'networks');
-      return networks;
-    } catch (error) {
-      this.isScanningWifi = false;
-      console.log('[WiFi] isScanningWifi set -> false');
-      console.error('WiFi scan failed:', error);
-      throw new Error('WiFi scan failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
 
   // Scan Bluetooth devices using Web Bluetooth API
   async scanBluetoothDevices(): Promise<BluetoothDevice[]> {
@@ -526,29 +331,39 @@ class RealDeviceService {
     }
   }
 
-  // Submit device record to backend canister (mock implementation)
+  // Submit device record to backend canister using deviceApiService
   async submitDeviceRecordToCanister(record: DeviceRecord): Promise<boolean> {
     try {
       console.log('Submitting device record to backend canister:', record);
       
-      // TODO: Implement actual canister integration
-      // In a real implementation, this would:
-      // 1. Call IC canister method to store device record
-      // 2. Handle authentication and authorization
-      // 3. Return actual response from canister
-      
-      // Mock canister call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate canister response
-      const canisterResponse = {
-        success: true,
-        deviceId: `device_${Date.now()}`,
-        message: "Device record stored successfully in canister"
+      // Convert legacy DeviceRecord to ApiDeviceRecord format
+      const apiRecord: ApiDeviceRecord = {
+        id: `device_${Date.now()}`, // Generate unique ID
+        name: record.name,
+        deviceType: this.convertStringToDeviceType(record.type),
+        owner: record.principalId, // Use principalId as owner
+        status: this.convertStringToDeviceStatus(record.status),
+        capabilities: this.getDefaultCapabilities(record.type),
+        metadata: {
+          macAddress: record.macAddress,
+          wifiNetwork: record.wifiNetwork,
+          connectedAt: record.connectedAt,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastSeen: Date.now(),
       };
       
-      console.log('Device record submitted to canister successfully:', canisterResponse);
-      return true;
+      // Use deviceApiService to submit to backend canister
+      const response = await deviceApiService.submitDeviceRecord(apiRecord);
+      
+      if (response.success) {
+        console.log('Device record submitted to canister successfully:', response.data);
+        return true;
+      } else {
+        console.error('Failed to submit device record:', response.error);
+        throw new Error(response.error || 'Failed to submit device record');
+      }
     } catch (error) {
       console.error('Failed to submit device record to canister:', error);
       throw new Error('Canister submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -560,21 +375,28 @@ class RealDeviceService {
     return this.submitDeviceRecordToCanister(record);
   }
 
-  // Get device list
+  // Get device list using deviceApiService
   async getDeviceList(): Promise<DeviceRecord[]> {
     try {
-      // In a real app, this would be an actual API call
-      const response = await fetch('/api/devices');
+      console.log('Getting device list from backend canister...');
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Use deviceApiService to get devices from backend canister
+      const response = await deviceApiService.getDevices(0, 100); // Get first 100 devices
+      
+      if (response.success && response.data) {
+        // Convert ApiDeviceRecord[] to legacy DeviceRecord[] format
+        const legacyDevices: DeviceRecord[] = response.data.devices.map(apiDevice => 
+          this.convertApiDeviceToLegacyDevice(apiDevice)
+        );
+        
+        console.log('Device list retrieved successfully:', legacyDevices.length, 'devices');
+        return legacyDevices;
+      } else {
+        console.error('Failed to get device list:', response.error);
+        return [];
       }
-      
-      const result = await response.json();
-      return result.devices || [];
     } catch (error) {
       console.error('Failed to get device list:', error);
-      // Return empty array instead of mock data
       return [];
     }
   }
@@ -582,7 +404,6 @@ class RealDeviceService {
   // Get current scanning status
   getScanningStatus() {
     return {
-      isScanningWifi: this.isScanningWifi,
       isScanningBluetooth: this.isScanningBluetooth,
       wifiNetworks: this.wifiNetworks,
       bluetoothDevices: this.bluetoothDevices
@@ -593,6 +414,114 @@ class RealDeviceService {
   clearCache() {
     this.wifiNetworks = [];
     this.bluetoothDevices = [];
+  }
+
+  // Helper methods for type conversion
+
+  // Convert string device type to DeviceType enum
+  private convertStringToDeviceType(type: string): DeviceType {
+    switch (type.toLowerCase()) {
+      case 'mobile':
+      case 'phone':
+      case 'smartphone':
+        return { Mobile: null };
+      case 'desktop':
+      case 'computer':
+      case 'pc':
+        return { Desktop: null };
+      case 'server':
+        return { Server: null };
+      case 'iot':
+      case 'internet of things':
+        return { IoT: null };
+      case 'embedded':
+        return { Embedded: null };
+      default:
+        return { Other: type };
+    }
+  }
+
+  // Convert string device status to DeviceStatus enum
+  private convertStringToDeviceStatus(status: string): DeviceStatus {
+    switch (status.toLowerCase()) {
+      case 'connected':
+      case 'online':
+        return { Online: null };
+      case 'disconnected':
+      case 'offline':
+        return { Offline: null };
+      case 'maintenance':
+        return { Maintenance: null };
+      case 'disabled':
+        return { Disabled: null };
+      default:
+        return { Offline: null };
+    }
+  }
+
+  // Get default capabilities based on device type
+  private getDefaultCapabilities(type: string): any[] {
+    const capabilities = [];
+    
+    switch (type.toLowerCase()) {
+      case 'mobile':
+      case 'phone':
+      case 'smartphone':
+        capabilities.push({ Audio: null }, { Video: null }, { Network: null });
+        break;
+      case 'desktop':
+      case 'computer':
+      case 'pc':
+        capabilities.push({ Compute: null }, { Storage: null }, { Network: null });
+        break;
+      case 'server':
+        capabilities.push({ Compute: null }, { Storage: null }, { Network: null });
+        break;
+      case 'iot':
+      case 'internet of things':
+        capabilities.push({ Sensor: null }, { Network: null });
+        break;
+      case 'embedded':
+        capabilities.push({ Sensor: null }, { Compute: null });
+        break;
+      default:
+        capabilities.push({ Network: null });
+    }
+    
+    return capabilities;
+  }
+
+  // Convert ApiDeviceRecord to legacy DeviceRecord format
+  private convertApiDeviceToLegacyDevice(apiDevice: ApiDeviceRecord): DeviceRecord {
+    return {
+      name: apiDevice.name,
+      type: this.convertDeviceTypeToString(apiDevice.deviceType),
+      macAddress: apiDevice.metadata.macAddress || 'Unknown',
+      wifiNetwork: apiDevice.metadata.wifiNetwork || 'Unknown',
+      status: this.convertDeviceStatusToString(apiDevice.status),
+      connectedAt: apiDevice.metadata.connectedAt || new Date(apiDevice.createdAt).toISOString(),
+      principalId: apiDevice.owner,
+    };
+  }
+
+  // Convert DeviceType enum to string
+  private convertDeviceTypeToString(deviceType: DeviceType): string {
+    if ('Mobile' in deviceType) return 'Mobile';
+    if ('Desktop' in deviceType) return 'Desktop';
+    if ('Server' in deviceType) return 'Server';
+    if ('IoT' in deviceType) return 'IoT';
+    if ('Embedded' in deviceType) return 'Embedded';
+    if ('Other' in deviceType) return deviceType.Other;
+    return 'Unknown';
+  }
+
+  // Convert DeviceStatus enum to string
+  private convertDeviceStatusToString(status: DeviceStatus): string {
+    if ('Online' in status) return 'Connected';
+    if ('Offline' in status) return 'Disconnected';
+    if ('Maintenance' in status) return 'Maintenance';
+    if ('Disabled' in status) return 'Disabled';
+    return 'Unknown';
   }
 }
 

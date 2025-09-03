@@ -1,7 +1,7 @@
 // Device Management Hook - Manage device initialization and state
 import { useState, useEffect, useCallback } from 'react';
 import { deviceInitManager, DeviceInitStep, DeviceInitState } from '../services/deviceInitManager';
-import { realDeviceService, DeviceRecord } from '../services/realDeviceService';
+import { deviceApiService, DeviceRecord, DeviceListResponse, ApiResponse } from '../services/api/deviceApi';
 
 export interface UseDeviceManagementReturn {
   // State
@@ -17,6 +17,13 @@ export interface UseDeviceManagementReturn {
   submitDeviceRecord: () => Promise<boolean>;
   resetDeviceInit: () => void;
   clearError: () => void;
+  
+  // Device management actions
+  loadDevices: () => Promise<void>;
+  addDevice: (device: DeviceRecord) => Promise<boolean>;
+  updateDevice: (deviceId: string, device: DeviceRecord) => Promise<boolean>;
+  deleteDevice: (deviceId: string) => Promise<boolean>;
+  updateDeviceStatus: (deviceId: string, status: any) => Promise<boolean>;
   
   // Computed
   currentStep: DeviceInitStep;
@@ -50,8 +57,13 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
   const loadDevices = useCallback(async () => {
     try {
       setIsLoading(true);
-      const deviceList = await realDeviceService.getDeviceList();
-      setDevices(deviceList);
+      setError(null);
+      const response = await deviceApiService.getDevices(0, 100); // Load first 100 devices
+      if (response.success && response.data) {
+        setDevices(response.data.devices);
+      } else {
+        setError(response.error || 'Failed to load devices');
+      }
     } catch (error) {
       console.error('Failed to load devices:', error);
       setError('Failed to load devices');
@@ -135,6 +147,97 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
     setError(null);
   }, []);
 
+  // Add new device
+  const addDevice = useCallback(async (device: DeviceRecord): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await deviceApiService.submitDeviceRecord(device);
+      if (response.success) {
+        await loadDevices(); // Reload devices after successful addition
+        return true;
+      } else {
+        setError(response.error || 'Failed to add device');
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to add device:', error);
+      setError('Failed to add device');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadDevices]);
+
+  // Update device
+  const updateDevice = useCallback(async (deviceId: string, device: DeviceRecord): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await deviceApiService.updateDevice(deviceId, device);
+      if (response.success) {
+        await loadDevices(); // Reload devices after successful update
+        return true;
+      } else {
+        setError(response.error || 'Failed to update device');
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to update device:', error);
+      setError('Failed to update device');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadDevices]);
+
+  // Delete device
+  const deleteDevice = useCallback(async (deviceId: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await deviceApiService.deleteDevice(deviceId);
+      if (response.success) {
+        await loadDevices(); // Reload devices after successful deletion
+        return true;
+      } else {
+        setError(response.error || 'Failed to delete device');
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to delete device:', error);
+      setError('Failed to delete device');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadDevices]);
+
+  // Update device status
+  const updateDeviceStatus = useCallback(async (deviceId: string, status: any): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await deviceApiService.updateDeviceStatus({
+        deviceId,
+        status,
+      });
+      if (response.success) {
+        await loadDevices(); // Reload devices after successful status update
+        return true;
+      } else {
+        setError(response.error || 'Failed to update device status');
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to update device status:', error);
+      setError('Failed to update device status');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadDevices]);
+
   // Computed values
   const currentStep = deviceInitState.step;
   const isStepComplete = deviceInitManager.isStepComplete();
@@ -154,6 +257,13 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
     submitDeviceRecord,
     resetDeviceInit,
     clearError,
+    
+    // Device management actions
+    loadDevices,
+    addDevice,
+    updateDevice,
+    deleteDevice,
+    updateDeviceStatus,
     
     // Computed
     currentStep,

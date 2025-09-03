@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Wifi, Settings, Plus, Loader2 } from 'lucide-react';
+import { Smartphone, Wifi, Settings, Plus, Loader2, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '../lib/auth';
@@ -9,61 +9,68 @@ import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
-// 设备类型定义
-interface Device {
-  id: number;
-  name: string;
-  type: string;
-  status: string;
-}
+import { useDeviceManagement } from '../hooks/useDeviceManagement';
+import { DeviceRecord } from '../services/api/deviceApi';
+import type { DeviceStatus, DeviceType } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 
 const MyDevices = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { t } = useTranslation();
   const [showWifiDialog, setShowWifiDialog] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceRecord | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deviceToDelete, setDeviceToDelete] = useState<DeviceRecord | null>(null);
 
-  // get devices from backend
-  const fetchDevices = async (): Promise<Device[]> => {
-    // TODO: get devices from backend
-    return [];
+  // Use device management hook
+  const {
+    devices,
+    isLoading,
+    error,
+    loadDevices,
+    deleteDevice,
+    updateDeviceStatus,
+    clearError
+  } = useDeviceManagement();
+
+  // Load devices on component mount
+  useEffect(() => {
+    loadDevices();
+  }, [loadDevices]);
+
+  // Helper function to get device type display name
+  const getDeviceTypeName = (deviceType: DeviceType): string => {
+    if ('Mobile' in deviceType) return 'Mobile';
+    if ('Desktop' in deviceType) return 'Desktop';
+    if ('Server' in deviceType) return 'Server';
+    if ('IoT' in deviceType) return 'IoT';
+    if ('Embedded' in deviceType) return 'Embedded';
+    if ('Other' in deviceType) return deviceType.Other;
+    return 'Unknown';
   };
 
-  // 组件加载时获取设备列表
-  useEffect(() => {
-    const loadDevices = async () => {
-      setIsLoading(true);
-      try {
-        const deviceList = await fetchDevices();
-        setDevices(deviceList);
-      } catch (error) {
-        console.error('Failed to fetch devices:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Helper function to get device status display name
+  const getDeviceStatusName = (status: DeviceStatus): string => {
+    if ('Online' in status) return 'Online';
+    if ('Offline' in status) return 'Offline';
+    if ('Maintenance' in status) return 'Maintenance';
+    if ('Disabled' in status) return 'Disabled';
+    return 'Unknown';
+  };
 
-    loadDevices();
-  }, []);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Connected': return 'text-green-400 bg-green-400/20';
-      case 'Disconnected': return 'text-red-400 bg-red-400/20';
-      case 'Syncing': return 'text-yellow-400 bg-yellow-400/20';
-      default: return 'text-white/60 bg-white/10';
-    }
+  const getStatusColor = (status: DeviceStatus) => {
+    if ('Online' in status) return 'text-green-400 bg-green-400/20';
+    if ('Offline' in status) return 'text-red-400 bg-red-400/20';
+    if ('Maintenance' in status) return 'text-yellow-400 bg-yellow-400/20';
+    if ('Disabled' in status) return 'text-gray-400 bg-gray-400/20';
+    return 'text-white/60 bg-white/10';
   };
 
   const handleAddDevice = () => {
     navigate('/add-device');
   };
 
-  const handleLinkToWifi = (device: Device) => {
+  const handleLinkToWifi = (device: DeviceRecord) => {
     setSelectedDevice(device);
     setShowWifiDialog(true);
   };
@@ -71,6 +78,26 @@ const MyDevices = () => {
   const handleWifiConnect = (network: any) => {
     console.log('Connecting device to WiFi:', network.name);
     setShowWifiDialog(false);
+  };
+
+  const handleDeleteDevice = (device: DeviceRecord) => {
+    setDeviceToDelete(device);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteDevice = async () => {
+    if (deviceToDelete) {
+      const success = await deleteDevice(deviceToDelete.id);
+      if (success) {
+        setShowDeleteDialog(false);
+        setDeviceToDelete(null);
+      }
+    }
+  };
+
+  const handleToggleDeviceStatus = async (device: DeviceRecord) => {
+    const newStatus = 'Online' in device.status ? { Offline: null } : { Online: null };
+    await updateDeviceStatus(device.id, newStatus);
   };
 
 
@@ -187,18 +214,24 @@ const MyDevices = () => {
                                 <Smartphone className="h-8 w-8 text-cyan-400" />
                                 <div>
                                   <h3 className="text-white font-medium">{device.name}</h3>
-                                  <p className="text-sm text-white/60">{device.type}</p>
+                                  <p className="text-sm text-white/60">{getDeviceTypeName(device.deviceType)}</p>
+                                  <p className="text-xs text-white/40">ID: {device.id}</p>
                                 </div>
                               </div>
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(device.status)} backdrop-blur-sm`}>
-                                {t(`common.device${device.status}` as any)}
+                                {getDeviceStatusName(device.status)}
                               </span>
                             </div>
 
                             <div className="flex gap-2 mt-4">
-                              <Button variant="outline" size="sm" className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleToggleDeviceStatus(device)}
+                                className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                              >
                                 <Settings className="h-4 w-4 mr-2" />
-                                {t('common.manage')}
+                                {('Online' in device.status) ? 'Disconnect' : 'Connect'}
                               </Button>
                               <Button 
                                 variant="outline" 
@@ -207,6 +240,14 @@ const MyDevices = () => {
                                 className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
                               >
                                 <Wifi className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleDeleteDevice(device)}
+                                className="bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30 backdrop-blur-sm"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
@@ -274,6 +315,41 @@ const MyDevices = () => {
               >
                 {t('common.cancel')}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Device Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-md mx-auto shadow-2xl">
+            <DialogHeader className="pb-4">
+              <DialogTitle className="text-white flex items-center gap-3">
+                <Trash2 className="h-5 w-5 text-red-400" />
+                Delete Device
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-white/60 text-sm">
+                Are you sure you want to delete the device <span className="text-white font-medium">{deviceToDelete?.name}</span>?
+                This action cannot be undone.
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={confirmDeleteDevice}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white border-0"
+                >
+                  Delete
+                </Button>
+                <Button
+                  onClick={() => setShowDeleteDialog(false)}
+                  variant="outline"
+                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

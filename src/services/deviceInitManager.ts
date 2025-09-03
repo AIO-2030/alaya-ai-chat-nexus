@@ -1,5 +1,6 @@
 // Device Initialization Manager - Handle complete device setup process
 import { realDeviceService, WiFiNetwork, BluetoothDevice, DeviceRecord, ConnectionProgress } from './realDeviceService';
+import { getPrincipalId } from '../lib/principal';
 
 export enum DeviceInitStep {
   INIT = 'init',
@@ -18,7 +19,7 @@ export interface DeviceInitState {
   selectedBluetoothDevice: BluetoothDevice | null;
   wifiNetworks: WiFiNetwork[];
   bluetoothDevices: BluetoothDevice[];
-  isScanningWifi: boolean;
+
   isScanningBluetooth: boolean;
   isConnectingBluetooth: boolean;
   isConfiguringWifi: boolean;
@@ -36,7 +37,7 @@ export class DeviceInitManager {
       selectedBluetoothDevice: null,
       wifiNetworks: [],
       bluetoothDevices: [],
-      isScanningWifi: false,
+
       isScanningBluetooth: false,
       isConnectingBluetooth: false,
       isConfiguringWifi: false,
@@ -94,7 +95,7 @@ export class DeviceInitManager {
   // Step 3: Request WiFi networks from device via Bluetooth
   private async requestWiFiNetworksFromDevice(): Promise<void> {
     try {
-      this.state.isScanningWifi = true;
+
       this.state.error = null;
 
       if (!this.state.selectedBluetoothDevice) {
@@ -104,11 +105,11 @@ export class DeviceInitManager {
       // Request WiFi scan from device via Bluetooth
       const networks = await realDeviceService.requestWiFiScanFromDevice(this.state.selectedBluetoothDevice);
       this.state.wifiNetworks = networks;
-      this.state.isScanningWifi = false;
+
       this.state.step = DeviceInitStep.WIFI_SELECT;
     } catch (error) {
       this.state.error = error instanceof Error ? error.message : 'WiFi scan request failed';
-      this.state.isScanningWifi = false;
+
       throw error;
     }
   }
@@ -149,13 +150,20 @@ export class DeviceInitManager {
         throw new Error('No device or WiFi selected');
       }
 
+      // Get current user's principal ID
+      const principalId = getPrincipalId();
+      if (!principalId) {
+        throw new Error('User principal ID not found. Please ensure you are authenticated.');
+      }
+
       const record: DeviceRecord = {
         name: this.state.selectedBluetoothDevice.name,
         type: this.state.selectedBluetoothDevice.type,
         macAddress: this.state.selectedBluetoothDevice.mac,
         wifiNetwork: this.state.selectedWifi.name,
         status: 'Connected',
-        connectedAt: new Date().toISOString()
+        connectedAt: new Date().toISOString(),
+        principalId: principalId
       };
 
       // Submit to backend canister
@@ -181,7 +189,7 @@ export class DeviceInitManager {
       selectedBluetoothDevice: null,
       wifiNetworks: [],
       bluetoothDevices: [],
-      isScanningWifi: false,
+
       isScanningBluetooth: false,
       isConnectingBluetooth: false,
       isConfiguringWifi: false,
@@ -222,7 +230,7 @@ export class DeviceInitManager {
       case DeviceInitStep.BLUETOOTH_CONNECT:
         return !this.state.isConnectingBluetooth;
       case DeviceInitStep.WIFI_SCAN:
-        return !this.state.isScanningWifi && this.state.wifiNetworks.length > 0;
+        return this.state.wifiNetworks.length > 0;
       case DeviceInitStep.WIFI_CONFIG:
         return !this.state.isConfiguringWifi;
       default:

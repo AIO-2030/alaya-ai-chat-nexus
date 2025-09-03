@@ -98,6 +98,47 @@ export type CreditActivityType = { 'Spend' : null } |
   { 'Earn' : null } |
   { 'Reward' : null } |
   { 'Unstack' : null };
+export type DeviceCapability = { 'Storage' : null } |
+  { 'Network' : null } |
+  { 'Compute' : null } |
+  { 'Custom' : string } |
+  { 'Sensor' : null } |
+  { 'Audio' : null } |
+  { 'Video' : null };
+export interface DeviceFilter {
+  'status' : [] | [DeviceStatus],
+  'owner' : [] | [Principal],
+  'device_type' : [] | [DeviceType],
+  'capability' : [] | [DeviceCapability],
+}
+export interface DeviceInfo {
+  'id' : string,
+  'status' : DeviceStatus,
+  'updated_at' : bigint,
+  'capabilities' : Array<DeviceCapability>,
+  'owner' : Principal,
+  'metadata' : Array<[string, string]>,
+  'name' : string,
+  'device_type' : DeviceType,
+  'created_at' : bigint,
+  'last_seen' : bigint,
+}
+export interface DeviceListResponse {
+  'total' : bigint,
+  'offset' : bigint,
+  'limit' : bigint,
+  'devices' : Array<DeviceInfo>,
+}
+export type DeviceStatus = { 'Online' : null } |
+  { 'Disabled' : null } |
+  { 'Maintenance' : null } |
+  { 'Offline' : null };
+export type DeviceType = { 'IoT' : null } |
+  { 'Server' : null } |
+  { 'Embedded' : null } |
+  { 'Other' : string } |
+  { 'Desktop' : null } |
+  { 'Mobile' : null };
 export interface EmissionPolicy {
   'subscription_multipliers' : Array<[SubscriptionPlan, number]>,
   'last_update_time' : bigint,
@@ -395,6 +436,11 @@ export interface _SERVICE {
     { 'Ok' : bigint } |
       { 'Err' : string }
   >,
+  'add_device' : ActorMethod<
+    [DeviceInfo],
+    { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
   'add_mcp_item' : ActorMethod<
     [McpItem, string],
     { 'Ok' : string } |
@@ -493,6 +539,7 @@ export interface _SERVICE {
     { 'Ok' : boolean } |
       { 'Err' : string }
   >,
+  'delete_device' : ActorMethod<[string], { 'Ok' : null } | { 'Err' : string }>,
   'delete_inverted_index_by_mcp' : ActorMethod<
     [string],
     { 'Ok' : null } |
@@ -553,6 +600,7 @@ export interface _SERVICE {
   'get_all_accounts' : ActorMethod<[], Array<AccountInfo>>,
   'get_all_agent_items' : ActorMethod<[], Array<AgentItem>>,
   'get_all_aio_indices' : ActorMethod<[], Array<AioIndex>>,
+  'get_all_devices' : ActorMethod<[bigint, bigint], DeviceListResponse>,
   'get_all_inverted_index_items' : ActorMethod<[], string>,
   'get_all_keywords' : ActorMethod<[], string>,
   'get_all_mcp_grants' : ActorMethod<[], Array<NewMcpGrant>>,
@@ -606,6 +654,8 @@ export interface _SERVICE {
     }
   >,
   'get_credits_per_icp_api' : ActorMethod<[], bigint>,
+  'get_device_by_id' : ActorMethod<[string], [] | [DeviceInfo]>,
+  'get_devices_by_owner' : ActorMethod<[string], Array<DeviceInfo>>,
   'get_emission_policy' : ActorMethod<
     [],
     { 'Ok' : EmissionPolicy } |
@@ -829,6 +879,7 @@ export interface _SERVICE {
   >,
   'search_aio_indices_by_keyword' : ActorMethod<[string], Array<AioIndex>>,
   'search_contacts_by_name' : ActorMethod<[string, string], Array<Contact>>,
+  'search_devices' : ActorMethod<[DeviceFilter], Array<DeviceInfo>>,
   'send_chat_message' : ActorMethod<
     [string, string, string, MessageMode],
     { 'Ok' : bigint } |
@@ -889,6 +940,21 @@ export interface _SERVICE {
   'update_contact_status' : ActorMethod<
     [string, string, ContactStatus],
     { 'Ok' : Contact } |
+      { 'Err' : string }
+  >,
+  'update_device' : ActorMethod<
+    [string, DeviceInfo],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'update_device_last_seen' : ActorMethod<
+    [string],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'update_device_status' : ActorMethod<
+    [string, DeviceStatus],
+    { 'Ok' : null } |
       { 'Err' : string }
   >,
   'update_emission_policy' : ActorMethod<
