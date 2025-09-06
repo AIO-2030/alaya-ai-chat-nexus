@@ -207,7 +207,8 @@ export interface McpStackRecord {
   'stack_status' : StackStatus,
   'principal_id' : string,
 }
-export type MessageMode = { 'Emoji' : null } |
+export type MessageMode = { 'Gif' : null } |
+  { 'Emoji' : null } |
   { 'Text' : null } |
   { 'Image' : null } |
   { 'PixelArt' : null } |

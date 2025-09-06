@@ -43,11 +43,24 @@ interface UserCreationItem {
   };
 }
 
+interface GifItem {
+  id: number;
+  title: string;
+  creator?: string;
+  likes: number;
+  gifUrl: string;
+  thumbnailUrl: string;
+  duration: number; // in milliseconds
+  width: number;
+  height: number;
+}
+
 const Gallery = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthenticated, loginWithGoogle, loginWithWallet } = useAuth();
   const [activeTab, setActiveTab] = useState('public');
+  const [publicSubTab, setPublicSubTab] = useState('pixel'); // 'pixel' or 'gif'
   const [pixelFormat, setPixelFormat] = useState<PixelFormat>('32x32');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingUserCreations, setIsLoadingUserCreations] = useState(false);
@@ -187,7 +200,7 @@ const Gallery = () => {
     try {
       // Generate chat format from canvas
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx || !item.pixelArt) {
         console.error('Cannot generate chat format for item:', item.title);
         return;
@@ -235,6 +248,36 @@ const Gallery = () => {
     }
   };
 
+  // Handle Use button click for GIF items
+  const handleUseGifItem = async (item: GifItem) => {
+    try {
+      // Create GIF info object for chat
+      const gifData = {
+        gifUrl: item.gifUrl,
+        thumbnailUrl: item.thumbnailUrl,
+        title: item.title,
+        duration: item.duration,
+        width: item.width,
+        height: item.height,
+        sourceType: 'gif',
+        sourceId: item.id.toString()
+      };
+
+      // Set sessionStorage flag and include in URL parameters
+      sessionStorage.setItem('returning_from_gallery', 'true');
+      
+      const params = new URLSearchParams();
+      params.set('gifData', JSON.stringify(gifData));
+      params.set('from', 'gallery');
+      console.log('[Gallery] Sending GIF to chat with sessionStorage flag set, contact info will be restored automatically');
+      
+      const chatUrl = `/chat?${params.toString()}`;
+      navigate(chatUrl);
+    } catch (error) {
+      console.error('Error using GIF item:', error);
+    }
+  };
+
   // Mock data for demonstration with emoji
   const [publicGalleryItems, setPublicGalleryItems] = useState<GalleryItem[]>([
     { id: 1, title: 'Happy Face', creator: 'User1', likes: 42, emoji: '😊' },
@@ -243,6 +286,76 @@ const Gallery = () => {
     { id: 4, title: 'Party', creator: 'User4', likes: 33, emoji: '🎉' },
     { id: 5, title: 'Fire', creator: 'User5', likes: 67, emoji: '🔥' },
     { id: 6, title: 'Star', creator: 'User6', likes: 28, emoji: '⭐' },
+  ]);
+
+  // Mock data for GIF emojis
+  const [gifGalleryItems, setGifGalleryItems] = useState<GifItem[]>([
+    { 
+      id: 1, 
+      title: 'Dancing Cat', 
+      creator: 'User1', 
+      likes: 89, 
+      gifUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      thumbnailUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      duration: 2000,
+      width: 480,
+      height: 480
+    },
+    { 
+      id: 2, 
+      title: 'Happy Dance', 
+      creator: 'User2', 
+      likes: 156, 
+      gifUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      thumbnailUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      duration: 3000,
+      width: 480,
+      height: 270
+    },
+    { 
+      id: 3, 
+      title: 'Celebration', 
+      creator: 'User3', 
+      likes: 203, 
+      gifUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      thumbnailUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      duration: 2500,
+      width: 480,
+      height: 480
+    },
+    { 
+      id: 4, 
+      title: 'Thumbs Up', 
+      creator: 'User4', 
+      likes: 78, 
+      gifUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      thumbnailUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      duration: 1800,
+      width: 480,
+      height: 270
+    },
+    { 
+      id: 5, 
+      title: 'Wave Hello', 
+      creator: 'User5', 
+      likes: 134, 
+      gifUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      thumbnailUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      duration: 2200,
+      width: 480,
+      height: 480
+    },
+    { 
+      id: 6, 
+      title: 'Love Heart', 
+      creator: 'User6', 
+      likes: 167, 
+      gifUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      thumbnailUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      duration: 2800,
+      width: 480,
+      height: 270
+    },
   ]);
 
   // Load user's pixel art creations with pagination
@@ -429,7 +542,7 @@ const Gallery = () => {
         <canvas
           ref={(canvas) => {
             if (canvas && item.pixelArt) {
-              const ctx = canvas.getContext('2d');
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
               if (ctx) {
                 const containerElement = canvas.parentElement;
                 if (containerElement) {
@@ -490,7 +603,7 @@ const Gallery = () => {
         <canvas
           ref={(canvas) => {
             if (canvas && item.pixelResult) {
-              const ctx = canvas.getContext('2d');
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
               if (ctx) {
                 // Set canvas to maximum size within container
                 const containerElement = canvas.parentElement;
@@ -517,6 +630,34 @@ const Gallery = () => {
             }
           }}
           style={{ imageRendering: 'pixelated' }}
+        />
+      </div>
+    );
+  };
+
+  // Render GIF canvas
+  const renderGifCanvas = (item: GifItem) => {
+    return (
+      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center overflow-hidden">
+        <img
+          src={item.thumbnailUrl}
+          alt={item.title}
+          className="max-w-full max-h-full object-contain rounded"
+          style={{ imageRendering: 'auto' }}
+          onError={(e) => {
+            // Fallback to a placeholder if image fails to load
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+            const parent = target.parentElement;
+            if (parent) {
+              parent.innerHTML = `
+                <div class="text-white/60 text-sm text-center p-4">
+                  <div class="text-4xl mb-2">🎬</div>
+                  <div>GIF Preview</div>
+                </div>
+              `;
+            }
+          }}
         />
       </div>
     );
@@ -628,6 +769,28 @@ const Gallery = () => {
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
+                  
+                  {/* Public Sub-tabs */}
+                  {activeTab === 'public' && (
+                    <div className="mt-3">
+                      <Tabs value={publicSubTab} onValueChange={setPublicSubTab} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 bg-white/5 backdrop-blur-sm">
+                          <TabsTrigger 
+                            value="pixel" 
+                            className="text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white text-sm"
+                          >
+                            🎨 {t('gallery.pixelEmojis')}
+                          </TabsTrigger>
+                          <TabsTrigger 
+                            value="gif"
+                            className="text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white text-sm"
+                          >
+                            🎬 {t('gallery.animatedGifs')}
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                    </div>
+                  )}
                 </div>
 
                 {/* Gallery Content */}
@@ -638,43 +801,81 @@ const Gallery = () => {
                   <Tabs value={activeTab} className="w-full h-full">
                     {/* Public Gallery */}
                     <TabsContent value="public" className="h-full">
-                      <div className="grid grid-cols-2 gap-4">
-                        {isProcessing && (
-                          <div className="col-span-full text-center py-8">
-                            <div className="text-white/60 text-sm flex items-center justify-center gap-2">
-                              <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
-                              {t('pixel.processing')}
-                            </div>
-                          </div>
-                        )}
-                        {publicGalleryItems.map((item) => (
-                          <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/20 transition-all duration-200 flex flex-col">
-                            <div className="flex-1">
-                              {renderPixelCanvas(item)}
-                            </div>
-                            <div className="mt-3 space-y-2">
-                              <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
-                              <p className="text-white/60 text-xs truncate">by {item.creator}</p>
-                              <div className="flex items-center justify-between">
-                                <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
-                                <div className="flex gap-1">
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
-                                    onClick={() => handleUsePublicItem(item)}
-                                  >
-                                    Use
-                                  </Button>
-                                  <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
-                                    {pixelFormat}
+                      <Tabs value={publicSubTab} className="w-full h-full">
+                        {/* Pixel Art Sub-tab */}
+                        <TabsContent value="pixel" className="h-full">
+                          <div className="grid grid-cols-2 gap-4">
+                            {isProcessing && (
+                              <div className="col-span-full text-center py-8">
+                                <div className="text-white/60 text-sm flex items-center justify-center gap-2">
+                                  <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
+                                  {t('pixel.processing')}
+                                </div>
+                              </div>
+                            )}
+                            {publicGalleryItems.map((item) => (
+                              <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/20 transition-all duration-200 flex flex-col">
+                                <div className="flex-1">
+                                  {renderPixelCanvas(item)}
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                  <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
+                                  <p className="text-white/60 text-xs truncate">by {item.creator}</p>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
+                                    <div className="flex gap-1">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
+                                        onClick={() => handleUsePublicItem(item)}
+                                      >
+                                        Use
+                                      </Button>
+                                      <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
+                                        {pixelFormat}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </TabsContent>
+
+                        {/* GIF Sub-tab */}
+                        <TabsContent value="gif" className="h-full">
+                          <div className="grid grid-cols-2 gap-4">
+                            {gifGalleryItems.map((item) => (
+                              <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/20 transition-all duration-200 flex flex-col">
+                                <div className="flex-1">
+                                  {renderGifCanvas(item)}
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                  <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
+                                  <p className="text-white/60 text-xs truncate">by {item.creator}</p>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
+                                    <div className="flex gap-1">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
+                                        onClick={() => handleUseGifItem(item)}
+                                      >
+                                        Use
+                                      </Button>
+                                      <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
+                                        {item.width}x{item.height}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
                     </TabsContent>
 
                     {/* My Creator Gallery */}

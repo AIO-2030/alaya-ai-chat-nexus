@@ -50,7 +50,7 @@ export class PixelProcessor {
     
     // Create temporary canvas for processing
     const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d')!;
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
     
     // Set canvas to original image size first
     tempCanvas.width = img.width;
@@ -64,7 +64,7 @@ export class PixelProcessor {
     
     // Create final canvas with pixel dimensions
     const pixelCanvas = document.createElement('canvas');
-    const pixelCtx = pixelCanvas.getContext('2d')!;
+    const pixelCtx = pixelCanvas.getContext('2d', { willReadFrequently: true })!;
     pixelCanvas.width = pixelDimensions.width;
     pixelCanvas.height = pixelDimensions.height;
     
@@ -107,7 +107,7 @@ export class PixelProcessor {
     
     // Create temporary canvas to render emoji
     const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d')!;
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })!;
     
     // Set high resolution for better quality
     const scale = 4;
@@ -149,7 +149,7 @@ export class PixelProcessor {
     displaySize: { width: number; height: number }
   ): HTMLCanvasElement {
     const displayCanvas = document.createElement('canvas');
-    const displayCtx = displayCanvas.getContext('2d')!;
+    const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true })!;
     
     displayCanvas.width = displaySize.width;
     displayCanvas.height = displaySize.height;

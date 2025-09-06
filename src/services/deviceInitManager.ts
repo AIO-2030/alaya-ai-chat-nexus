@@ -19,10 +19,13 @@ export interface DeviceInitState {
   selectedBluetoothDevice: BluetoothDevice | null;
   wifiNetworks: WiFiNetwork[];
   bluetoothDevices: BluetoothDevice[];
+  activationCode: string | null;
 
   isScanningBluetooth: boolean;
   isConnectingBluetooth: boolean;
   isConfiguringWifi: boolean;
+  isTransmittingActivationCode: boolean;
+  isVerifyingActivation: boolean;
   connectionProgress: number;
   error: string | null;
 }
@@ -37,10 +40,13 @@ export class DeviceInitManager {
       selectedBluetoothDevice: null,
       wifiNetworks: [],
       bluetoothDevices: [],
+      activationCode: null,
 
       isScanningBluetooth: false,
       isConnectingBluetooth: false,
       isConfiguringWifi: false,
+      isTransmittingActivationCode: false,
+      isVerifyingActivation: false,
       connectionProgress: 0,
       error: null
     };
@@ -133,10 +139,67 @@ export class DeviceInitManager {
       );
 
       this.state.isConfiguringWifi = false;
-      this.state.step = DeviceInitStep.SUCCESS;
+      // Don't move to SUCCESS yet, wait for activation code
     } catch (error) {
       this.state.error = error instanceof Error ? error.message : 'WiFi configuration failed';
       this.state.isConfiguringWifi = false;
+      throw error;
+    }
+  }
+
+  // Step 5: Send activation code to device
+  async sendActivationCode(activationCode: string): Promise<void> {
+    try {
+      this.state.activationCode = activationCode;
+      this.state.isTransmittingActivationCode = true;
+      this.state.error = null;
+
+      if (!this.state.selectedBluetoothDevice) {
+        throw new Error('No Bluetooth device connected');
+      }
+
+      // Send activation code to device via Bluetooth
+      await realDeviceService.sendActivationCodeToDevice(
+        this.state.selectedBluetoothDevice,
+        activationCode
+      );
+
+      this.state.isTransmittingActivationCode = false;
+      
+      // Move to activation verification
+      await this.verifyDeviceActivation();
+    } catch (error) {
+      this.state.error = error instanceof Error ? error.message : 'Activation code transmission failed';
+      this.state.isTransmittingActivationCode = false;
+      throw error;
+    }
+  }
+
+  // Step 6: Verify device activation
+  private async verifyDeviceActivation(): Promise<void> {
+    try {
+      this.state.isVerifyingActivation = true;
+      this.state.error = null;
+
+      if (!this.state.selectedBluetoothDevice || !this.state.activationCode) {
+        throw new Error('No device or activation code available');
+      }
+
+      // Verify activation via Tencent Cloud API
+      const isActivated = await realDeviceService.verifyDeviceActivationViaTencentCloud(
+        this.state.selectedBluetoothDevice,
+        this.state.activationCode
+      );
+
+      if (!isActivated) {
+        throw new Error('Device activation verification failed');
+      }
+
+      this.state.isVerifyingActivation = false;
+      this.state.step = DeviceInitStep.SUCCESS;
+    } catch (error) {
+      this.state.error = error instanceof Error ? error.message : 'Device activation verification failed';
+      this.state.isVerifyingActivation = false;
       throw error;
     }
   }
@@ -189,10 +252,13 @@ export class DeviceInitManager {
       selectedBluetoothDevice: null,
       wifiNetworks: [],
       bluetoothDevices: [],
+      activationCode: null,
 
       isScanningBluetooth: false,
       isConnectingBluetooth: false,
       isConfiguringWifi: false,
+      isTransmittingActivationCode: false,
+      isVerifyingActivation: false,
       connectionProgress: 0,
       error: null
     };

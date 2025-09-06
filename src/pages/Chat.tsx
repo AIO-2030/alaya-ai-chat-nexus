@@ -20,8 +20,12 @@ import {
   checkForNewMessages,
   NotificationInfo,
   PixelArtInfo,
-  sendPixelArtMessage
+  GifInfo,
+  sendPixelArtMessage,
+  sendGifMessage
 } from '../services/api/chatApi';
+import { deviceMessageService } from '../services/deviceMessageService';
+import { deviceSimulator } from '../services/deviceSimulator';
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -199,6 +203,9 @@ const Chat = () => {
   const [notifications, setNotifications] = useState<NotificationInfo[]>([]);
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [pendingPixelArt, setPendingPixelArt] = useState<PixelArtInfo | null>(null);
+  const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if contact info needs to be restored from sessionStorage on component load
@@ -373,10 +380,47 @@ const Chat = () => {
     }
   }, [searchParams, navigate]);
 
+  // Handle GIF data from URL params
+  useEffect(() => {
+    const gifDataParam = searchParams.get('gifData');
+    if (gifDataParam) {
+      try {
+        const gifData = JSON.parse(gifDataParam) as GifInfo;
+        setPendingGif(gifData);
+        console.log('[Chat] Received GIF data:', gifData);
+        
+        // Clear the URL parameter
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('gifData');
+        navigate(`/chat?${newSearchParams.toString()}`, { replace: true });
+      } catch (error) {
+        console.error('[Chat] Error parsing GIF data:', error);
+      }
+    }
+  }, [searchParams, navigate]);
+
   // Auto scroll to bottom when messages update
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Check device connection status
+  useEffect(() => {
+    const checkDeviceStatus = () => {
+      const isConnected = deviceMessageService.isAnyDeviceConnected();
+      const devices = deviceMessageService.getConnectedDevices();
+      setDeviceConnected(isConnected);
+      setConnectedDevices(devices.map(d => d.deviceName || d.deviceId || 'Unknown Device'));
+    };
+
+    // Check immediately
+    checkDeviceStatus();
+
+    // Check every 5 seconds
+    const interval = setInterval(checkDeviceStatus, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -405,20 +449,22 @@ const Chat = () => {
     // Detailed check for missing data
     const hasMessage = newMessage.trim();
     const hasPixelArt = !!pendingPixelArt;
+    const hasGif = !!pendingGif;
     const hasUserPrincipal = !!user?.principalId;
     const hasContactPrincipal = !!contactPrincipalId;
     
     console.log('[Chat] Send message validation:', {
       hasMessage,
       hasPixelArt,
+      hasGif,
       hasUserPrincipal,
       hasContactPrincipal,
       userPrincipalId: user?.principalId,
       contactPrincipalId
     });
 
-    if (!hasMessage && !hasPixelArt) {
-      console.warn('[Chat] Cannot send message: no message content or pixel art');
+    if (!hasMessage && !hasPixelArt && !hasGif) {
+      console.warn('[Chat] Cannot send message: no message content, pixel art, or GIF');
       toast({
         title: t('chat.error.emptyMessage'),
         description: t('chat.error.emptyMessageDesc'),
@@ -455,6 +501,11 @@ const Chat = () => {
         console.log('[Chat] Sending pixel art message:', pendingPixelArt);
         await sendPixelArtMessage(user.principalId, contactPrincipalId, pendingPixelArt);
         setPendingPixelArt(null);
+      } else if (pendingGif) {
+        // Send GIF message
+        console.log('[Chat] Sending GIF message:', pendingGif);
+        await sendGifMessage(user.principalId, contactPrincipalId, pendingGif);
+        setPendingGif(null);
       } else {
         // Send text message
         console.log('[Chat] Sending message:', newMessage);
@@ -480,6 +531,17 @@ const Chat = () => {
         };
         setMessages(prev => [...prev, fallbackMsg]);
         setPendingPixelArt(null);
+      } else if (pendingGif) {
+        // Add fallback GIF message if backend fails
+        const fallbackMsg: ChatMessageInfo = {
+          sendBy: user.principalId,
+          content: JSON.stringify(pendingGif),
+          mode: 'Gif',
+          timestamp: Date.now(),
+          gifInfo: pendingGif
+        };
+        setMessages(prev => [...prev, fallbackMsg]);
+        setPendingGif(null);
       } else {
         // Add fallback text message if backend fails
         const fallbackMsg: ChatMessageInfo = {
@@ -721,6 +783,23 @@ const Chat = () => {
                                 style={{ imageRendering: 'pixelated', maxHeight: '200px' }}
                               />
                             </div>
+                          ) : message.mode === 'Gif' && message.gifInfo ? (
+                            <div className="space-y-2">
+                              <img 
+                                src={message.gifInfo.gifUrl} 
+                                alt={message.gifInfo.title}
+                                className="max-w-full h-auto rounded"
+                                style={{ maxHeight: '200px' }}
+                                onError={(e) => {
+                                  // Fallback to thumbnail if GIF fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  if (message.gifInfo?.thumbnailUrl) {
+                                    target.src = message.gifInfo.thumbnailUrl;
+                                  }
+                                }}
+                              />
+                              <p className="text-xs opacity-70">{message.gifInfo.title}</p>
+                            </div>
                           ) : (
                             <p className="text-xs sm:text-sm">{message.content}</p>
                           )}
@@ -770,6 +849,34 @@ const Chat = () => {
                         </div>
                       )}
 
+                      {/* Pending GIF Preview */}
+                      {pendingGif && (
+                        <div className="bg-white/10 rounded-lg p-3 border border-white/20">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-white text-sm font-medium">{t('chat.readyToSend')}:</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPendingGif(null)}
+                              className="text-white/60 hover:text-white hover:bg-white/10 p-1"
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <img 
+                              src={pendingGif.thumbnailUrl} 
+                              alt="GIF Preview"
+                              className="w-12 h-12 rounded border border-white/20 object-cover"
+                            />
+                            <div className="flex-1 text-white/80 text-xs">
+                              <div className="font-medium">{pendingGif.title}</div>
+                              <div className="text-white/60">GIF • {pendingGif.width}x{pendingGif.height}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Message Input Row */}
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
@@ -790,7 +897,7 @@ const Chat = () => {
                         {/* Send to Chat Button */}
                         <Button
                           onClick={handleSendMessage}
-                          disabled={loading || (!newMessage.trim() && !pendingPixelArt)}
+                          disabled={loading || (!newMessage.trim() && !pendingPixelArt && !pendingGif)}
                           className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Send message to chat"
                         >
@@ -806,30 +913,74 @@ const Chat = () => {
                           variant="outline"
                           size="sm"
                           className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm text-xs px-3 py-2 min-w-[44px] transition-all duration-200"
-                          onClick={() => {
-                            if (pendingPixelArt) {
-                              // Send pixel art to device in device format
-                              console.log('Sending pixel art to device:', pendingPixelArt.deviceFormat);
-                              // TODO: Implement actual device communication
-                              // For now, just log the device format data
-                              try {
-                                const deviceData = JSON.parse(pendingPixelArt.deviceFormat);
-                                console.log('Device format data:', deviceData);
-                                alert(`Pixel art sent to device!\nFormat: ${deviceData.width}x${deviceData.height}\nColors: ${deviceData.palette?.length || 0}`);
-                              } catch (error) {
-                                console.error('Invalid device format:', error);
+                          onClick={async () => {
+                            if (!deviceConnected) {
+                              toast({
+                                title: t('chat.error.noDeviceConnected'),
+                                description: t('chat.error.noDeviceConnectedDesc'),
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+
+                            try {
+                              if (pendingPixelArt) {
+                                // Send pixel art to device
+                                console.log('Sending pixel art to device:', pendingPixelArt);
+                                const result = await deviceMessageService.sendPixelArtToDevices(pendingPixelArt);
+                                
+                                if (result.success) {
+                                  toast({
+                                    title: t('chat.success.pixelArtSent'),
+                                    description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
+                                    variant: "default"
+                                  });
+                                  setPendingPixelArt(null);
+                                } else {
+                                  throw new Error(result.errors.join('; '));
+                                }
+                              } else if (pendingGif) {
+                                // Send GIF to device
+                                console.log('Sending GIF to device:', pendingGif);
+                                const result = await deviceMessageService.sendGifToDevices(pendingGif);
+                                
+                                if (result.success) {
+                                  toast({
+                                    title: t('chat.success.gifSent'),
+                                    description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
+                                    variant: "default"
+                                  });
+                                  setPendingGif(null);
+                                } else {
+                                  throw new Error(result.errors.join('; '));
+                                }
+                              } else if (newMessage.trim()) {
+                                // Send text message to device
+                                console.log('Sending text to device:', newMessage);
+                                const result = await deviceMessageService.sendTextToDevices(newMessage);
+                                
+                                if (result.success) {
+                                  toast({
+                                    title: t('chat.success.textSent'),
+                                    description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
+                                    variant: "default"
+                                  });
+                                  setNewMessage('');
+                                } else {
+                                  throw new Error(result.errors.join('; '));
+                                }
                               }
-                              setPendingPixelArt(null);
-                            } else if (newMessage.trim()) {
-                              // Send text message to device
-                              console.log('Sending text to device:', newMessage);
-                              // TODO: Implement device text message sending
-                              alert(`Text sent to device: ${newMessage}`);
-                              setNewMessage('');
+                            } catch (error) {
+                              console.error('Failed to send to device:', error);
+                              toast({
+                                title: t('chat.error.deviceSendFailed'),
+                                description: error instanceof Error ? error.message : t('chat.error.unknownError'),
+                                variant: "destructive"
+                              });
                             }
                           }}
-                          disabled={!newMessage.trim() && !pendingPixelArt}
-                          title="Send message to device"
+                          disabled={!newMessage.trim() && !pendingPixelArt && !pendingGif}
+                          title={deviceConnected ? "Send message to device" : "No devices connected"}
                         >
                           <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
@@ -848,10 +999,52 @@ const Chat = () => {
                         </Button>
                         
                         {/* Device Status Indicator */}
-                        <div className="inline-flex items-center gap-1 px-3 py-2 bg-white/5 rounded-lg border border-white/10">
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                          <span className="text-xs text-white/60">Device Connected</span>
+                        <div className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg border ${
+                          deviceConnected 
+                            ? 'bg-green-500/20 border-green-400/30' 
+                            : 'bg-red-500/20 border-red-400/30'
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full ${
+                            deviceConnected 
+                              ? 'bg-green-400 animate-pulse' 
+                              : 'bg-red-400'
+                          }`}></div>
+                          <span className="text-xs text-white/60">
+                            {deviceConnected 
+                              ? `Device Connected (${connectedDevices.length})` 
+                              : 'No Device'
+                            }
+                          </span>
                         </div>
+
+                        {/* Device Simulator Controls (Development Only) */}
+                        {import.meta.env.DEV && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-yellow-500/20 border-yellow-400/30 text-yellow-300 hover:bg-yellow-500/30 text-xs px-2 py-1"
+                            onClick={() => {
+                              if (deviceSimulator.isCurrentlySimulating()) {
+                                deviceSimulator.stopSimulation();
+                                toast({
+                                  title: "Device Simulator",
+                                  description: "Simulated device disconnected",
+                                  variant: "default"
+                                });
+                              } else {
+                                deviceSimulator.startSimulation();
+                                toast({
+                                  title: "Device Simulator",
+                                  description: "Simulated device connected",
+                                  variant: "default"
+                                });
+                              }
+                            }}
+                            title="Toggle device simulation"
+                          >
+                            {deviceSimulator.isCurrentlySimulating() ? '🔌' : '🔌'}
+                          </Button>
+                        )}
                       </div>
                     </div>
               </div>

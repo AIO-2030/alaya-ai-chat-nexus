@@ -54,7 +54,7 @@ class DeviceService {
         { id: "5", name: "Smart Thermostat", rssi: -70, type: "thermostat", mac: "FF:77:AA:88:BB:99" },
       ];
       
-      console.log('Bluetooth scan completed, found', devices.length, 'devices');
+      console.log('[DeviceService] Bluetooth scan completed, found', devices.length, 'devices');
       return devices;
     } catch (error) {
       console.error('Bluetooth scan failed:', error);
@@ -62,21 +62,6 @@ class DeviceService {
     }
   }
 
-  // Establish Bluetooth connection
-  async connectBluetooth(device: BluetoothDevice): Promise<boolean> {
-    try {
-      console.log('Connecting to Bluetooth device:', device.name);
-      
-      // Simulate Bluetooth connection process
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      console.log('Bluetooth connection successful:', device.name);
-      return true;
-    } catch (error) {
-      console.error('Bluetooth connection failed:', error);
-      throw new Error('Bluetooth connection failed');
-    }
-  }
 
   // Configure WiFi via Bluetooth
   async configureWiFiViaBluetooth(

@@ -20,6 +20,10 @@ const AddDevice = () => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [wifiPassword, setWifiPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showActivationCodeDialog, setShowActivationCodeDialog] = useState(false);
+  const [activationCode, setActivationCode] = useState('');
+  const [showActivationCode, setShowActivationCode] = useState(false);
+  const [selectedWifi, setSelectedWifi] = useState<any>(null);
   
   // Device management hook - only for device initialization
   const {
@@ -29,6 +33,7 @@ const AddDevice = () => {
     startDeviceInit,
     selectWiFi,
     selectBluetoothDevice,
+    sendActivationCode,
     submitDeviceRecord,
     resetDeviceInit,
     clearError,
@@ -45,6 +50,8 @@ const AddDevice = () => {
   };
 
   const handleWifiSelected = async (wifi: any) => {
+    // Store the selected WiFi network temporarily
+    setSelectedWifi(wifi);
     setShowPasswordDialog(true);
   };
 
@@ -52,21 +59,25 @@ const AddDevice = () => {
     if (!wifiPassword.trim()) return;
     
     try {
-      // Use the selected WiFi network from deviceInitState
-      if (!deviceInitState.selectedWifi) {
+      // Use the selected WiFi network from local state
+      if (!selectedWifi) {
         console.error('No WiFi network selected');
         return;
       }
       
       // Create WiFi network with password
       const wifiWithPassword = {
-        ...deviceInitState.selectedWifi,
+        ...selectedWifi,
         password: wifiPassword
       };
       
       await selectWiFi(wifiWithPassword);
       setShowPasswordDialog(false);
       setWifiPassword('');
+      setSelectedWifi(null);
+      
+      // Show activation code dialog after WiFi configuration
+      setShowActivationCodeDialog(true);
     } catch (error) {
       console.error('Failed to configure WiFi:', error);
     }
@@ -77,6 +88,18 @@ const AddDevice = () => {
       await selectBluetoothDevice(device);
     } catch (error) {
       console.error('Failed to connect to Bluetooth device:', error);
+    }
+  };
+
+  const handleActivationCodeSubmit = async () => {
+    if (!activationCode.trim()) return;
+    
+    try {
+      await sendActivationCode(activationCode);
+      setShowActivationCodeDialog(false);
+      setActivationCode('');
+    } catch (error) {
+      console.error('Failed to send activation code:', error);
     }
   };
 
@@ -413,7 +436,7 @@ const AddDevice = () => {
                         <div className="text-center">
                           <Loader2 className="h-16 w-16 text-green-400 animate-spin mx-auto mb-6" />
                           <h3 className="text-2xl font-semibold text-white mb-4">Configuring WiFi on Device...</h3>
-                          <p className="text-white/60 text-lg">Sending WiFi credentials to device via Bluetooth</p>
+                          <p className="text-white/60 text-lg">Sending WiFi credentials and activation code to device via Bluetooth</p>
                         </div>
                         
                         <div className="space-y-4 max-w-md mx-auto">
@@ -436,6 +459,10 @@ const AddDevice = () => {
                           <div className="flex items-center gap-3 text-white/80">
                             <Check className="h-5 w-5 text-green-400" />
                             <span>{t('common.transmittingWifiCredentials')}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-white/80">
+                            <Check className="h-5 w-5 text-green-400" />
+                            <span>{t('common.transmittingActivationCode')}</span>
                           </div>
                           <div className="flex items-center gap-3 text-white/80">
                             <Check className="h-5 w-5 text-green-400" />
@@ -530,11 +557,14 @@ const AddDevice = () => {
                 <Wifi className="h-5 w-5 text-cyan-400" />
                 {t('common.enterWifiPassword')}
               </DialogTitle>
+              <p className="text-white/60 text-sm">
+                请输入所选 WiFi 网络的密码以完成设备配置
+              </p>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="text-white/60 text-sm">
-                {t('common.network')}: <span className="text-white font-medium">{deviceInitState.selectedWifi?.name}</span>
+                {t('common.network')}: <span className="text-white font-medium">{selectedWifi?.name || 'Unknown Network'}</span>
               </div>
               
               <div className="space-y-2">
@@ -574,6 +604,78 @@ const AddDevice = () => {
                   className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0"
                 >
                   {t('common.connect')}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Activation Code Dialog */}
+        <Dialog open={showActivationCodeDialog} onOpenChange={setShowActivationCodeDialog}>
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-md mx-auto shadow-2xl">
+            <DialogHeader className="pb-4">
+              <DialogTitle className="text-white flex items-center gap-3">
+                <Shield className="h-5 w-5 text-green-400" />
+                输入设备激活码
+              </DialogTitle>
+              <p className="text-white/60 text-sm">
+                请输入腾讯云 IoT 设备激活码，设备将使用此激活码向腾讯云注册并获取 DeviceSecret
+              </p>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-white/60 text-sm">
+                请输入腾讯云 IoT 设备激活码，设备将使用此激活码向腾讯云注册并获取 DeviceSecret
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-white text-sm font-medium">激活码</label>
+                <div className="relative">
+                  <Input
+                    type={showActivationCode ? "text" : "password"}
+                    value={activationCode}
+                    onChange={(e) => setActivationCode(e.target.value)}
+                    placeholder="请输入设备激活码"
+                    className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm pr-10"
+                    onKeyPress={(e) => e.key === 'Enter' && handleActivationCodeSubmit()}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowActivationCode(!showActivationCode)}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white"
+                  >
+                    {showActivationCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="bg-blue-400/10 border border-blue-400/20 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 bg-blue-400/20 rounded-full flex items-center justify-center mt-0.5">
+                    <span className="text-blue-400 text-xs">i</span>
+                  </div>
+                  <div className="text-blue-400 text-xs">
+                    激活码通常由腾讯云 IoT 平台生成，用于设备动态注册。设备将使用此激活码向腾讯云请求 DeviceSecret，然后连接到 MQTT Broker。
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => setShowActivationCodeDialog(false)}
+                  variant="outline"
+                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                >
+                  取消
+                </Button>
+                <Button
+                  onClick={handleActivationCodeSubmit}
+                  disabled={!activationCode.trim()}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white border-0"
+                >
+                  发送激活码
                 </Button>
               </div>
             </div>

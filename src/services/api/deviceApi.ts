@@ -146,7 +146,7 @@ class DeviceApiService {
   }
 
   // Get all devices with pagination
-  async getDevices(offset: number = 0, limit: number = 10): Promise<ApiResponse<DeviceListResponse>> {
+  async getDevices(offset: number = 0, limit: number = 20): Promise<ApiResponse<DeviceListResponse>> {
     try {
       const actor = getActor();
       const result: BackendDeviceListResponse = await actor.get_all_devices(BigInt(offset), BigInt(limit));

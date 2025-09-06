@@ -503,7 +503,7 @@ const Creation = () => {
     }
 
     // Draw logical pixels
-    const bctx = buffer.getContext("2d")!;
+    const bctx = buffer.getContext("2d", { willReadFrequently: true })!;
     const image = bctx.createImageData(cols, rows);
     for (let i = 0; i < pixels.length; i++) {
       const idx = pixels[i];
@@ -544,7 +544,7 @@ const Creation = () => {
     display.style.width = `${cols * currentScale}px`;
     display.style.height = `${rows * currentScale}px`;
     
-    const dctx = display.getContext("2d")!;
+    const dctx = display.getContext("2d", { willReadFrequently: true })!;
     dctx.imageSmoothingEnabled = false;
     dctx.clearRect(0, 0, display.width, display.height);
     dctx.drawImage(buffer, 0, 0, display.width, display.height);

@@ -1,12 +1,12 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Sparkles, FileText, Smartphone, ShoppingBag } from 'lucide-react';
+import { Sparkles, FileText, Smartphone, Gift } from 'lucide-react';
 
 const menuItems = [
   { title: "AI", url: "/", icon: Sparkles },
   { title: "Contracts", url: "/contracts", icon: FileText },
-  { title: "My Devices", url: "/my-devices", icon: Smartphone },
-  { title: "Shop", url: "/shop", icon: ShoppingBag },
+  { title: "Gift", url: "/shop", icon: Gift },
+  { title: "Devices", url: "/my-devices", icon: Smartphone }
 ];
 
 export function BottomNavigation() {

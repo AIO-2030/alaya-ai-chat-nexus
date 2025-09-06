@@ -14,6 +14,7 @@ export interface UseDeviceManagementReturn {
   startDeviceInit: () => Promise<void>;
   selectWiFi: (wifiNetwork: any) => Promise<void>;
   selectBluetoothDevice: (device: any) => Promise<void>;
+  sendActivationCode: (activationCode: string) => Promise<void>;
   submitDeviceRecord: () => Promise<boolean>;
   resetDeviceInit: () => void;
   clearError: () => void;
@@ -108,6 +109,19 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
       const errorMessage = error instanceof Error ? error.message : 'Bluetooth device selection failed';
       setError(errorMessage);
       console.error('Bluetooth device selection failed:', error);
+    }
+  }, []);
+
+  // Send activation code to device
+  const sendActivationCode = useCallback(async (activationCode: string) => {
+    try {
+      setError(null);
+      await deviceInitManager.sendActivationCode(activationCode);
+      setDeviceInitState(deviceInitManager.getState());
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Activation code transmission failed';
+      setError(errorMessage);
+      console.error('Activation code transmission failed:', error);
     }
   }, []);
 
@@ -254,6 +268,7 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
     startDeviceInit,
     selectWiFi,
     selectBluetoothDevice,
+    sendActivationCode,
     submitDeviceRecord,
     resetDeviceInit,
     clearError,

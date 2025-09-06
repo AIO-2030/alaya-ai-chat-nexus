@@ -109,7 +109,9 @@ const resources = {
         artTitle: 'Title',
         titlePlaceholder: 'Enter a title for your pixel art...',
         artDescription: 'Description',
-        descriptionPlaceholder: 'Describe your creation...'
+        descriptionPlaceholder: 'Describe your creation...',
+        pixelEmojis: 'Pixel Emojis',
+        animatedGifs: 'Animated GIFs'
       },
       pixel: {
         title: 'Pixel Art',
@@ -126,6 +128,28 @@ const resources = {
       },
       nft: {
         mintMessage: 'Mint your creation as NFT — Earn rewards & recognition.'
+      },
+      shop: {
+        aiMarketplace: 'AI Marketplace',
+        nftMarketplace: 'NFT Marketplace',
+        buyNow: 'Buy Now',
+        processing: 'Processing...',
+        popular: 'Popular',
+        sold: 'sold',
+        reviews: 'reviews',
+        floorPrice: 'Floor Price',
+        volume: 'Volume',
+        owners: 'Owners',
+        likes: 'Likes',
+        by: 'by',
+        verified: 'Verified',
+        rarity: {
+          legendary: 'Legendary',
+          mythic: 'Mythic',
+          epic: 'Epic',
+          rare: 'Rare',
+          common: 'Common'
+        }
       },
       chat: {
         readyToSend: 'Ready to send',
@@ -296,7 +320,9 @@ const resources = {
         artTitle: '标题',
         titlePlaceholder: '为您的像素艺术输入标题...',
         artDescription: '描述',
-        descriptionPlaceholder: '描述您的创作...'
+        descriptionPlaceholder: '描述您的创作...',
+        pixelEmojis: '像素表情包',
+        animatedGifs: '动态GIF'
       },
       pixel: {
         title: '像素艺术',
@@ -313,6 +339,28 @@ const resources = {
       },
       nft: {
         mintMessage: '将您的创作铸造为NFT — 获得奖励与认可。'
+      },
+      shop: {
+        aiMarketplace: 'AI商城',
+        nftMarketplace: 'NFT商城',
+        buyNow: '立即购买',
+        processing: '处理中...',
+        popular: '热门',
+        sold: '已售',
+        reviews: '评价',
+        floorPrice: '地板价',
+        volume: '成交量',
+        owners: '持有者',
+        likes: '喜欢',
+        by: '作者',
+        verified: '已验证',
+        rarity: {
+          legendary: '传说',
+          mythic: '神话',
+          epic: '史诗',
+          rare: '稀有',
+          common: '普通'
+        }
       },
       chat: {
         readyToSend: '准备发送',

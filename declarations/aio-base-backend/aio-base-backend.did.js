@@ -227,6 +227,7 @@ export const idlFactory = ({ IDL }) => {
     'trace_id' : IDL.Text,
   });
   const MessageMode = IDL.Variant({
+    'Gif' : IDL.Null,
     'Emoji' : IDL.Null,
     'Text' : IDL.Null,
     'Image' : IDL.Null,

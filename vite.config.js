@@ -63,6 +63,8 @@ export default defineConfig(({ mode }) => ({
     environment("all", { prefix: "DFX_" }),
   ].filter(Boolean),
   define: {
+    // Define NODE_ENV for client-side access
+    'process.env.NODE_ENV': JSON.stringify(mode),
     // Explicitly define environment variables for client-side access
     'import.meta.env.CANISTER_ID_AIO_BASE_BACKEND': JSON.stringify(process.env.CANISTER_ID_AIO_BASE_BACKEND),
     'import.meta.env.CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND': JSON.stringify(process.env.CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND),

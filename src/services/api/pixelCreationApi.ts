@@ -29,7 +29,7 @@ const CANISTER_ID = getAioBaseBackendCanisterId();
 const HOST = getHost();
 
 // Log environment configuration
-logEnvironmentConfig('PIXEL_CREATION_API');
+logEnvironmentConfig('AIO_BASE_BACKEND');
 
 // AuthClient instance
 let authClient: AuthClient | null = null;
@@ -388,7 +388,7 @@ export const convertImageToPixelArt = async (
     // Create image element
     const img = new Image();
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!ctx) {
       return {

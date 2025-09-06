@@ -15,7 +15,7 @@ const CANISTER_ID = getAioBaseBackendCanisterId();
 const HOST = getHost();
 
 // Log environment configuration for this module
-logEnvironmentConfig('CHAT_API');
+logEnvironmentConfig('AIO_BASE_BACKEND');
 
 // Initialize agent with proper configuration
 const agent = new HttpAgent({ 
@@ -68,13 +68,26 @@ export interface PixelArtInfo {
   sourceId?: string;        // Project ID for user creations
 }
 
+// Frontend types for GIF data
+export interface GifInfo {
+  gifUrl: string;           // Full GIF URL for chat display
+  thumbnailUrl: string;     // Thumbnail URL for preview
+  title: string;            // GIF title
+  duration: number;         // Duration in milliseconds
+  width: number;            // Original width
+  height: number;           // Original height
+  sourceType: string;       // "gif"
+  sourceId?: string;        // GIF ID
+}
+
 // Frontend types for chat functionality
 export interface ChatMessageInfo {
   sendBy: string;           // Sender's principal ID
-  content: string;          // Message content (base64 for non-text modes, JSON for PixelArt)
-  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt';  // Content type
+  content: string;          // Message content (base64 for non-text modes, JSON for PixelArt/GIF)
+  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif';  // Content type
   timestamp: number;        // Message timestamp (in milliseconds)
   pixelArt?: PixelArtInfo;  // Parsed pixel art data when mode is PixelArt
+  gifInfo?: GifInfo;        // Parsed GIF data when mode is Gif
 }
 
 export interface NotificationInfo {
@@ -86,8 +99,9 @@ export interface NotificationInfo {
 
 // Convert backend ChatMessage to frontend ChatMessageInfo
 const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
-  let mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' = 'Text';
+  let mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif' = 'Text';
   let pixelArt: PixelArtInfo | undefined;
+  let gifInfo: GifInfo | undefined;
   
   if (message.mode && typeof message.mode === 'object') {
     if ('Voice' in message.mode) {
@@ -113,6 +127,24 @@ const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
       } catch (error) {
         console.error('[ChatApi] Failed to parse pixel art data:', error);
       }
+    } else if ('Gif' in message.mode) {
+      mode = 'Gif';
+      // Parse GIF data from content
+      try {
+        const gifData = JSON.parse(message.content);
+        gifInfo = {
+          gifUrl: gifData.gif_url || gifData.gifUrl,
+          thumbnailUrl: gifData.thumbnail_url || gifData.thumbnailUrl,
+          title: gifData.title,
+          duration: gifData.duration,
+          width: gifData.width,
+          height: gifData.height,
+          sourceType: gifData.source_type || gifData.sourceType || 'gif',
+          sourceId: gifData.source_id || gifData.sourceId
+        };
+      } catch (error) {
+        console.error('[ChatApi] Failed to parse GIF data:', error);
+      }
     }
   }
 
@@ -121,12 +153,13 @@ const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
     content: message.content,
     mode,
     timestamp: Number(message.timestamp) / 1000000, // Convert nanoseconds to milliseconds
-    pixelArt
+    pixelArt,
+    gifInfo
   };
 };
 
 // Convert frontend ChatMessageInfo to backend MessageMode
-const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt'): MessageMode => {
+const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif'): MessageMode => {
   switch (mode) {
     case 'Voice':
       return { Voice: null };
@@ -136,6 +169,8 @@ const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'Pixe
       return { Emoji: null };
     case 'PixelArt':
       return { PixelArt: null };
+    case 'Gif':
+      return { Gif: null };
     default:
       return { Text: null };
   }
@@ -281,15 +316,15 @@ export const generateSocialPairKey = async (principal1: string, principal2: stri
  * Send a chat message between two users
  * @param senderPrincipal Sender's principal ID
  * @param receiverPrincipal Receiver's principal ID
- * @param content Message content (base64 for non-text modes, JSON for PixelArt)
- * @param mode Message mode: 'Text', 'Voice', 'Image', 'Emoji', or 'PixelArt'
+ * @param content Message content (base64 for non-text modes, JSON for PixelArt/GIF)
+ * @param mode Message mode: 'Text', 'Voice', 'Image', 'Emoji', 'PixelArt', or 'Gif'
  * @returns Message index if successful
  */
 export const sendChatMessage = async (
   senderPrincipal: string,
   receiverPrincipal: string,
   content: string,
-  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' = 'Text'
+  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif' = 'Text'
 ): Promise<number> => {
   try {
     console.log('[ChatApi] Sending chat message:', { senderPrincipal, receiverPrincipal, mode });
@@ -516,6 +551,40 @@ export const sendPixelArtMessage = async (
     return await sendChatMessage(senderPrincipal, receiverPrincipal, content, 'PixelArt');
   } catch (error) {
     console.error('[ChatApi] Error sending pixel art message:', error);
+    throw error;
+  }
+};
+
+/**
+ * Send a GIF message
+ * @param senderPrincipal Sender's principal ID
+ * @param receiverPrincipal Receiver's principal ID
+ * @param gifData GIF data for both chat and device
+ * @returns Message index if successful
+ */
+export const sendGifMessage = async (
+  senderPrincipal: string,
+  receiverPrincipal: string,
+  gifData: GifInfo
+): Promise<number> => {
+  try {
+    console.log('[ChatApi] Sending GIF message:', { senderPrincipal, receiverPrincipal, gifData });
+    
+    // Serialize GIF data as JSON content
+    const content = JSON.stringify({
+      gif_url: gifData.gifUrl,
+      thumbnail_url: gifData.thumbnailUrl,
+      title: gifData.title,
+      duration: gifData.duration,
+      width: gifData.width,
+      height: gifData.height,
+      source_type: gifData.sourceType,
+      source_id: gifData.sourceId
+    });
+    
+    return await sendChatMessage(senderPrincipal, receiverPrincipal, content, 'Gif');
+  } catch (error) {
+    console.error('[ChatApi] Error sending GIF message:', error);
     throw error;
   }
 };
