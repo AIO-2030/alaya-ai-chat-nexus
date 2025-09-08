@@ -8,193 +8,30 @@ import { BottomNavigation } from '../components/BottomNavigation';
 import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/hooks/use-toast';
 
 const Shop = () => {
   const { user, loading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [processingPayment, setProcessingPayment] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'ai' | 'nft'>('ai');
 
   const products = [
     {
       id: 1,
-      name: "Smart Analytics Pro",
-      description: "Real-time data analytics and insights for business intelligence",
+      name: "PixelMug",
+      description: "PixelMug is the native token issued by Univoice AI Agent, representing the world's first AI-created mug with an LED pixel display.",
       price: 0.25,
-      image: "📊",
+      image: "/lovable-uploads/pixelmug.png",
       rating: 4.9,
       sales: 1200,
       reviews: 93,
       popular: true
-    },
-    {
-      id: 2,
-      name: "Voice Assistant",
-      description: "Advanced voice recognition and natural language processing",
-      price: 0.08,
-      image: "🎤",
-      rating: 4.7,
-      sales: 890,
-      reviews: 156,
-      popular: false
-    },
-    {
-      id: 3,
-      name: "Image Generator",
-      description: "AI-powered image creation and editing tools",
-      price: 0.15,
-      image: "🎨",
-      rating: 4.8,
-      sales: 2100,
-      reviews: 234,
-      popular: true
-    },
-    {
-      id: 4,
-      name: "Code Assistant",
-      description: "Intelligent code completion and debugging support",
-      price: 0.12,
-      image: "💻",
-      rating: 4.6,
-      sales: 750,
-      reviews: 89,
-      popular: false
-    },
-    {
-      id: 5,
-      name: "Translation Pro",
-      description: "Multi-language translation with context awareness",
-      price: 0.05,
-      image: "🌐",
-      rating: 4.9,
-      sales: 3200,
-      reviews: 445,
-      popular: true
-    },
-    {
-      id: 6,
-      name: "Content Writer",
-      description: "AI-powered content creation and copywriting",
-      price: 0.18,
-      image: "✍️",
-      rating: 4.5,
-      sales: 680,
-      reviews: 123,
-      popular: false
-    },
-    {
-      id: 7,
-      name: "Video Editor",
-      description: "Automated video editing and enhancement tools",
-      price: 0.22,
-      image: "🎬",
-      rating: 4.7,
-      sales: 950,
-      reviews: 167,
-      popular: false
-    },
-    {
-      id: 8,
-      name: "Chat Bot",
-      description: "Intelligent conversational AI for customer service",
-      price: 0.10,
-      image: "🤖",
-      rating: 4.8,
-      sales: 1800,
-      reviews: 298,
-      popular: true
-    },
-    {
-      id: 9,
-      name: "Data Processor",
-      description: "Advanced data cleaning and preprocessing tools",
-      price: 0.14,
-      image: "📈",
-      rating: 4.6,
-      sales: 520,
-      reviews: 78,
-      popular: false
-    },
-    {
-      id: 10,
-      name: "Security Scanner",
-      description: "AI-powered security analysis and threat detection",
-      price: 0.30,
-      image: "🔒",
-      rating: 4.9,
-      sales: 450,
-      reviews: 92,
-      popular: false
-    },
-    {
-      id: 11,
-      name: "Music Composer",
-      description: "AI-generated music composition and arrangement",
-      price: 0.20,
-      image: "🎵",
-      rating: 4.4,
-      sales: 380,
-      reviews: 67,
-      popular: false
-    },
-    {
-      id: 12,
-      name: "Document Analyzer",
-      description: "Intelligent document processing and analysis",
-      price: 0.16,
-      image: "📄",
-      rating: 4.7,
-      sales: 720,
-      reviews: 134,
-      popular: false
-    },
-    {
-      id: 13,
-      name: "Predictive Model",
-      description: "Machine learning models for forecasting and prediction",
-      price: 0.35,
-      image: "🔮",
-      rating: 4.8,
-      sales: 290,
-      reviews: 56,
-      popular: false
-    },
-    {
-      id: 14,
-      name: "Social Media Manager",
-      description: "Automated social media content and engagement",
-      price: 0.13,
-      image: "📱",
-      rating: 4.5,
-      sales: 890,
-      reviews: 145,
-      popular: false
-    },
-    {
-      id: 15,
-      name: "Email Optimizer",
-      description: "AI-powered email marketing and optimization",
-      price: 0.09,
-      image: "📧",
-      rating: 4.6,
-      sales: 650,
-      reviews: 98,
-      popular: false
-    },
-    {
-      id: 16,
-      name: "Research Assistant",
-      description: "Intelligent research and information gathering",
-      price: 0.17,
-      image: "🔍",
-      rating: 4.7,
-      sales: 420,
-      reviews: 73,
-      popular: false
     }
   ];
 
-  // NFT数据结构
+  // NFT data structure
   const nftCollections = [
     {
       id: 1,
@@ -317,21 +154,29 @@ const Shop = () => {
     setProcessingPayment(product.id);
     
     try {
-      // 模擬調用錢包插件進行USDT支付
+      // Simulate calling wallet plugin for USDT payment
       console.log(`Processing payment for ${product.name}: ${product.price} USDT`);
       
-      // 這裡應該調用實際的錢包支付API
+      // Here should call the actual wallet payment API
       // await walletProvider.pay(product.price, 'USDT');
       
-      // 模擬支付延遲
+      // Simulate payment delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log(`Payment successful for ${product.name}`);
-      alert(`Payment successful! You have purchased ${product.name}`);
+      toast({
+        title: t('shop.paymentSuccess'),
+        description: t('shop.paymentSuccessDesc', { productName: product.name }),
+        variant: 'default'
+      });
       
     } catch (error) {
       console.error('Payment failed:', error);
-      alert('Payment failed. Please try again.');
+      toast({
+        title: t('shop.paymentFailed'),
+        description: t('shop.paymentFailedDesc'),
+        variant: 'destructive'
+      });
     } finally {
       setProcessingPayment(null);
     }
@@ -340,27 +185,50 @@ const Shop = () => {
   const handleNFTPurchase = async (nft: any) => {
     if (!user) {
       // User needs to login - this will be handled by AppHeader
+      toast({
+        title: t('shop.walletLoginRequired'),
+        description: t('shop.walletLoginRequiredDesc'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    console.log('User who has been logined', user);
+    // Check if user is using wallet login
+    if (user.loginMethod !== 'wallet') {
+      toast({
+        title: t('shop.walletLoginRequired'),
+        description: t('shop.walletLoginRequiredDesc'),
+        variant: 'destructive'
+      });
       return;
     }
 
     setProcessingPayment(nft.id);
     
     try {
-      // 模擬調用錢包插件進行USDT支付
+      // Simulate calling wallet plugin for USDT payment
       console.log(`Processing NFT purchase for ${nft.name}: ${nft.floorPrice} USDT`);
       
-      // 這裡應該調用實際的NFT購買API
+      // Here should call the actual NFT purchase API
       // await nftMarketplace.buy(nft.id, nft.floorPrice, 'USDT');
       
-      // 模擬支付延遲
+      // Simulate payment delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log(`NFT purchase successful for ${nft.name}`);
-      alert(`Purchase successful! You now own ${nft.name}`);
+      toast({
+        title: t('shop.nftPurchaseSuccess'),
+        description: t('shop.nftPurchaseSuccessDesc', { nftName: nft.name }),
+        variant: 'default'
+      });
       
     } catch (error) {
       console.error('NFT purchase failed:', error);
-      alert('NFT purchase failed. Please try again.');
+      toast({
+        title: t('shop.nftPurchaseFailed'),
+        description: t('shop.nftPurchaseFailedDesc'),
+        variant: 'destructive'
+      });
     } finally {
       setProcessingPayment(null);
     }
@@ -383,22 +251,6 @@ const Shop = () => {
     }
   };
 
-  const getRarityTranslation = (rarity: string) => {
-    switch (rarity) {
-      case 'Legendary':
-        return t('shop.rarity.legendary');
-      case 'Mythic':
-        return t('shop.rarity.mythic');
-      case 'Epic':
-        return t('shop.rarity.epic');
-      case 'Rare':
-        return t('shop.rarity.rare');
-      case 'Common':
-        return t('shop.rarity.common');
-      default:
-        return rarity;
-    }
-  };
 
   if (authLoading) {
     return (
@@ -505,8 +357,24 @@ const Shop = () => {
                     {products.map((product) => (
                       <div key={product.id} className="flex gap-2 p-2 bg-white/5 rounded border border-white/10 hover:bg-white/10 transition-all duration-200 backdrop-blur-sm">
                         <div className="flex-shrink-0">
-                          <div className="w-12 h-12 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded flex items-center justify-center text-lg">
-                            {product.image}
+                          <div className="w-12 h-12 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded flex items-center justify-center text-lg overflow-hidden">
+                            {product.image.startsWith('/') ? (
+                              <img 
+                                src={product.image} 
+                                alt={product.name}
+                                className="w-full h-full object-cover rounded"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (fallback) {
+                                    fallback.style.display = 'flex';
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div className={`w-full h-full flex items-center justify-center ${product.image.startsWith('/') ? 'hidden' : ''}`}>
+                              {product.image}
+                            </div>
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -595,7 +463,7 @@ const Shop = () => {
                               <div className="flex items-center gap-1 mt-0.5">
                                 <span className="text-white/50 text-xs">{t('shop.by')} {nft.creator}</span>
                                 <Badge className={`bg-gradient-to-r ${getRarityColor(nft.rarity)} text-white border-0 text-xs px-1 py-0`}>
-                                  {getRarityTranslation(nft.rarity)}
+                                  {nft.rarity}
                                 </Badge>
                               </div>
                             </div>

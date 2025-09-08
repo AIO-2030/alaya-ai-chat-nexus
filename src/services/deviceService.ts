@@ -20,6 +20,7 @@ export interface BluetoothDevice {
 }
 
 export interface DeviceRecord {
+  id?: string;
   name: string;
   type: string;
   macAddress: string;

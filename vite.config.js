@@ -49,6 +49,7 @@ export default defineConfig(({ mode }) => ({
         frame-ancestors 'none';
         worker-src 'self' blob:;
         media-src 'self' blob:;
+        camera 'self' 'unsafe-inline';
       `.replace(/\s+/g, ' ').trim(),
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',

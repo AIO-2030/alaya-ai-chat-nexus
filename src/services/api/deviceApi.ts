@@ -1,5 +1,6 @@
 // Device API Service - Handle backend communication for device management
 import { Actor, HttpAgent, ActorSubclass } from '@dfinity/agent';
+import { Principal } from '@dfinity/principal';
 import { idlFactory } from '../../../declarations/aio-base-backend/aio-base-backend.did.js';
 import type { 
   _SERVICE,
@@ -112,18 +113,41 @@ class DeviceApiService {
 
   // Helper method to convert DeviceRecord to DeviceInfo
   private convertRecordToDeviceInfo(record: DeviceRecord): DeviceInfo {
-    return {
-      id: record.id,
-      name: record.name,
-      device_type: record.deviceType,
-      owner: record.owner as any, // Principal will be handled by the backend
-      status: record.status,
-      capabilities: record.capabilities,
-      metadata: Object.entries(record.metadata),
-      created_at: BigInt(record.createdAt),
-      updated_at: BigInt(record.updatedAt),
-      last_seen: BigInt(record.lastSeen),
-    };
+    try {
+      // Validate principal ID format
+      if (!record.owner || typeof record.owner !== 'string') {
+        throw new Error(`Invalid principal ID: ${record.owner} (must be a non-empty string)`);
+      }
+      
+      // Convert string principal ID to Principal object
+      const principal = Principal.fromText(record.owner);
+      
+      // Verify the principal is valid by converting back to text
+      const principalText = principal.toText();
+      if (principalText !== record.owner) {
+        throw new Error(`Principal conversion mismatch: ${record.owner} -> ${principalText}`);
+      }
+      
+      console.log('[DeviceApi] Successfully converted principal:', principalText);
+      
+      return {
+        id: record.id,
+        name: record.name,
+        device_type: record.deviceType,
+        owner: principal,
+        status: record.status,
+        capabilities: record.capabilities,
+        metadata: Object.entries(record.metadata),
+        created_at: BigInt(record.createdAt),
+        updated_at: BigInt(record.updatedAt),
+        last_seen: BigInt(record.lastSeen),
+      };
+    } catch (error) {
+      console.error('[DeviceApi] Error converting principal:', error);
+      console.error('[DeviceApi] Record owner field:', record.owner);
+      console.error('[DeviceApi] Record owner type:', typeof record.owner);
+      throw new Error(`Invalid principal ID: ${record.owner} - ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Helper method to handle canister responses
@@ -221,8 +245,13 @@ class DeviceApiService {
   // Add new device
   async submitDeviceRecord(record: DeviceRecord): Promise<ApiResponse<DeviceRecord>> {
     try {
+      console.log('[DeviceApi] Submitting device record:', record);
+      console.log('[DeviceApi] Principal ID to convert:', record.owner);
+      
       const actor = getActor();
       const deviceInfo = this.convertRecordToDeviceInfo(record);
+      console.log('[DeviceApi] Converted device info:', deviceInfo);
+      
       const result = await actor.add_device(deviceInfo);
       
       return this.handleCanisterResponse<DeviceRecord>(result);
@@ -287,12 +316,17 @@ class DeviceApiService {
   // Delete device
   async deleteDevice(deviceId: string): Promise<ApiResponse<boolean>> {
     try {
+      console.log('[DeviceApi] Attempting to delete device:', deviceId);
+      
       const actor = getActor();
       const result = await actor.delete_device(deviceId);
       
+      console.log('[DeviceApi] Delete device result:', result);
+      
       return this.handleCanisterResponse<boolean>(result);
     } catch (error) {
-      console.error('Failed to delete device:', error);
+      console.error('[DeviceApi] Failed to delete device:', error);
+      console.error('[DeviceApi] Device ID that failed:', deviceId);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -127,6 +127,7 @@ export class DeviceInitManager {
       this.state.step = DeviceInitStep.WIFI_CONFIG;
       this.state.isConfiguringWifi = true;
       this.state.error = null;
+      this.state.connectionProgress = 20; // Start progress
 
       if (!this.state.selectedBluetoothDevice) {
         throw new Error('No Bluetooth device connected');
@@ -139,7 +140,12 @@ export class DeviceInitManager {
       );
 
       this.state.isConfiguringWifi = false;
-      // Don't move to SUCCESS yet, wait for activation code
+      this.state.connectionProgress = 40; // WiFi configured
+      
+      // Since activation code dialog is removed, automatically send a default activation code
+      // and complete the setup process
+      await this.sendActivationCode('default_activation_code');
+      
     } catch (error) {
       this.state.error = error instanceof Error ? error.message : 'WiFi configuration failed';
       this.state.isConfiguringWifi = false;
@@ -153,6 +159,7 @@ export class DeviceInitManager {
       this.state.activationCode = activationCode;
       this.state.isTransmittingActivationCode = true;
       this.state.error = null;
+      this.state.connectionProgress = 60; // Sending activation code
 
       if (!this.state.selectedBluetoothDevice) {
         throw new Error('No Bluetooth device connected');
@@ -165,6 +172,7 @@ export class DeviceInitManager {
       );
 
       this.state.isTransmittingActivationCode = false;
+      this.state.connectionProgress = 80; // Activation code sent
       
       // Move to activation verification
       await this.verifyDeviceActivation();
@@ -180,6 +188,7 @@ export class DeviceInitManager {
     try {
       this.state.isVerifyingActivation = true;
       this.state.error = null;
+      this.state.connectionProgress = 90; // Verifying activation
 
       if (!this.state.selectedBluetoothDevice || !this.state.activationCode) {
         throw new Error('No device or activation code available');
@@ -196,6 +205,7 @@ export class DeviceInitManager {
       }
 
       this.state.isVerifyingActivation = false;
+      this.state.connectionProgress = 100; // Complete
       this.state.step = DeviceInitStep.SUCCESS;
     } catch (error) {
       this.state.error = error instanceof Error ? error.message : 'Device activation verification failed';
@@ -220,6 +230,7 @@ export class DeviceInitManager {
       }
 
       const record: DeviceRecord = {
+        id: `device_${Date.now()}`, // Generate unique ID
         name: this.state.selectedBluetoothDevice.name,
         type: this.state.selectedBluetoothDevice.type,
         macAddress: this.state.selectedBluetoothDevice.mac,
