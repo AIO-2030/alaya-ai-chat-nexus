@@ -1,6 +1,6 @@
 // Real Device Service - Implement actual WiFi and Bluetooth functionality
 import { deviceApiService, DeviceRecord as ApiDeviceRecord } from './api/deviceApi';
-import type { DeviceType, DeviceStatus } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+import type { DeviceType, DeviceStatus as BackendDeviceStatus } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 
 // Bluetooth API type declarations
 declare global {
@@ -55,6 +55,8 @@ export interface DeviceRecord {
   status: string;
   connectedAt: string;
   principalId: string;
+  // Tencent IoT product information from device GATT
+  productId?: string;
 }
 
 export interface ConnectionProgress {
@@ -65,7 +67,6 @@ export interface ConnectionProgress {
 export interface TencentIoTConfig {
   productId: string;
   deviceName: string;
-  activationCode: string;
   region: string;
 }
 
@@ -75,9 +76,8 @@ export interface WiFiConfigData {
   security: string;
 }
 
-export interface DeviceActivationStatus {
-  isActivated: boolean;
-  deviceSecret?: string;
+export interface DeviceStatus {
+  isConnected: boolean;
   mqttConnected: boolean;
   lastSeen?: string;
 }
@@ -87,6 +87,10 @@ class RealDeviceService {
   private bluetoothDevices: BluetoothDevice[] = [];
 
   private isScanningBluetooth = false;
+  
+  // GATT connection management
+  private gattConnections = new Map<string, BluetoothRemoteGATTServer>();
+  private gattConnectionPromises = new Map<string, Promise<BluetoothRemoteGATTServer>>();
 
   // Check if Web Bluetooth API is available
   private isWebBluetoothSupported(): boolean {
@@ -644,29 +648,6 @@ class RealDeviceService {
     }
   }
 
-  // Send activation code to device via Bluetooth
-  async sendActivationCodeToDevice(device: BluetoothDevice, activationCode: string): Promise<boolean> {
-    try {
-      console.log('Sending activation code to device:', {
-        device: device.name,
-        activationCodeLength: activationCode.length
-      });
-
-      // Check if device is connected and ready
-      if (!await this.isDeviceConnected(device)) {
-        throw new Error('Device is not connected. Please establish Bluetooth connection first.');
-      }
-
-      // Send activation code via BLE characteristic
-      await this.writeActivationCodeToDevice(device, activationCode);
-      
-      console.log('Activation code sent to device successfully');
-      return true;
-    } catch (error) {
-      console.error('Failed to send activation code:', error);
-      throw new Error('Activation code transmission failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
 
   // Check if device is in provisioning mode
   private async isDeviceInProvisioningMode(device: BluetoothDevice): Promise<boolean> {
@@ -695,6 +676,44 @@ class RealDeviceService {
     }
   }
 
+  // GATT connection wrapper - manages connections to avoid duplicates
+  async getGATTConnection(device: BluetoothDevice): Promise<BluetoothRemoteGATTServer> {
+    const deviceId = device.id || device.name;
+    
+    // Check if we already have a connection
+    if (this.gattConnections.has(deviceId)) {
+      const existingConnection = this.gattConnections.get(deviceId)!;
+      // Check if connection is still active
+      if (existingConnection.connected) {
+        console.log('Reusing existing GATT connection for device:', device.name);
+        return existingConnection;
+      } else {
+        // Remove stale connection
+        this.gattConnections.delete(deviceId);
+      }
+    }
+    
+    // Check if there's already a connection in progress
+    if (this.gattConnectionPromises.has(deviceId)) {
+      console.log('Waiting for existing GATT connection for device:', device.name);
+      return await this.gattConnectionPromises.get(deviceId)!;
+    }
+    
+    // Create new connection
+    const connectionPromise = this.connectToGATTServer(device);
+    this.gattConnectionPromises.set(deviceId, connectionPromise);
+    
+    try {
+      const gattServer = await connectionPromise;
+      this.gattConnections.set(deviceId, gattServer);
+      console.log('GATT connection established and cached for device:', device.name);
+      return gattServer;
+    } finally {
+      // Clean up the promise
+      this.gattConnectionPromises.delete(deviceId);
+    }
+  }
+
   // Connect to GATT server
   private async connectToGATTServer(device: BluetoothDevice): Promise<BluetoothRemoteGATTServer> {
     try {
@@ -712,6 +731,77 @@ class RealDeviceService {
     } catch (error) {
       console.error('Failed to connect to GATT server:', error);
       throw new Error('GATT connection failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  // Close GATT connection for a specific device
+  private async closeGATTConnection(device: BluetoothDevice): Promise<void> {
+    const deviceId = device.id || device.name;
+    
+    if (this.gattConnections.has(deviceId)) {
+      try {
+        const gattServer = this.gattConnections.get(deviceId)!;
+        if (gattServer.connected) {
+          await gattServer.disconnect();
+          console.log('GATT connection closed for device:', device.name);
+        }
+      } catch (error) {
+        console.warn('Failed to close GATT connection:', error);
+      } finally {
+        this.gattConnections.delete(deviceId);
+      }
+    }
+  }
+
+  // Close all GATT connections
+  private async closeAllGATTConnections(): Promise<void> {
+    console.log('Closing all GATT connections');
+    
+    const closePromises = Array.from(this.gattConnections.entries()).map(async ([deviceId, gattServer]) => {
+      try {
+        if (gattServer.connected) {
+          await gattServer.disconnect();
+          console.log('GATT connection closed for device:', deviceId);
+        }
+      } catch (error) {
+        console.warn('Failed to close GATT connection for device:', deviceId, error);
+      }
+    });
+    
+    await Promise.all(closePromises);
+    this.gattConnections.clear();
+    this.gattConnectionPromises.clear();
+  }
+
+  // Write WiFi scan command to GATT characteristic
+  private async writeWiFiScanCommandToGATT(gattServer: BluetoothRemoteGATTServer): Promise<void> {
+    try {
+      console.log('Writing WiFi scan command to GATT characteristic');
+      
+      // Get the primary service for WiFi configuration
+      // Note: These service and characteristic UUIDs are placeholders - replace with actual values
+      const wifiServiceUUID = '12345678-1234-1234-1234-123456789abc'; // Replace with actual service UUID
+      const wifiScanCommandCharacteristicUUID = '12345678-1234-1234-1234-123456789abe'; // Replace with actual characteristic UUID
+      const wifiScanResponseCharacteristicUUID = '12345678-1234-1234-1234-123456789abf'; // Replace with actual characteristic UUID
+      
+      const service = await gattServer.getPrimaryService(wifiServiceUUID);
+      const commandCharacteristic = await service.getCharacteristic(wifiScanCommandCharacteristicUUID);
+      const responseCharacteristic = await service.getCharacteristic(wifiScanResponseCharacteristicUUID);
+      
+      // Create WiFi scan command data
+      const scanCommand = this.createWiFiScanCommand();
+      
+      // Write the scan command to the characteristic
+      await commandCharacteristic.writeValue(scanCommand);
+      
+      console.log('WiFi scan command written to GATT characteristic successfully');
+      
+      // Wait for and validate the response
+      await this.waitForScanCommandResponse(responseCharacteristic);
+      
+    } catch (error) {
+      console.error('Failed to write WiFi scan command to GATT:', error);
+      throw new Error('GATT write failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
 
@@ -810,6 +900,116 @@ class RealDeviceService {
     }
   }
 
+  // Wait for and validate scan command response
+  private async waitForScanCommandResponse(responseCharacteristic: BluetoothRemoteGATTCharacteristic): Promise<void> {
+    try {
+      console.log('Waiting for WiFi scan command response');
+      
+      // Set up notification listener for response
+      await responseCharacteristic.startNotifications();
+      
+      // Create a promise that resolves when we get a valid response
+      const responsePromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Scan command response timeout'));
+        }, 15000); // 15 second timeout
+        
+        const handleResponse = (event: any) => {
+          const dataView = event.target.value;
+          
+          if (dataView && dataView.byteLength > 0) {
+            const responseData = new Uint8Array(dataView.buffer);
+            console.log('Received scan command response:', Array.from(responseData).map(b => b.toString(16).padStart(2, '0')).join(' '));
+            
+            // Validate response
+            if (this.validateScanCommandResponse(responseData)) {
+              clearTimeout(timeout);
+              // Note: removeEventListener may not be available on all platforms
+              // The event listener will be cleaned up when the characteristic is disconnected
+              resolve();
+            }
+          }
+        };
+        
+        responseCharacteristic.addEventListener('characteristicvaluechanged', handleResponse);
+      });
+      
+      await responsePromise;
+      console.log('WiFi scan command response received and validated');
+      
+    } catch (error) {
+      console.error('Failed to wait for scan command response:', error);
+      throw new Error('Response validation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  // Validate scan command response
+  private validateScanCommandResponse(responseData: Uint8Array): boolean {
+    try {
+      console.log('Validating scan command response');
+      
+      // Basic validation: check minimum length and response type
+      if (responseData.length < 2) {
+        console.warn('Response too short:', responseData.length);
+        return false;
+      }
+      
+      // Check response type (0x81 = WiFi Scan Command Response)
+      const responseType = responseData[0];
+      if (responseType !== 0x81) {
+        console.warn('Invalid response type:', responseType.toString(16));
+        return false;
+      }
+      
+      // Check status code (0x00 = Success)
+      const statusCode = responseData[1];
+      if (statusCode !== 0x00) {
+        console.warn('Scan command failed with status:', statusCode.toString(16));
+        return false;
+      }
+      
+      console.log('Scan command response validation successful');
+      return true;
+    } catch (error) {
+      console.error('Failed to validate scan command response:', error);
+      return false;
+    }
+  }
+
+  // Create WiFi scan command data
+  private createWiFiScanCommand(): Uint8Array {
+    try {
+      console.log('Creating WiFi scan command data');
+      
+      // Define the command structure
+      // Command format: [Command Type][Scan Type][Timeout][Reserved]
+      const commandData = new Uint8Array(8);
+      
+      // Command type: 0x01 = WiFi Scan Command
+      commandData[0] = 0x01;
+      
+      // Scan type: 0x00 = Active scan, 0x01 = Passive scan
+      commandData[1] = 0x00; // Default to active scan
+      
+      // Timeout in seconds (2 bytes, little-endian)
+      const timeoutSeconds = 10; // Default 10 seconds timeout
+      commandData[2] = timeoutSeconds & 0xFF;
+      commandData[3] = (timeoutSeconds >> 8) & 0xFF;
+      
+      // Reserved bytes (4 bytes)
+      commandData[4] = 0x00;
+      commandData[5] = 0x00;
+      commandData[6] = 0x00;
+      commandData[7] = 0x00;
+      
+      console.log('WiFi scan command created:', Array.from(commandData).map(b => b.toString(16).padStart(2, '0')).join(' '));
+      return commandData;
+    } catch (error) {
+      console.error('Failed to create WiFi scan command:', error);
+      throw new Error('Command creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
   // Map security type from device protocol to standard format
   private mapSecurityType(securityType: number): string {
     switch (securityType) {
@@ -829,7 +1029,7 @@ class RealDeviceService {
       
       // Try to write via GATT first
       try {
-        const gattServer = await this.connectToGATTServer(device);
+        const gattServer = await this.getGATTConnection(device);
         await this.writeWiFiConfigToGATT(gattServer, wifiConfig);
         console.log('WiFi configuration written via GATT successfully');
         return;
@@ -911,54 +1111,6 @@ class RealDeviceService {
     }
   }
 
-  // Write activation code to device via BLE characteristic
-  private async writeActivationCodeToDevice(device: BluetoothDevice, activationCode: string): Promise<void> {
-    try {
-      console.log('Writing activation code to device:', activationCode);
-      
-      // Try to write via GATT first
-      try {
-        const gattServer = await this.connectToGATTServer(device);
-        await this.writeActivationCodeToGATT(gattServer, activationCode);
-        console.log('Activation code written via GATT successfully');
-        return;
-      } catch (gattError) {
-        console.warn('GATT write failed, simulating write process:', gattError);
-        
-        // Fallback: simulate the write process
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Activation code simulated successfully');
-      }
-    } catch (error) {
-      console.error('Failed to write activation code:', error);
-      throw new Error('Failed to write activation code to device');
-    }
-  }
-
-  // Write activation code to GATT characteristic
-  private async writeActivationCodeToGATT(gattServer: BluetoothRemoteGATTServer, activationCode: string): Promise<void> {
-    try {
-      console.log('Writing activation code to GATT characteristic');
-      
-      // Get the primary service for activation code
-      const activationServiceUUID = '12345678-1234-1234-1234-123456789acf'; // Replace with actual service UUID
-      const activationCodeCharacteristicUUID = '12345678-1234-1234-1234-123456789ad0'; // Replace with actual characteristic UUID
-      
-      const service = await gattServer.getPrimaryService(activationServiceUUID);
-      const characteristic = await service.getCharacteristic(activationCodeCharacteristicUUID);
-      
-      // Prepare activation code data
-      const activationData = new TextEncoder().encode(activationCode);
-      
-      // Write the activation code data
-      await characteristic.writeValue(activationData);
-      
-      console.log('Activation code written to GATT successfully');
-    } catch (error) {
-      console.error('Failed to write activation code to GATT:', error);
-      throw new Error('GATT write failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
 
   // Get connection progress
   async getConnectionProgress(): Promise<ConnectionProgress[]> {
@@ -976,11 +1128,14 @@ class RealDeviceService {
         throw new Error('Device is not connected. Please establish Bluetooth connection first.');
       }
 
+      // Use GATT connection wrapper to avoid duplicate connections
+      const gattServer = await this.getGATTConnection(device);
+      
       // Send WiFi scan command via BLE characteristic
-      await this.sendWiFiScanCommand(device);
+      await this.writeWiFiScanCommandToGATT(gattServer);
       
       // Wait for device to scan and return results
-      const networks = await this.readWiFiNetworksFromDevice(device);
+      const networks = await this.readWiFiNetworksFromGATT(gattServer);
       
       console.log('WiFi networks received from device:', networks.length);
       return networks;
@@ -990,133 +1145,59 @@ class RealDeviceService {
     }
   }
 
-  // Send WiFi scan command to device
-  private async sendWiFiScanCommand(device: BluetoothDevice): Promise<void> {
-    try {
-      console.log('Sending WiFi scan command to device:', device.name);
-      
-      // In a real implementation, you would:
-      // 1. Connect to the device's GATT server
-      // 2. Find the WiFi scan service and characteristic
-      // 3. Write the scan command
-      
-      // For now, simulate the process
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log('WiFi scan command sent successfully');
-    } catch (error) {
-      console.error('Failed to send WiFi scan command:', error);
-      throw new Error('Failed to send WiFi scan command to device');
-    }
-  }
 
-  // Read WiFi networks from device
-  private async readWiFiNetworksFromDevice(device: BluetoothDevice): Promise<WiFiNetwork[]> {
+  // Check device status
+  async checkDeviceStatus(device: BluetoothDevice): Promise<DeviceStatus> {
     try {
-      console.log('Reading WiFi networks from device:', device.name);
-      
-      // Try to connect to GATT server and read WiFi networks
-      try {
-        const gattServer = await this.connectToGATTServer(device);
-        const wifiNetworks = await this.readWiFiNetworksFromGATT(gattServer);
-        
-        console.log('WiFi networks read from GATT successfully:', wifiNetworks.length);
-        return wifiNetworks;
-      } catch (gattError) {
-        console.warn('GATT connection failed, falling back to mock data:', gattError);
-        
-        // Fallback to mock data when GATT fails
-        const mockNetworks: WiFiNetwork[] = [
-          {
-            id: 'wifi_1',
-            name: 'TestWiFi_2.4G',
-            security: 'WPA2',
-            strength: -45,
-            frequency: 2400,
-            channel: 6
-          },
-          {
-            id: 'wifi_2',
-            name: 'TestWiFi_5G',
-            security: 'WPA2',
-            strength: -50,
-            frequency: 5000,
-            channel: 36
-          },
-          {
-            id: 'wifi_3',
-            name: 'GuestNetwork',
-            security: 'WPA3',
-            strength: -60,
-            frequency: 2400,
-            channel: 11
-          }
-        ];
-        
-        console.log('Using mock WiFi networks:', mockNetworks.length);
-        return mockNetworks;
-      }
-    } catch (error) {
-      console.error('Failed to read WiFi networks from device:', error);
-      throw new Error('Failed to read WiFi networks from device');
-    }
-  }
-
-  // Check device activation status
-  async checkDeviceActivationStatus(device: BluetoothDevice): Promise<DeviceActivationStatus> {
-    try {
-      console.log('Checking device activation status:', device.name);
+      console.log('Checking device status:', device.name);
       
       // Check if device is connected
       if (!await this.isDeviceConnected(device)) {
         return {
-          isActivated: false,
+          isConnected: false,
           mqttConnected: false
         };
       }
 
-      // Read activation status from device
-      const status = await this.readDeviceActivationStatus(device);
+      // Read device status
+      const status = await this.readDeviceStatus(device);
       
-      // If device is activated, check MQTT connection
-      if (status.isActivated) {
-        status.mqttConnected = await this.checkMQTTConnection(device);
-      }
+      // Check MQTT connection
+      status.mqttConnected = await this.checkMQTTConnection(device);
       
       return status;
     } catch (error) {
-      console.error('Failed to check device activation status:', error);
+      console.error('Failed to check device status:', error);
       return {
-        isActivated: false,
+        isConnected: false,
         mqttConnected: false
       };
     }
   }
 
-  // Read device activation status from BLE characteristic
-  private async readDeviceActivationStatus(device: BluetoothDevice): Promise<DeviceActivationStatus> {
+  // Read device status from BLE characteristic
+  private async readDeviceStatus(device: BluetoothDevice): Promise<DeviceStatus> {
     try {
-      console.log('Reading device activation status from BLE characteristic');
+      console.log('Reading device status from BLE characteristic');
       
       // In a real implementation, you would:
-      // 1. Read from the activation status characteristic
+      // 1. Read from the device status characteristic
       // 2. Parse the status data
-      // 3. Return the activation status
+      // 3. Return the device status
       
       // For now, simulate the process
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Mock activation status
+      // Mock device status
       return {
-        isActivated: true,
-        deviceSecret: 'mock_device_secret',
+        isConnected: true,
         mqttConnected: false,
         lastSeen: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Failed to read device activation status:', error);
+      console.error('Failed to read device status:', error);
       return {
-        isActivated: false,
+        isConnected: false,
         mqttConnected: false
       };
     }
@@ -1142,34 +1223,14 @@ class RealDeviceService {
     }
   }
 
-  // Verify device activation via Tencent Cloud API
-  async verifyDeviceActivationViaTencentCloud(device: BluetoothDevice, activationCode: string): Promise<boolean> {
-    try {
-      console.log('Verifying device activation via Tencent Cloud API:', {
-        device: device.name,
-        activationCode: activationCode.substring(0, 8) + '...'
-      });
-      
-      // In a real implementation, you would:
-      // 1. Call Tencent Cloud IoT API to verify device activation
-      // 2. Check if device is registered and online
-      // 3. Return verification result
-      
-      // For now, simulate the process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Device activation verified via Tencent Cloud API');
-      return true;
-    } catch (error) {
-      console.error('Failed to verify device activation via Tencent Cloud API:', error);
-      return false;
-    }
-  }
 
   // Submit device record to backend canister using deviceApiService
   async submitDeviceRecordToCanister(record: DeviceRecord): Promise<boolean> {
     try {
       console.log('Submitting device record to backend canister:', record);
+      
+      // Use device name from GATT (pre-registered Tencent IoT device name)
+      const deviceName = record.name; // This should be the actual Tencent IoT device name from GATT
       
       // Convert legacy DeviceRecord to ApiDeviceRecord format
       // Use the record's ID if it exists, otherwise generate a new one
@@ -1177,7 +1238,7 @@ class RealDeviceService {
       
       const apiRecord: ApiDeviceRecord = {
         id: deviceId,
-        name: record.name,
+        name: deviceName, // Use actual Tencent IoT device name from GATT
         deviceType: this.convertStringToDeviceType(record.type),
         owner: record.principalId, // Use principalId as owner
         status: this.convertStringToDeviceStatus(record.status),
@@ -1186,6 +1247,9 @@ class RealDeviceService {
           macAddress: record.macAddress,
           wifiNetwork: record.wifiNetwork,
           connectedAt: record.connectedAt,
+          // Store Tencent IoT product info from device
+          productId: record.productId || '',
+          userPrincipal: record.principalId, // Store full principal for reference
         },
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -1279,8 +1343,8 @@ class RealDeviceService {
     }
   }
 
-  // Convert string device status to DeviceStatus enum
-  private convertStringToDeviceStatus(status: string): DeviceStatus {
+  // Convert string device status to BackendDeviceStatus enum
+  private convertStringToDeviceStatus(status: string): BackendDeviceStatus {
     switch (status.toLowerCase()) {
       case 'connected':
       case 'online':
@@ -1353,13 +1417,19 @@ class RealDeviceService {
     return 'Unknown';
   }
 
-  // Convert DeviceStatus enum to string
-  private convertDeviceStatusToString(status: DeviceStatus): string {
+  // Convert BackendDeviceStatus enum to string
+  private convertDeviceStatusToString(status: BackendDeviceStatus): string {
     if ('Online' in status) return 'Connected';
     if ('Offline' in status) return 'Disconnected';
     if ('Maintenance' in status) return 'Maintenance';
     if ('Disabled' in status) return 'Disabled';
     return 'Unknown';
+  }
+
+  // Cleanup method - call this when the service is no longer needed
+  async cleanup(): Promise<void> {
+    console.log('Cleaning up RealDeviceService');
+    await this.closeAllGATTConnections();
   }
 }
 

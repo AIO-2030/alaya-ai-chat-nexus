@@ -7,6 +7,8 @@ import { BottomNavigation } from '../components/BottomNavigation';
 import { PageLayout } from '../components/PageLayout';
 import { upsertNickname, getUserInfoByPrincipal } from '../services/api/userApi';
 import { useToast } from '../hooks/use-toast';
+import { useDeviceStatus } from '../hooks/useDeviceStatus';
+import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 
 const Profile = () => {
   const { t } = useTranslation();
@@ -16,12 +18,15 @@ const Profile = () => {
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Mock device data
-  const devices = [
-    { id: 1, name: 'iPhone 14 Pro', status: 'active', lastSeen: '2 hours ago' },
-    { id: 2, name: 'MacBook Pro', status: 'active', lastSeen: '1 day ago' },
-    { id: 3, name: 'iPad Air', status: 'inactive', lastSeen: '3 days ago' },
-  ];
+  // Use device status hook for real-time device management
+  const {
+    deviceStatus,
+    hasConnectedDevices,
+    isTencentIoTEnabled,
+    isLoading: deviceLoading,
+    error: deviceError,
+    refreshDeviceStatus
+  } = useDeviceStatus();
 
   // Update nickname when user changes
   useEffect(() => {
@@ -199,40 +204,88 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* My Devices Button */}
-        <div className="mb-4">
-          <button className="w-full bg-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Smartphone className="h-5 w-5 text-cyan-400" />
+        {/* My Devices Section */}
+        <div className="mb-6 bg-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Smartphone className="h-5 w-5 text-cyan-400" />
+              <div>
                 <span className="text-white font-medium">{t('common.myDevices')}</span>
+                {isTencentIoTEnabled && (
+                  <div className="text-xs text-blue-400 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    IoT Cloud Connected
+                  </div>
+                )}
               </div>
-              <ChevronRight className="h-4 w-4 text-white/60" />
             </div>
-          </button>
-        </div>
+            <button
+              onClick={refreshDeviceStatus}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              title="Refresh device status"
+            >
+              <MoreHorizontal className="h-4 w-4 text-white/40" />
+            </button>
+          </div>
 
-        {/* Devices List */}
-        <div className="space-y-3 mb-6">
-          {devices.map((device) => (
-            <div key={device.id} className="bg-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    device.status === 'active' ? 'bg-green-400' : 'bg-gray-400'
-                  }`}></div>
-                  <div>
-                    <div className="text-white font-medium">{device.name}</div>
-                    <div className="text-white/60 text-sm">{device.lastSeen}</div>
+          {/* Device Status Summary */}
+          <DeviceStatusIndicator 
+            showDetails={true}
+            className="mb-4"
+            onDeviceClick={(deviceId) => {
+              console.log('Device clicked:', deviceId);
+              // Navigate to device details or show device info
+            }}
+          />
+
+          {/* Device List */}
+          {deviceLoading ? (
+            <div className="text-center py-4">
+              <div className="text-white/60 text-sm">Loading devices...</div>
+            </div>
+          ) : deviceError ? (
+            <div className="text-center py-4">
+              <div className="text-red-400 text-sm">Error loading devices: {deviceError}</div>
+            </div>
+          ) : deviceStatus.deviceList.length === 0 ? (
+            <div className="text-center py-4">
+              <div className="text-white/60 text-sm">No devices found</div>
+              <div className="text-white/40 text-xs mt-1">Add your first device to get started</div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {deviceStatus.deviceList.map((device) => (
+                <div key={device.id} className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${
+                        device.isConnected ? 'bg-green-400' : 'bg-gray-400'
+                      }`}></div>
+                      <div>
+                        <div className="text-white font-medium text-sm">{device.name}</div>
+                        <div className="text-white/60 text-xs">
+                          {device.isConnected ? 'Connected' : 'Disconnected'}
+                          {device.lastSeen && ` • ${new Date(device.lastSeen).toLocaleTimeString()}`}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {device.signalStrength && (
+                        <div className="text-xs text-white/40">
+                          {device.signalStrength}dBm
+                        </div>
+                      )}
+                      {device.batteryLevel && (
+                        <div className="text-xs text-white/40">
+                          {device.batteryLevel}%
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-white/20 rounded"></div>
-                  <div className="w-2 h-2 bg-white/20 rounded"></div>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
 

@@ -12,6 +12,7 @@ import type {
   VersionId,
   PixelRow
 } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+import { PixelArtInfo, PixelAnimationData, PixelFrame } from './chatApi';
 
 // Import environment configuration
 import { 
@@ -526,6 +527,197 @@ export const convertImageToPixelArt = async (
       error: error instanceof Error ? error.message : 'Unknown error during conversion'
     };
   }
+};
+
+// Convert PixelArtData to PixelArtInfo with device format
+export const convertPixelArtDataToInfo = (pixelArt: PixelArtData): PixelArtInfo => {
+  // Generate chat format (base64 image)
+  const chatFormat = generateChatFormat(pixelArt);
+  
+  // Generate device format (JSON string) - optimized for IOT devices
+  const deviceFormat = JSON.stringify({
+    title: pixelArt.title,
+    width: pixelArt.width,
+    height: pixelArt.height,
+    palette: pixelArt.palette,
+    // For IOT devices, use compressed pixel data format
+    pixels: pixelArt.pixels,
+    format: 'iot_device',
+    version: '1.0',
+    timestamp: Date.now()
+  });
+
+  return {
+    chatFormat,
+    deviceFormat,
+    width: pixelArt.width,
+    height: pixelArt.height,
+    palette: pixelArt.palette,
+    sourceType: 'conversion',
+    sourceId: undefined
+  };
+};
+
+// Generate chat format (base64 image) from pixel art data
+const generateChatFormat = (pixelArt: PixelArtData): string => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  canvas.width = pixelArt.width;
+  canvas.height = pixelArt.height;
+
+  // Draw pixels using palette colors
+  for (let y = 0; y < pixelArt.height; y++) {
+    for (let x = 0; x < pixelArt.width; x++) {
+      const colorIndex = pixelArt.pixels[y][x];
+      if (colorIndex >= 0 && colorIndex < pixelArt.palette.length) {
+        ctx.fillStyle = pixelArt.palette[colorIndex];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  return canvas.toDataURL('image/png');
+};
+
+// Convert GIF to pixel animation data for IOT devices
+export const convertGifToPixelAnimation = async (
+  gifUrl: string,
+  title: string,
+  options: {
+    targetWidth?: number;
+    targetHeight?: number;
+    maxColors?: number;
+    frameDelay?: number;
+    loopCount?: number;
+  } = {}
+): Promise<{ success: boolean; animationData?: PixelAnimationData; error?: string }> => {
+  try {
+    const {
+      targetWidth = 8,
+      targetHeight = 8,
+      maxColors = 16,
+      frameDelay = 200,
+      loopCount = 3
+    } = options;
+
+    // Create a temporary image element to load the GIF
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to load GIF'));
+      img.src = gifUrl;
+    });
+
+    // For now, we'll create a simple single-frame animation
+    // In a real implementation, you would parse the GIF frames
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return {
+        success: false,
+        error: 'Failed to create canvas context'
+      };
+    }
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    
+    // Draw the GIF frame to canvas
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+    
+    // Get image data and generate palette
+    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+    const quantizer = new ColorQuantizer();
+    let palette = quantizer.quantize(imageData, maxColors);
+    
+    // Ensure we have a background color
+    if (!palette.includes('#000000')) {
+      palette.unshift('#000000');
+    }
+    
+    // Limit palette size
+    if (palette.length > maxColors) {
+      palette = palette.slice(0, maxColors);
+    }
+    
+    // Convert to pixel grid
+    const pixels = mapToPixels(imageData, palette, targetWidth, targetHeight);
+    
+    // Create pixel animation data
+    const animationData: PixelAnimationData = {
+      title,
+      width: targetWidth,
+      height: targetHeight,
+      palette,
+      frame_delay: frameDelay,
+      loop_count: loopCount,
+      frames: [
+        {
+          pixels,
+          duration: frameDelay
+        }
+      ],
+      format: 'pixel_animation',
+      version: '1.0',
+      timestamp: Date.now()
+    };
+
+    return {
+      success: true,
+      animationData
+    };
+
+  } catch (error) {
+    console.error('Failed to convert GIF to pixel animation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during conversion'
+    };
+  }
+};
+
+// Create a simple pixel animation from pixel art data
+export const createPixelAnimationFromArt = (
+  pixelArt: PixelArtData,
+  title: string,
+  options: {
+    frameDelay?: number;
+    loopCount?: number;
+    frameCount?: number;
+  } = {}
+): PixelAnimationData => {
+  const {
+    frameDelay = 200,
+    loopCount = 3,
+    frameCount = 1
+  } = options;
+
+  const frames: PixelFrame[] = [];
+  
+  // Create frames (for now, just duplicate the same frame)
+  for (let i = 0; i < frameCount; i++) {
+    frames.push({
+      pixels: pixelArt.pixels,
+      duration: frameDelay
+    });
+  }
+
+  return {
+    title,
+    width: pixelArt.width,
+    height: pixelArt.height,
+    palette: pixelArt.palette,
+    frame_delay: frameDelay,
+    loop_count: loopCount,
+    frames,
+    format: 'pixel_animation',
+    version: '1.0',
+    timestamp: Date.now()
+  };
 };
 
 // API Functions

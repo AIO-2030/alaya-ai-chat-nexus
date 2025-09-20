@@ -10,8 +10,10 @@ import { PageLayout } from '../components/PageLayout';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
+import { useDeviceStatus } from '../hooks/useDeviceStatus';
 import { DeviceRecord } from '../services/api/deviceApi';
 import type { DeviceStatus, DeviceType } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 
 const MyDevices = () => {
   const navigate = useNavigate();
@@ -32,6 +34,19 @@ const MyDevices = () => {
     updateDeviceStatus,
     clearError
   } = useDeviceManagement();
+
+  // Use device status hook for real-time device management
+  const {
+    deviceStatus,
+    hasConnectedDevices,
+    isTencentIoTEnabled,
+    isLoading: deviceStatusLoading,
+    error: deviceStatusError,
+    refreshDeviceStatus,
+    sendMessageToDevices,
+    sendPixelArtToDevices,
+    sendGifToDevices
+  } = useDeviceStatus();
 
   // Load devices on component mount
   useEffect(() => {
@@ -179,15 +194,43 @@ const MyDevices = () => {
                           <h1 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
                             {t('common.myDevices')}
                           </h1>
+                          {isTencentIoTEnabled && (
+                            <div className="text-xs text-blue-400 flex items-center gap-1 mt-1">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                              IoT Cloud Connected
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <Button 
-                        onClick={handleAddDevice}
-                        className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('common.addDevice')}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          onClick={refreshDeviceStatus}
+                          variant="outline"
+                          size="sm"
+                          className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                          title="Refresh device status"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          onClick={handleAddDevice}
+                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          {t('common.addDevice')}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Real-time Device Status */}
+                    <div className="mb-6">
+                      <DeviceStatusIndicator 
+                        showDetails={true}
+                        onDeviceClick={(deviceId) => {
+                          console.log('Device clicked:', deviceId);
+                          // Navigate to device details or show device info
+                        }}
+                      />
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

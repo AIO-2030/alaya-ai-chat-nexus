@@ -2,6 +2,32 @@
 import { realDeviceService, WiFiNetwork, BluetoothDevice, DeviceRecord, ConnectionProgress } from './realDeviceService';
 import { getPrincipalId } from '../lib/principal';
 
+// Bluetooth API type declarations
+declare global {
+  interface BluetoothDevice {
+    gatt?: BluetoothRemoteGATTServer;
+    productId?: string;
+  }
+  
+  interface BluetoothRemoteGATTServer {
+    connect(): Promise<BluetoothRemoteGATTServer>;
+    disconnect(): void;
+    getPrimaryService(service: string): Promise<BluetoothRemoteGATTService>;
+    connected: boolean;
+  }
+  
+  interface BluetoothRemoteGATTService {
+    getCharacteristic(characteristic: string): Promise<BluetoothRemoteGATTCharacteristic>;
+  }
+  
+  interface BluetoothRemoteGATTCharacteristic {
+    readValue(): Promise<DataView>;
+    writeValue(value: BufferSource): Promise<void>;
+    startNotifications(): Promise<BluetoothRemoteGATTCharacteristic>;
+    addEventListener(type: string, listener: EventListener): void;
+  }
+}
+
 export enum DeviceInitStep {
   INIT = 'init',
   BLUETOOTH_SCAN = 'bluetooth_scan',
@@ -19,15 +45,29 @@ export interface DeviceInitState {
   selectedBluetoothDevice: BluetoothDevice | null;
   wifiNetworks: WiFiNetwork[];
   bluetoothDevices: BluetoothDevice[];
-  activationCode: string | null;
 
   isScanningBluetooth: boolean;
   isConnectingBluetooth: boolean;
   isConfiguringWifi: boolean;
-  isTransmittingActivationCode: boolean;
-  isVerifyingActivation: boolean;
+  isVerifyingDevice: boolean;
   connectionProgress: number;
   error: string | null;
+}
+
+// Device provisioning status interface
+export interface DeviceProvisioningStatus {
+  isProvisioned: boolean;
+  isConnectedToWifi: boolean;
+  wifiSSID: string;
+  ipAddress: string;
+  lastSeen: Date;
+}
+
+// Device network information interface
+export interface DeviceNetworkInfo {
+  ipAddress: string;
+  macAddress: string;
+  lastSeen: Date;
 }
 
 export class DeviceInitManager {
@@ -40,13 +80,11 @@ export class DeviceInitManager {
       selectedBluetoothDevice: null,
       wifiNetworks: [],
       bluetoothDevices: [],
-      activationCode: null,
 
       isScanningBluetooth: false,
       isConnectingBluetooth: false,
       isConfiguringWifi: false,
-      isTransmittingActivationCode: false,
-      isVerifyingActivation: false,
+      isVerifyingDevice: false,
       connectionProgress: 0,
       error: null
     };
@@ -88,6 +126,9 @@ export class DeviceInitManager {
       await realDeviceService.connectBluetooth(device);
       this.state.isConnectingBluetooth = false;
       
+      // Get accurate device information via GATT
+      await this.getDeviceInfoViaGATT();
+      
       // Move to WiFi scanning step
       this.state.step = DeviceInitStep.WIFI_SCAN;
       await this.requestWiFiNetworksFromDevice();
@@ -95,6 +136,46 @@ export class DeviceInitManager {
       this.state.error = error instanceof Error ? error.message : 'Bluetooth connection failed';
       this.state.isConnectingBluetooth = false;
       throw error;
+    }
+  }
+
+  // Get Tencent IoT triple information via GATT
+  private async getDeviceInfoViaGATT(): Promise<void> {
+    try {
+      console.log('Getting Tencent IoT triple information via GATT...');
+      
+      if (!this.state.selectedBluetoothDevice) {
+        throw new Error('No Bluetooth device connected');
+      }
+
+      // Use realDeviceService's GATT connection wrapper
+      const gattServer = await realDeviceService.getGATTConnection(this.state.selectedBluetoothDevice);
+      
+      // Read device information service
+      const deviceInfoService = await gattServer.getPrimaryService('device_info_service_uuid');
+      
+      // Read Tencent IoT product information: ProductId + DeviceName
+      const productIdChar = await deviceInfoService.getCharacteristic('product_id_uuid');
+      const productIdData = await productIdChar.readValue();
+      const productId = new TextDecoder().decode(productIdData);
+      
+      const deviceNameChar = await deviceInfoService.getCharacteristic('device_name_uuid');
+      const deviceNameData = await deviceNameChar.readValue();
+      const deviceName = new TextDecoder().decode(deviceNameData);
+      
+      // Update device information with Tencent IoT product info
+      this.state.selectedBluetoothDevice.name = deviceName;
+      (this.state.selectedBluetoothDevice as any).productId = productId;
+      
+      console.log('Tencent IoT product info retrieved:', {
+        productId: productId,
+        deviceName: deviceName
+      });
+      
+    } catch (error) {
+      console.error('Failed to get Tencent IoT triple via GATT:', error);
+      // Don't throw error, continue with basic device info
+      console.log('Continuing with basic device information from scan');
     }
   }
 
@@ -142,9 +223,8 @@ export class DeviceInitManager {
       this.state.isConfiguringWifi = false;
       this.state.connectionProgress = 40; // WiFi configured
       
-      // Since activation code dialog is removed, automatically send a default activation code
-      // and complete the setup process
-      await this.sendActivationCode('default_activation_code');
+      // Verify device status after WiFi configuration
+      await this.verifyDeviceStatus();
       
     } catch (error) {
       this.state.error = error instanceof Error ? error.message : 'WiFi configuration failed';
@@ -153,67 +233,132 @@ export class DeviceInitManager {
     }
   }
 
-  // Step 5: Send activation code to device
-  async sendActivationCode(activationCode: string): Promise<void> {
+
+  // Step 5: Verify device status
+  private async verifyDeviceStatus(): Promise<void> {
     try {
-      this.state.activationCode = activationCode;
-      this.state.isTransmittingActivationCode = true;
+      this.state.isVerifyingDevice = true;
       this.state.error = null;
-      this.state.connectionProgress = 60; // Sending activation code
+      this.state.connectionProgress = 90; // Verifying device
 
       if (!this.state.selectedBluetoothDevice) {
-        throw new Error('No Bluetooth device connected');
+        throw new Error('No device available');
       }
 
-      // Send activation code to device via Bluetooth
-      await realDeviceService.sendActivationCodeToDevice(
-        this.state.selectedBluetoothDevice,
-        activationCode
-      );
-
-      this.state.isTransmittingActivationCode = false;
-      this.state.connectionProgress = 80; // Activation code sent
+      // Poll device status
+      const isDeviceReady = await this.pollDeviceStatus();
       
-      // Move to activation verification
-      await this.verifyDeviceActivation();
-    } catch (error) {
-      this.state.error = error instanceof Error ? error.message : 'Activation code transmission failed';
-      this.state.isTransmittingActivationCode = false;
-      throw error;
-    }
-  }
-
-  // Step 6: Verify device activation
-  private async verifyDeviceActivation(): Promise<void> {
-    try {
-      this.state.isVerifyingActivation = true;
-      this.state.error = null;
-      this.state.connectionProgress = 90; // Verifying activation
-
-      if (!this.state.selectedBluetoothDevice || !this.state.activationCode) {
-        throw new Error('No device or activation code available');
+      if (!isDeviceReady) {
+        throw new Error('Device verification failed');
       }
 
-      // Verify activation via Tencent Cloud API
-      const isActivated = await realDeviceService.verifyDeviceActivationViaTencentCloud(
-        this.state.selectedBluetoothDevice,
-        this.state.activationCode
-      );
-
-      if (!isActivated) {
-        throw new Error('Device activation verification failed');
-      }
-
-      this.state.isVerifyingActivation = false;
+      this.state.isVerifyingDevice = false;
       this.state.connectionProgress = 100; // Complete
       this.state.step = DeviceInitStep.SUCCESS;
     } catch (error) {
-      this.state.error = error instanceof Error ? error.message : 'Device activation verification failed';
-      this.state.isVerifyingActivation = false;
+      this.state.error = error instanceof Error ? error.message : 'Device verification failed';
+      this.state.isVerifyingDevice = false;
       throw error;
     }
   }
 
+  // Poll device status
+  private async pollDeviceStatus(): Promise<boolean> {
+    try {
+      console.log('Starting device status polling...');
+      
+      const maxAttempts = 30; // Maximum 30 polling attempts
+      const pollInterval = 2000; // Poll every 2 seconds
+      
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          // Read device status via Bluetooth
+          const status = await this.readDeviceStatus();
+          
+          if (status.isProvisioned && status.isConnectedToWifi) {
+            console.log('Device is ready!');
+            return true;
+          }
+          
+          console.log(`Device status check ${attempt + 1}/${maxAttempts}:`, status);
+          
+          // Wait for next polling cycle
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+        } catch (pollError) {
+          console.log(`Polling attempt ${attempt + 1} failed:`, pollError);
+          // Continue with next polling attempt
+        }
+      }
+      
+      console.log('Device status polling timeout');
+      return false;
+      
+    } catch (error) {
+      console.error('Failed to poll device status:', error);
+      return false;
+    }
+  }
+
+  // Read device status via Bluetooth
+  private async readDeviceStatus(): Promise<DeviceProvisioningStatus> {
+    try {
+      // Use realDeviceService's GATT connection wrapper
+      const gattServer = await realDeviceService.getGATTConnection(this.state.selectedBluetoothDevice!);
+      const statusService = await gattServer.getPrimaryService('device_status_service_uuid');
+      const statusCharacteristic = await statusService.getCharacteristic('provisioning_status_uuid');
+      
+      // Read status data
+      const statusData = await statusCharacteristic.readValue();
+      const status = this.parseDeviceStatus(statusData);
+      
+      return status;
+    } catch (error) {
+      console.error('Failed to read device status:', error);
+      // Return default status
+      return {
+        isProvisioned: false,
+        isConnectedToWifi: false,
+        wifiSSID: '',
+        ipAddress: '',
+        lastSeen: new Date()
+      };
+    }
+  }
+
+  // Parse device status data from Bluetooth characteristic
+  private parseDeviceStatus(dataView: DataView): DeviceProvisioningStatus {
+    const offset = 0;
+    
+    // Assume data format: [provisioned_flag][wifi_connected_flag][ssid_length][ssid][ip_length][ip][timestamp]
+    const isProvisioned = dataView.getUint8(offset) === 1;
+    const isConnectedToWifi = dataView.getUint8(offset + 1) === 1;
+    
+    let currentOffset = offset + 2;
+    
+    // Read WiFi SSID
+    const ssidLength = dataView.getUint8(currentOffset++);
+    const ssidBytes = new Uint8Array(dataView.buffer, currentOffset, ssidLength);
+    const wifiSSID = new TextDecoder().decode(ssidBytes);
+    currentOffset += ssidLength;
+    
+    // Read IP address
+    const ipLength = dataView.getUint8(currentOffset++);
+    const ipBytes = new Uint8Array(dataView.buffer, currentOffset, ipLength);
+    const ipAddress = new TextDecoder().decode(ipBytes);
+    currentOffset += ipLength;
+    
+    // Read timestamp
+    const timestamp = dataView.getUint32(currentOffset, true);
+    
+    return {
+      isProvisioned,
+      isConnectedToWifi,
+      wifiSSID,
+      ipAddress,
+      lastSeen: new Date(timestamp * 1000)
+    };
+  }
 
 
   // Step 5: Submit device record to backend canister
@@ -231,13 +376,15 @@ export class DeviceInitManager {
 
       const record: DeviceRecord = {
         id: `device_${Date.now()}`, // Generate unique ID
-        name: this.state.selectedBluetoothDevice.name,
+        name: this.state.selectedBluetoothDevice.name, // Use GATT-retrieved device name
         type: this.state.selectedBluetoothDevice.type,
         macAddress: this.state.selectedBluetoothDevice.mac,
         wifiNetwork: this.state.selectedWifi.name,
         status: 'Connected',
         connectedAt: new Date().toISOString(),
-        principalId: principalId
+        principalId: principalId,
+        // Add Tencent IoT product info from GATT
+        productId: (this.state.selectedBluetoothDevice as any).productId
       };
 
       // Submit to backend canister
@@ -263,13 +410,11 @@ export class DeviceInitManager {
       selectedBluetoothDevice: null,
       wifiNetworks: [],
       bluetoothDevices: [],
-      activationCode: null,
 
       isScanningBluetooth: false,
       isConnectingBluetooth: false,
       isConfiguringWifi: false,
-      isTransmittingActivationCode: false,
-      isVerifyingActivation: false,
+      isVerifyingDevice: false,
       connectionProgress: 0,
       error: null
     };

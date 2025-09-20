@@ -80,6 +80,26 @@ export interface GifInfo {
   sourceId?: string;        // GIF ID
 }
 
+// Pixel animation frame data
+export interface PixelFrame {
+  pixels: number[][];       // 2D pixel array with color indices
+  duration: number;         // Frame duration in milliseconds
+}
+
+// Pixel animation data for IOT devices
+export interface PixelAnimationData {
+  title: string;            // Animation title
+  width: number;            // Frame width
+  height: number;           // Frame height
+  palette: string[];        // Color palette
+  frame_delay: number;      // Default frame delay in milliseconds
+  loop_count: number;       // Number of loops (0 = infinite)
+  frames: PixelFrame[];     // Animation frames
+  format: 'pixel_animation'; // Format identifier
+  version: string;          // Format version
+  timestamp: number;        // Creation timestamp
+}
+
 // Frontend types for chat functionality
 export interface ChatMessageInfo {
   sendBy: string;           // Sender's principal ID

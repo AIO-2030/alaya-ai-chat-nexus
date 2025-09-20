@@ -1,6 +1,85 @@
 # Alaya Chat Nexus Frontend – Recent Updates
 
-This document summarizes the latest changes implemented in the Chat Nexus frontend (`src/alaya-chat-nexus-frontend`). It complements the project root `README.md` and focuses on UI, authentication, device initialization, and layout improvements.
+This document summarizes the latest changes implemented in the Chat Nexus frontend (`src/alaya-chat-nexus-frontend`). It complements the project root `README.md` and focuses on UI, authentication, device initialization, layout improvements, and Tencent IoT Cloud integration.
+
+## Tencent IoT Cloud Integration
+
+### Overview
+
+The frontend now includes comprehensive Tencent IoT Cloud integration for real-time device management and communication. This integration allows the application to:
+
+- **Real-time device status monitoring** via MQTT subscriptions
+- **Automatic device synchronization** from backend canister
+- **Dual-mode operation** (Tencent IoT Cloud + local fallback)
+- **Message delivery** to connected devices via MQTT
+
+### Core Components
+
+#### 1. TencentIoTService (`src/services/tencentIoTService.ts`)
+- MQTT client connection to Tencent IoT Cloud
+- Real-time device status subscription and management
+- Device message sending via MQTT topics
+- Automatic reconnection and error handling
+
+#### 2. Enhanced DeviceMessageService (`src/services/deviceMessageService.ts`)
+- Integrated Tencent IoT Cloud service
+- Automatic device status synchronization (every 30 seconds)
+- Support for both MQTT and local communication modes
+- Real-time device connection status updates
+
+#### 3. Initialization Service (`src/services/deviceMessageServiceInit.ts`)
+- Service initialization and configuration
+- Device status summary retrieval
+- Test message sending functionality
+- Resource cleanup management
+
+### Key Features
+
+- **Real-time Status Sync**: Device online/offline status via MQTT subscriptions
+- **Dual Mode Support**: Tencent IoT Cloud with automatic fallback to local mode
+- **Type Safety**: Complete TypeScript type definitions
+- **Error Handling**: Comprehensive error handling and logging
+- **Auto-reconnection**: Automatic MQTT reconnection on connection loss
+
+### Usage
+
+```typescript
+// Initialize service
+await initializeDeviceMessageService();
+
+// Get device status
+const devices = deviceMessageService.getConnectedDevices();
+
+// Send messages
+await deviceMessageService.sendTextToDevices('Hello!');
+await deviceMessageService.sendPixelArtToDevices(pixelArt);
+await deviceMessageService.sendGifToDevices(gifInfo);
+```
+
+### Environment Configuration
+
+Add to `.env.local`:
+```bash
+VITE_TENCENT_IOT_PRODUCT_ID=your_product_id
+VITE_TENCENT_IOT_DEVICE_NAME=your_device_name
+VITE_TENCENT_IOT_DEVICE_SECRET=your_device_secret
+VITE_TENCENT_IOT_REGION=ap-beijing
+VITE_TENCENT_IOT_BROKER_URL=ssl://your_broker_url:8883
+VITE_TENCENT_IOT_CLIENT_ID=your_client_id
+```
+
+### Dependencies
+
+```bash
+npm install mqtt
+npm install @types/mqtt --save-dev
+```
+
+### Documentation
+
+- **Integration Guide**: `TENCENT_IOT_INTEGRATION.md`
+- **Usage Examples**: `src/examples/tencentIoTUsageExample.ts`
+- **API Reference**: See individual service files for detailed API documentation
 
 ## Navigation & Header
 

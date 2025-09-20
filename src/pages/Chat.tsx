@@ -26,6 +26,8 @@ import {
 } from '../services/api/chatApi';
 import { deviceMessageService } from '../services/deviceMessageService';
 import { deviceSimulator } from '../services/deviceSimulator';
+import { useDeviceStatus } from '../hooks/useDeviceStatus';
+import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -204,8 +206,18 @@ const Chat = () => {
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [pendingPixelArt, setPendingPixelArt] = useState<PixelArtInfo | null>(null);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
-  const [deviceConnected, setDeviceConnected] = useState(false);
-  const [connectedDevices, setConnectedDevices] = useState<string[]>([]);
+  // Use device status hook for real-time device management
+  const {
+    deviceStatus,
+    hasConnectedDevices,
+    isTencentIoTEnabled,
+    isLoading: deviceLoading,
+    error: deviceError,
+    sendMessageToDevices,
+    sendPixelArtToDevices,
+    sendGifToDevices,
+    refreshDeviceStatus
+  } = useDeviceStatus();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if contact info needs to be restored from sessionStorage on component load
@@ -404,23 +416,7 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Check device connection status
-  useEffect(() => {
-    const checkDeviceStatus = () => {
-      const isConnected = deviceMessageService.isAnyDeviceConnected();
-      const devices = deviceMessageService.getConnectedDevices();
-      setDeviceConnected(isConnected);
-      setConnectedDevices(devices.map(d => d.deviceName || d.deviceId || 'Unknown Device'));
-    };
-
-    // Check immediately
-    checkDeviceStatus();
-
-    // Check every 5 seconds
-    const interval = setInterval(checkDeviceStatus, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Device status is now managed by useDeviceStatus hook
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -914,7 +910,7 @@ const Chat = () => {
                           size="sm"
                           className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm text-xs px-3 py-2 min-w-[44px] transition-all duration-200"
                           onClick={async () => {
-                            if (!deviceConnected) {
+                            if (!hasConnectedDevices) {
                               toast({
                                 title: t('chat.error.noDeviceConnected'),
                                 description: t('chat.error.noDeviceConnectedDesc'),
@@ -927,7 +923,7 @@ const Chat = () => {
                               if (pendingPixelArt) {
                                 // Send pixel art to device
                                 console.log('Sending pixel art to device:', pendingPixelArt);
-                                const result = await deviceMessageService.sendPixelArtToDevices(pendingPixelArt);
+                                const result = await sendPixelArtToDevices(pendingPixelArt);
                                 
                                 if (result.success) {
                                   toast({
@@ -942,7 +938,7 @@ const Chat = () => {
                               } else if (pendingGif) {
                                 // Send GIF to device
                                 console.log('Sending GIF to device:', pendingGif);
-                                const result = await deviceMessageService.sendGifToDevices(pendingGif);
+                                const result = await sendGifToDevices(pendingGif);
                                 
                                 if (result.success) {
                                   toast({
@@ -957,7 +953,7 @@ const Chat = () => {
                               } else if (newMessage.trim()) {
                                 // Send text message to device
                                 console.log('Sending text to device:', newMessage);
-                                const result = await deviceMessageService.sendTextToDevices(newMessage);
+                                const result = await sendMessageToDevices(newMessage);
                                 
                                 if (result.success) {
                                   toast({
@@ -980,7 +976,7 @@ const Chat = () => {
                             }
                           }}
                           disabled={!newMessage.trim() && !pendingPixelArt && !pendingGif}
-                          title={deviceConnected ? "Send message to device" : "No devices connected"}
+                          title={hasConnectedDevices ? "Send message to device" : "No devices connected"}
                         >
                           <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
@@ -999,23 +995,10 @@ const Chat = () => {
                         </Button>
                         
                         {/* Device Status Indicator */}
-                        <div className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg border ${
-                          deviceConnected 
-                            ? 'bg-green-500/20 border-green-400/30' 
-                            : 'bg-red-500/20 border-red-400/30'
-                        }`}>
-                          <div className={`w-2 h-2 rounded-full ${
-                            deviceConnected 
-                              ? 'bg-green-400 animate-pulse' 
-                              : 'bg-red-400'
-                          }`}></div>
-                          <span className="text-xs text-white/60">
-                            {deviceConnected 
-                              ? `Device Connected (${connectedDevices.length})` 
-                              : 'No Device'
-                            }
-                          </span>
-                        </div>
+                        <DeviceStatusIndicator 
+                          showDetails={false}
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border bg-white/5 border-white/10"
+                        />
 
                         {/* Device Simulator Controls (Development Only) */}
                         {import.meta.env.DEV && (
