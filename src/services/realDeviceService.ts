@@ -19,7 +19,9 @@ declare global {
   
   interface BluetoothRemoteGATTCharacteristic {
     readValue(): Promise<DataView>;
-    writeValue(value: BufferSource): Promise<void>;
+    writeValue(value: BufferSource | Uint8Array): Promise<void>;
+    startNotifications(): Promise<BluetoothRemoteGATTCharacteristic>;
+    addEventListener(type: string, listener: (event: any) => void): void;
   }
   
   type BluetoothServiceUUID = string;
@@ -76,7 +78,7 @@ export interface WiFiConfigData {
   security: string;
 }
 
-export interface DeviceStatus {
+export interface LocalDeviceStatus {
   isConnected: boolean;
   mqttConnected: boolean;
   lastSeen?: string;
@@ -1147,7 +1149,7 @@ class RealDeviceService {
 
 
   // Check device status
-  async checkDeviceStatus(device: BluetoothDevice): Promise<DeviceStatus> {
+  async checkDeviceStatus(device: BluetoothDevice): Promise<LocalDeviceStatus> {
     try {
       console.log('Checking device status:', device.name);
       
@@ -1176,7 +1178,7 @@ class RealDeviceService {
   }
 
   // Read device status from BLE characteristic
-  private async readDeviceStatus(device: BluetoothDevice): Promise<DeviceStatus> {
+  private async readDeviceStatus(device: BluetoothDevice): Promise<LocalDeviceStatus> {
     try {
       console.log('Reading device status from BLE characteristic');
       
