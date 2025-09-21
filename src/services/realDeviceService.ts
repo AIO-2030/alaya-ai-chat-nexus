@@ -1,6 +1,6 @@
 // Real Device Service - Implement actual WiFi and Bluetooth functionality
 import { deviceApiService, DeviceRecord as ApiDeviceRecord } from './api/deviceApi';
-import type { DeviceType, DeviceStatus as BackendDeviceStatus } from '../../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+import type { DeviceType, DeviceStatus as BackendDeviceStatus } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 
 // Bluetooth API type declarations
 declare global {
