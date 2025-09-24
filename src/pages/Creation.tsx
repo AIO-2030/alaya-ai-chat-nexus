@@ -519,15 +519,15 @@ const Creation = () => {
     }
     bctx.putImageData(image, 0, 0);
 
-    // Scale to display - Maximize canvas to fill all available space including control panel area
+    // Scale to display - Optimize for mobile screens
     const container = display.parentElement;
     let currentScale = scale;
     
     if (container) {
       // Get container dimensions with minimal padding
       const containerRect = container.getBoundingClientRect();
-      const maxWidth = containerRect.width - 4; // Minimal padding
-      const maxHeight = containerRect.height - 4; // Minimal padding, use full height including control panel area
+      const maxWidth = containerRect.width - 8; // Minimal padding for mobile
+      const maxHeight = containerRect.height - 8; // Minimal padding for mobile
       
       // Calculate maximum possible scale to fill the container completely
       const scaleX = Math.floor(maxWidth / cols);
@@ -535,8 +535,11 @@ const Creation = () => {
       // Use the smaller scale to ensure canvas fits completely in container
       currentScale = Math.min(scaleX, scaleY);
       
-      // Ensure minimum scale for visibility but allow very large scales
-      currentScale = Math.max(currentScale, 8);
+      // Ensure minimum scale for visibility on mobile (smaller minimum for better fit)
+      currentScale = Math.max(currentScale, 6);
+      
+      // Cap maximum scale to prevent canvas from being too large on small screens
+      currentScale = Math.min(currentScale, 20);
     }
     
     display.width = cols * currentScale;
@@ -659,58 +662,60 @@ const Creation = () => {
             <div className="flex-1 p-1 md:p-2 min-h-0">
               <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col overflow-hidden">
                 
-                {/* Creation Header */}
-                <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-white/10 bg-white/5">
-                  <div className="flex items-center gap-3 sm:gap-4 mb-4">
+                {/* Creation Header - Compact for mobile */}
+                <div className="flex-shrink-0 p-2 sm:p-3 md:p-4 border-b border-white/10 bg-white/5">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                     {/* Back Button */}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2 sm:p-3"
+                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-1.5 sm:p-2"
                       onClick={handleBackToGallery}
                     >
-                      <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
                     
                     {/* Title */}
                     <div className="flex-1">
-                      <h1 className="text-lg sm:text-xl font-bold text-white">{t('gallery.create')}</h1>
+                      <h1 className="text-base sm:text-lg font-bold text-white">{t('gallery.create')}</h1>
                     </div>
 
                     {/* Save Button */}
                     <Button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      size="sm"
+                      className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3"
                     >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? t('gallery.saving') : t('userManagement.save')}
+                      <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden xs:inline">{isSaving ? t('gallery.saving') : t('userManagement.save')}</span>
+                      <span className="xs:hidden">{isSaving ? '...' : 'Save'}</span>
                     </Button>
                   </div>
                   
-                  {/* Metadata Input Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Metadata Input Fields - Stacked on mobile */}
+                  <div className="grid grid-cols-1 gap-2 sm:gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-white/80 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-white/80 mb-1">
                         {t('gallery.artTitle')}
                       </label>
                       <Input
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder={t('gallery.titlePlaceholder')}
-                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400"
+                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 text-sm h-8 sm:h-10"
                         maxLength={100}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-white/80 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-white/80 mb-1">
                         {t('gallery.artDescription')}
                       </label>
                       <Input
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder={t('gallery.descriptionPlaceholder')}
-                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400"
+                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 text-sm h-8 sm:h-10"
                         maxLength={200}
                       />
                     </div>
@@ -720,42 +725,42 @@ const Creation = () => {
                 {/* Pixel Editor Content */}
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   
-                  {/* NFT Hero Banner Section */}
-                  <div className="flex-shrink-0 h-20 sm:h-24 md:h-28 z-10 overflow-hidden relative">
+                  {/* NFT Hero Banner Section - Compact for mobile */}
+                  <div className="flex-shrink-0 h-12 sm:h-16 md:h-20 z-10 overflow-hidden relative">
                     {/* Animated background elements */}
                     <div className="absolute inset-0">
-                      <div className="absolute top-2 left-4 w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 rounded-full blur-xl animate-pulse"></div>
-                      <div className="absolute top-4 right-8 w-12 h-12 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-lg animate-pulse animation-delay-500"></div>
-                      <div className="absolute bottom-2 left-1/3 w-8 h-8 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-full blur-md animate-pulse animation-delay-1000"></div>
+                      <div className="absolute top-1 left-2 w-8 h-8 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 rounded-full blur-lg animate-pulse"></div>
+                      <div className="absolute top-2 right-4 w-6 h-6 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-md animate-pulse animation-delay-500"></div>
+                      <div className="absolute bottom-1 left-1/3 w-4 h-4 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-full blur-sm animate-pulse animation-delay-1000"></div>
                     </div>
                     
                     {/* Main content */}
-                    <div className="relative h-full flex items-center justify-center p-4">
+                    <div className="relative h-full flex items-center justify-center p-2 sm:p-3">
                       <div className="w-full max-w-2xl">
                         {/* Background card */}
-                        <div className="relative bg-gradient-to-br from-white/15 via-white/10 to-white/5 backdrop-blur-lg rounded-2xl border border-white/30 shadow-2xl overflow-hidden">
+                        <div className="relative bg-gradient-to-br from-white/15 via-white/10 to-white/5 backdrop-blur-lg rounded-xl border border-white/30 shadow-xl overflow-hidden">
                           {/* Glow effect */}
                           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
                           
                           {/* Content */}
-                          <div className="relative p-2 sm:p-3 md:p-4">
+                          <div className="relative p-1.5 sm:p-2 md:p-3">
                             {/* Icon/Symbol */}
-                            <div className="flex justify-center mb-1 sm:mb-2">
-                              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center shadow-lg">
-                                <span className="text-white font-bold text-xs sm:text-sm">💎</span>
+                            <div className="flex justify-center mb-0.5 sm:mb-1">
+                              <div className="w-4 h-4 sm:w-6 sm:h-6 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-md flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-xs">💎</span>
                               </div>
                             </div>
                             
                             {/* Main text */}
                             <div className="text-center">
-                              <h2 className="text-white text-xs sm:text-sm md:text-base lg:text-lg font-bold mb-1 leading-tight">
+                              <h2 className="text-white text-xs sm:text-sm font-bold mb-0.5 leading-tight">
                                 <span className="bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent animate-pulse">
                                   {t('nft.mintMessage')}
                                 </span>
                               </h2>
                               
                               {/* Subtitle/Description */}
-                              <p className="text-white/80 text-xs sm:text-sm font-medium">
+                              <p className="text-white/80 text-xs font-medium">
                                 <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
                                   ⭐ Create • Mint • Earn ⭐
                                 </span>
@@ -763,18 +768,18 @@ const Creation = () => {
                             </div>
                             
                             {/* Decorative elements */}
-                            <div className="absolute top-1 left-1 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></div>
-                            <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
-                            <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
+                            <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-cyan-400 rounded-full animate-ping"></div>
+                            <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
+                            <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Canvas Area - Main Drawing Space */}
+                  {/* Canvas Area - Main Drawing Space - Optimized for mobile */}
                   <div className="flex-1 min-h-0 bg-white/10 backdrop-blur-sm overflow-hidden">
-                    <div className="h-full w-full flex items-center justify-center p-4 min-h-[200px]">
+                    <div className="h-full w-full flex items-center justify-center p-2 sm:p-3 md:p-4 min-h-[150px] sm:min-h-[200px]">
                       <canvas
                         ref={displayRef}
                         onPointerDown={handlePointerDown}
@@ -794,73 +799,73 @@ const Creation = () => {
                     </div>
                   </div>
 
-                  {/* Bottom Control Panel - Fixed at bottom */}
-                  <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm border-t border-white/20 max-h-80 overflow-y-auto scrollbar-thin scrollbar-track-white/10 scrollbar-thumb-white/30 hover:scrollbar-thumb-white/50">
+                  {/* Bottom Control Panel - Compact for mobile */}
+                  <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm border-t border-white/20 max-h-32 sm:max-h-40 overflow-y-auto scrollbar-thin scrollbar-track-white/10 scrollbar-thumb-white/30 hover:scrollbar-thumb-white/50">
                     
-                    {/* Drawing Tools Row - Responsive Layout */}
-                    <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 p-2 sm:p-3">
-                        {/* Undo/Redo/Clear/Import */}
-                        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+                    {/* Drawing Tools Row - Compact Layout */}
+                    <div className="flex flex-wrap items-center justify-center gap-1 p-1.5 sm:p-2">
+                        {/* Undo/Redo/Clear/Import - Compact */}
+                        <div className="flex gap-0.5 bg-white/5 rounded-md p-0.5">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={undo}
                             disabled={histIndex <= 0}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
                           >
-                            <RotateCcw className="h-3.5 w-3.5" />
+                            <RotateCcw className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={redo}
                             disabled={histIndex >= history.length - 1}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
                           >
-                            <RotateCw className="h-3.5 w-3.5" />
+                            <RotateCw className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={clearCanvas}
-                            className="bg-white/5 border-white/20 text-white hover:bg-red-500/20 hover:border-red-400/40 p-1.5 min-w-0"
+                            className="bg-white/5 border-white/20 text-white hover:bg-red-500/20 hover:border-red-400/40 p-1 min-w-0 h-7"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={triggerImageImport}
                             disabled={isImporting}
-                            className="bg-white/5 border-white/20 text-white hover:bg-green-500/20 hover:border-green-400/40 p-1.5 min-w-0"
+                            className="bg-white/5 border-white/20 text-white hover:bg-green-500/20 hover:border-green-400/40 p-1 min-w-0 h-7"
                             title="Import Image"
                           >
-                            <Upload className="h-3.5 w-3.5" />
+                            <Upload className="h-3 w-3" />
                           </Button>
                         </div>
 
-                        {/* Main Tools */}
-                        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+                        {/* Main Tools - Compact */}
+                        <div className="flex gap-0.5 bg-white/5 rounded-md p-0.5">
                           <Button
                             variant={tool === "pen" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("pen")}
-                            className={`p-1.5 min-w-0 ${tool === "pen" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 ${tool === "pen" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <Pen className="h-3.5 w-3.5" />
+                            <Pen className="h-3 w-3" />
                           </Button>
                           <Button
                             variant={tool === "eraser" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("eraser")}
-                            className={`p-1.5 min-w-0 relative ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 relative ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                             title={`Eraser (erases to ${palette[getEraserColorIndex()]})`}
                           >
-                            <Eraser className="h-3.5 w-3.5" />
+                            <Eraser className="h-3 w-3" />
                             {/* Small indicator showing eraser color */}
                             {tool === "eraser" && (
                               <div 
-                                className="absolute -top-1 -right-1 w-2 h-2 rounded-full border border-white/50"
+                                className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-white/50"
                                 style={{ backgroundColor: palette[getEraserColorIndex()] }}
                               />
                             )}
@@ -869,63 +874,63 @@ const Creation = () => {
                             variant={tool === "fill" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("fill")}
-                            className={`p-1.5 min-w-0 ${tool === "fill" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 ${tool === "fill" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <PaintBucket className="h-3.5 w-3.5" />
+                            <PaintBucket className="h-3 w-3" />
                           </Button>
                           <Button
                             variant={tool === "picker" ? "default" : "outline"}
                             size="sm"
                             onClick={() => setTool("picker")}
-                            className={`p-1.5 min-w-0 ${tool === "picker" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 ${tool === "picker" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
                           >
-                            <Pipette className="h-3.5 w-3.5" />
+                            <Pipette className="h-3 w-3" />
                           </Button>
                         </div>
 
-                        {/* View Controls */}
-                        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+                        {/* View Controls - Compact */}
+                        <div className="flex gap-0.5 bg-white/5 rounded-md p-0.5">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setScale(s => clamp(s - 1, 1, 40))}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
                           >
-                            <Minus className="h-3.5 w-3.5" />
+                            <Minus className="h-3 w-3" />
                           </Button>
-                          <div className="px-2 py-1.5 bg-white/5 rounded border border-white/20 text-white text-xs min-w-[40px] text-center">
+                          <div className="px-1.5 py-1 bg-white/5 rounded border border-white/20 text-white text-xs min-w-[32px] text-center h-7 flex items-center justify-center">
                             {scale}x
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setScale(s => clamp(s + 1, 1, 40))}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
                           >
-                            <Plus className="h-3.5 w-3.5" />
+                            <Plus className="h-3 w-3" />
                           </Button>
                         </div>
 
-                        {/* Grid Toggle */}
-                        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-                          <Grid3X3 className="h-3.5 w-3.5 text-white/60" />
+                        {/* Grid Toggle - Compact */}
+                        <div className="flex items-center gap-0.5 bg-white/5 rounded-md p-0.5">
+                          <Grid3X3 className="h-3 w-3 text-white/60" />
                           <Switch
                             checked={showGrid}
                             onCheckedChange={setShowGrid}
-                            className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-cyan-500 data-[state=checked]:to-purple-500 scale-75"
+                            className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-cyan-500 data-[state=checked]:to-purple-500 scale-50"
                           />
                         </div>
                       </div>
 
-                    {/* Color Palette Row - Responsive Layout with scroll support */}
-                    <div className="flex items-center justify-center gap-2 p-2">
-                      <div className="flex flex-wrap gap-1 sm:gap-2 bg-white/5 rounded-lg p-1 sm:p-2 max-w-full overflow-x-auto">
+                    {/* Color Palette Row - Compact for mobile */}
+                    <div className="flex items-center justify-center gap-1 p-1.5 sm:p-2">
+                      <div className="flex gap-1 bg-white/5 rounded-md p-1 max-w-full overflow-x-auto">
                         {palette.map((hex, i) => (
                           <button
                             key={i}
                             onClick={() => setColorIdx(i)}
                             onDoubleClick={() => handleColorDoubleClick(i)}
-                            className={`w-5 h-5 sm:w-6 sm:h-6 rounded border-2 transition-all duration-200 hover:scale-110 flex-shrink-0 ${
+                            className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 transition-all duration-200 hover:scale-110 flex-shrink-0 ${
                               i === colorIdx ? 'border-cyan-400 shadow-md shadow-cyan-400/30' : 'border-white/30 hover:border-white/60'
                             }`}
                             style={{ backgroundColor: hex }}
@@ -938,10 +943,10 @@ const Creation = () => {
                         variant="outline"
                         size="sm"
                         onClick={triggerColorPicker}
-                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1.5 min-w-0 flex-shrink-0"
+                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 flex-shrink-0 h-6"
                         title="Add new color"
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>

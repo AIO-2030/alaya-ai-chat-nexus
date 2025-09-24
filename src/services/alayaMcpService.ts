@@ -87,10 +87,10 @@ class AlayaMcpService {
   }
 
   /**
-   * 通用MCP调用方法 - 直接调用pixelmug_stdio MCP并获取结果
-   * @param method MCP方法名
-   * @param params 方法参数
-   * @param contextName 上下文名称（用于日志）
+   * Generic MCP call method - Directly calls pixelmug_stdio MCP and gets results
+   * @param method MCP method name
+   * @param params Method parameters
+   * @param contextName Context name (for logging)
    * @returns Promise with success status and data
    */
   private async callMcpMethod(
@@ -131,9 +131,9 @@ class AlayaMcpService {
   }
 
   /**
-   * 根据方法名获取对应的输入模式
-   * @param method MCP方法名
-   * @returns 输入模式定义
+   * Get corresponding input schema based on method name
+   * @param method MCP method name
+   * @returns Input schema definition
    */
   private getInputSchemaForMethod(method: string): any {
     const schemas: Record<string, any> = {
@@ -268,10 +268,10 @@ class AlayaMcpService {
   }
 
   /**
-   * 高级定制化MCP调用方法 - 直接调用pixelmug_stdio的任何方法
-   * @param method MCP方法名（如：help, issue_sts, send_pixel_image等）
-   * @param params 方法参数对象
-   * @param customInputSchema 可选的自定义输入模式（如果不提供，将使用默认模式）
+   * Advanced customized MCP call method - Directly calls any method of pixelmug_stdio
+   * @param method MCP method name (e.g., help, issue_sts, send_pixel_image, etc.)
+   * @param params Method parameters object
+   * @param customInputSchema Optional custom input schema (if not provided, will use default schema)
    * @returns Promise with success status and data
    */
   async callPixelMugMcp(

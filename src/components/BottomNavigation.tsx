@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Sparkles, FileText, Smartphone, Gift } from 'lucide-react';
+import { Sparkles, FileText, Smartphone, Gift, Palette } from 'lucide-react';
 
 const menuItems = [
   { title: "AI", url: "/", icon: Sparkles },
   { title: "Contracts", url: "/contracts", icon: FileText },
+  { title: "Gallery", url: "/gallery", icon: Palette },
   { title: "Gift", url: "/shop", icon: Gift },
   { title: "Devices", url: "/my-devices", icon: Smartphone }
 ];
