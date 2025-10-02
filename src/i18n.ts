@@ -127,7 +127,44 @@ const resources = {
         artDescription: 'Description',
         descriptionPlaceholder: 'Describe your creation...',
         pixelEmojis: 'Pixel Emojis',
-        animatedGifs: 'Animated GIFs'
+        animatedGifs: 'Animated GIFs',
+        saveCreation: 'Save Creation',
+        saveDialogDescription: 'Enter details for your pixel art creation',
+        titleRequired: 'Title is required',
+        characterCount: 'characters',
+        aiCreation: 'AI Creation',
+        aiCreationDescription: 'Let AI help you create amazing pixel art',
+        aiCreationSubtitle: '✨ AI • Create • Inspire ✨',
+        startAiCreation: 'Start AI Creation',
+        aiPowered: 'AI Powered',
+        aiCreationDrawer: {
+          title: 'Just tell Univoice your ideal, she will help you',
+          subtitle: 'Describe what you want to create, or use voice input for a more natural experience',
+          placeholder: 'Describe your ideal pixel art creation... (e.g., \'A cute cat sitting on a rainbow cloud\')',
+          characterCount: 'characters',
+          confirm: 'Confirm',
+          recording: 'Recording... Click again to stop',
+          processing: 'Processing your voice...',
+          tips: {
+            voice: 'Click the microphone button to start/stop recording',
+            keyboard: 'Press Ctrl+Enter (or Cmd+Enter) to submit',
+            specific: 'Be specific about colors, style, and mood for better results'
+          },
+          errors: {
+            emptyPrompt: 'Empty Prompt',
+            emptyPromptDesc: 'Please enter a prompt or use voice input.',
+            voiceInputFailed: 'Voice Input Failed',
+            voiceInputFailedDesc: 'Could not transcribe your voice. Please try again.',
+            voiceProcessingError: 'Voice Processing Error',
+            voiceProcessingErrorDesc: 'Failed to process your voice input. Please try again.',
+            microphoneDenied: 'Microphone Access Denied',
+            microphoneDeniedDesc: 'Please allow microphone access to use voice input.',
+            aiCreationStarted: 'AI Creation Started',
+            aiCreationStartedDesc: 'Creating pixel art based on: "{{prompt}}"',
+            voiceInputReceived: 'Voice Input Received',
+            voiceInputReceivedDesc: 'Transcribed: "{{text}}"'
+          }
+        }
       },
       pixel: {
         title: 'Pixel Art',
@@ -353,7 +390,44 @@ const resources = {
         artDescription: '描述',
         descriptionPlaceholder: '描述您的创作...',
         pixelEmojis: '像素表情包',
-        animatedGifs: '动态GIF'
+        animatedGifs: '动态GIF',
+        saveCreation: '保存创作',
+        saveDialogDescription: '为您的像素艺术创作输入详细信息',
+        titleRequired: '标题为必填项',
+        characterCount: '字符',
+        aiCreation: 'AI 创作',
+        aiCreationDescription: '让 AI 帮助您创作精彩的像素艺术',
+        aiCreationSubtitle: '✨ AI • 创作 • 灵感 ✨',
+        startAiCreation: '开始 AI 创作',
+        aiPowered: 'AI 驱动',
+        aiCreationDrawer: {
+          title: '告诉 Univoice 您的理想，她会帮助您',
+          subtitle: '描述您想要创作的内容，或使用语音输入获得更自然的体验',
+          placeholder: '描述您理想的像素艺术创作...（例如："一只可爱的猫坐在彩虹云上"）',
+          characterCount: '字符',
+          confirm: '确认',
+          recording: '录音中... 再次点击停止',
+          processing: '正在处理您的语音...',
+          tips: {
+            voice: '点击麦克风按钮开始/停止录音',
+            keyboard: '按 Ctrl+Enter（或 Cmd+Enter）提交',
+            specific: '请具体描述颜色、风格和情绪以获得更好的效果'
+          },
+          errors: {
+            emptyPrompt: '提示为空',
+            emptyPromptDesc: '请输入提示或使用语音输入。',
+            voiceInputFailed: '语音输入失败',
+            voiceInputFailedDesc: '无法转录您的语音，请重试。',
+            voiceProcessingError: '语音处理错误',
+            voiceProcessingErrorDesc: '处理您的语音输入失败，请重试。',
+            microphoneDenied: '麦克风访问被拒绝',
+            microphoneDeniedDesc: '请允许麦克风访问以使用语音输入。',
+            aiCreationStarted: 'AI 创作已开始',
+            aiCreationStartedDesc: '正在基于以下内容创建像素艺术："{{prompt}}"',
+            voiceInputReceived: '语音输入已接收',
+            voiceInputReceivedDesc: '转录内容："{{text}}"'
+          }
+        }
       },
       pixel: {
         title: '像素艺术',

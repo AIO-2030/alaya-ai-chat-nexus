@@ -177,7 +177,7 @@ class DeviceMessageService {
     return tencentIoTService.getDeviceStatuses();
   }
 
-  // 检查是否有设备连接
+  // check if any device is connected
   isAnyDeviceConnected(): boolean {
     return Array.from(this.connectedDevices.values()).some(device => device.isConnected);
   }

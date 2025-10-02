@@ -29,6 +29,7 @@ export interface ElevenLabsHookActions {
   stopVoiceRecording: () => Promise<void>;
   returnToHomepage: () => void;
   setShowChatHistory: (show: boolean) => void;
+  speechToText: (audioFile: File) => Promise<{ language_code: string; text: string } | null>;
 }
 
 // Global state management - independent of React component lifecycle
@@ -636,6 +637,118 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     setError(null);
   }, [agentId]);
 
+  // Function to convert speech to text using ElevenLabs API
+  const speechToText = useCallback(async (audioFile: File): Promise<{ language_code: string; text: string } | null> => {
+    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+    
+    console.log('🎤 Starting speech to text conversion');
+    console.log('🔑 API Key available:', !!apiKey);
+    console.log('📁 Audio file:', { name: audioFile.name, size: audioFile.size, type: audioFile.type });
+    
+    if (!apiKey) {
+      console.error('❌ No API key found for speech to text');
+      addSystemMessage('Speech to text failed: No API key configured');
+      return null;
+    }
+
+    // Validate file size (must be less than 3.0GB according to API docs)
+    const maxFileSize = 3 * 1024 * 1024 * 1024; // 3GB in bytes
+    if (audioFile.size > maxFileSize) {
+      console.error('❌ File too large for speech to text');
+      addSystemMessage('Speech to text failed: File too large (max 3GB)');
+      return null;
+    }
+
+    // Create form data for multipart request
+    const formData = new FormData();
+    formData.append('model_id', 'scribe_v1'); // Use the recommended model
+    formData.append('file', audioFile);
+    formData.append('language_code', 'en'); // Default to English, can be made configurable
+    formData.append('tag_audio_events', 'true');
+    formData.append('timestamps_granularity', 'word');
+    formData.append('diarize', 'false'); // Single speaker for now
+
+    const url = 'https://api.elevenlabs.io/v1/speech-to-text';
+    console.log('🌐 Requesting speech to text from:', url);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+        },
+        body: formData,
+      });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error response body:', errorText);
+        
+        // Provide specific error messages based on status code
+        if (response.status === 401) {
+          throw new Error('API key is invalid or expired. Please check your ElevenLabs API key.');
+        } else if (response.status === 413) {
+          throw new Error('File too large. Please use a smaller audio file.');
+        } else if (response.status === 422) {
+          throw new Error('Invalid audio format. Please use a supported audio format.');
+        } else {
+          throw new Error(`Speech to text failed: ${response.status} ${errorText}`);
+        }
+      }
+
+      const data = await response.json();
+      console.log('✅ Speech to text response:', data);
+      
+      // Validate response structure
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response format from speech to text API');
+      }
+
+      // Check language probability - if lower than 0.5, return error message
+      const languageProbability = data.language_probability || 0;
+      if (languageProbability < 0.5) {
+        console.warn('⚠️ Low language probability:', languageProbability);
+        addSystemMessage('I don\'t understand well, re-try please');
+        return null;
+      }
+
+      // Extract required fields
+      const languageCode = data.language_code || 'en';
+      const text = data.text || '';
+      
+      if (!text.trim()) {
+        console.warn('⚠️ Empty transcription result');
+        addSystemMessage('No speech detected in the audio file');
+        return null;
+      }
+
+      console.log('✅ Speech to text successful:', { languageCode, text });
+      addSystemMessage(`Speech transcribed: "${text}"`);
+      
+      return {
+        language_code: languageCode,
+        text: text.trim()
+      };
+
+    } catch (fetchError) {
+      console.error('🚨 Speech to text error:', fetchError);
+      
+      // Provide specific error information
+      if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+        addSystemMessage('Network error: Unable to reach ElevenLabs API. Please check your internet connection.');
+      } else if (fetchError instanceof Error) {
+        addSystemMessage(`Speech to text failed: ${fetchError.message}`);
+      } else {
+        addSystemMessage('Speech to text failed: Unknown error occurred');
+      }
+      
+      return null;
+    }
+  }, [addSystemMessage]);
+
   // Function to get signed URL for private agents
   const getSignedUrl = async (agentId: string): Promise<string> => {
     const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
@@ -1234,7 +1347,8 @@ export const useElevenLabsStable = (agentId: string): [ElevenLabsHookState, Elev
     startVoiceRecording,
     stopVoiceRecording,
     returnToHomepage,
-    setShowChatHistory
+    setShowChatHistory,
+    speechToText
   };
 
   return [state, actions, showChatHistory];

@@ -1,14 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
-import { X, Mic, Home, Github, Sparkles, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import ElevenLabsVoiceChat from '../components/ElevenLabsVoiceChat';
 
 const ElevenLabsChat = () => {
   const navigate = useNavigate();
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Agent ID configuration - use useMemo to prevent recreation
   const agentId = React.useMemo(() => "agent_01jz8rr062f41tsyt56q8fzbrz", []);

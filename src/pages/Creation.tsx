@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Save, Download, Upload, Palette, RotateCcw, RotateCw, Grid3X3, Pen, Eraser, PaintBucket, Pipette, Plus, Minus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Download, Upload, Palette, RotateCcw, RotateCw, Grid3X3, Pen, Eraser, PaintBucket, Pipette, Plus, Minus, Trash2, X, Mic, MicOff, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { PixelCreationApi, convertImageToPixelArt, ImageImportOptions } from '../services/api/pixelCreationApi';
+import { alayaMcpService, PixelImageGenerateParams } from '../services/alayaMcpService';
 import { useAuth } from '../lib/auth';
 import { useToast } from '../hooks/use-toast';
+import { useElevenLabsStable } from '../hooks/elevenlabhook-stable';
 
 // Types
 type Tool = "pen" | "eraser" | "fill" | "picker";
@@ -42,6 +46,9 @@ const Creation = () => {
   
   // Save state management
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [tempTitle, setTempTitle] = useState('');
+  const [tempDescription, setTempDescription] = useState('');
   
   // Image import state management
   const [isImporting, setIsImporting] = useState(false);
@@ -50,6 +57,22 @@ const Creation = () => {
   // Color picker state management
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorPickerRef = useRef<HTMLInputElement>(null);
+  
+  // AI Creation drawer state
+  const [showAiCreationDrawer, setShowAiCreationDrawer] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  
+  // Voice recording state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ElevenLabs hook for speech to text
+  const agentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
+  const [elevenLabsState, elevenLabsActions] = useElevenLabsStable(agentId);
   
   // Canvas settings (fixed, no UI controls needed)
   const cols = 32;
@@ -80,6 +103,232 @@ const Creation = () => {
 
   const handleBackToGallery = () => {
     navigate('/gallery');
+  };
+
+  // AI Creation drawer functions
+  const handleAiCreationClick = () => {
+    setShowAiCreationDrawer(true);
+  };
+
+  const handleAiCreationClose = () => {
+    setShowAiCreationDrawer(false);
+    setAiPrompt('');
+    setIsRecording(false);
+    setIsProcessingVoice(false);
+    setIsGeneratingImage(false);
+  };
+
+  // Voice recording functions
+  const startVoiceRecording = useCallback(async () => {
+    try {
+      console.log('🎤 Starting voice recording...');
+      
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      // Create MediaRecorder with fallback for different browsers
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/mp4';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'audio/wav';
+          }
+        }
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: mimeType
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        console.log('🛑 Voice recording stopped, processing...');
+        setIsProcessingVoice(true);
+        
+        try {
+          // Create audio blob with the correct MIME type
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+          console.log('📁 Audio blob created:', audioBlob.size, 'bytes', 'type:', mimeType);
+          
+          // Convert to File for speech to text with appropriate extension
+          const extension = mimeType.includes('webm') ? 'webm' : 
+                          mimeType.includes('mp4') ? 'mp4' : 'wav';
+          const audioFile = new File([audioBlob], `recording.${extension}`, { type: mimeType });
+          
+          // Call speech to text
+          const result = await elevenLabsActions.speechToText(audioFile);
+          
+          if (result && result.text) {
+            console.log('✅ Speech to text successful:', result.text);
+            setAiPrompt(prev => prev + (prev ? ' ' : '') + result.text);
+            toast({
+              title: t('gallery.aiCreationDrawer.errors.voiceInputReceived'),
+              description: t('gallery.aiCreationDrawer.errors.voiceInputReceivedDesc', { text: result.text }),
+              variant: "default",
+            });
+          } else {
+            console.log('❌ Speech to text failed or no text returned');
+            toast({
+              title: t('gallery.aiCreationDrawer.errors.voiceInputFailed'),
+              description: t('gallery.aiCreationDrawer.errors.voiceInputFailedDesc'),
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error processing voice:', error);
+          toast({
+            title: t('gallery.aiCreationDrawer.errors.voiceProcessingError'),
+            description: t('gallery.aiCreationDrawer.errors.voiceProcessingErrorDesc'),
+            variant: "destructive",
+          });
+        } finally {
+          setIsProcessingVoice(false);
+          // Stop all tracks to release microphone
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      setIsRecording(true);
+      
+      // Auto-stop after 30 seconds to prevent long recordings
+      recordingTimeoutRef.current = setTimeout(() => {
+        if (mediaRecorder.state === 'recording') {
+          console.log('⏰ Recording timeout reached, stopping automatically');
+          mediaRecorder.stop();
+        }
+      }, 30000); // 30 seconds
+      
+      console.log('✅ Voice recording started');
+      
+    } catch (error) {
+      console.error('❌ Failed to start voice recording:', error);
+      toast({
+        title: t('gallery.aiCreationDrawer.errors.microphoneDenied'),
+        description: t('gallery.aiCreationDrawer.errors.microphoneDeniedDesc'),
+        variant: "destructive",
+      });
+    }
+  }, [elevenLabsActions, toast]);
+
+  const stopVoiceRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      console.log('🛑 Stopping voice recording...');
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      // Clear timeout when manually stopping
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+    }
+  }, []);
+
+  // Handle microphone button click (toggle recording)
+  const handleMicClick = () => {
+    if (isProcessingVoice) {
+      // Don't allow new recording while processing
+      return;
+    }
+    
+    if (isRecording) {
+      // Currently recording, stop it
+      stopVoiceRecording();
+    } else {
+      // Not recording, start it
+      startVoiceRecording();
+    }
+  };
+
+
+  // Handle AI prompt submission
+  const handleAiPromptSubmit = async () => {
+    if (!aiPrompt.trim()) {
+      toast({
+        title: t('gallery.aiCreationDrawer.errors.emptyPrompt'),
+        description: t('gallery.aiCreationDrawer.errors.emptyPromptDesc'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isGeneratingImage) {
+      return; // Prevent multiple simultaneous requests
+    }
+
+    console.log('🤖 AI Creation prompt:', aiPrompt);
+    
+    setIsGeneratingImage(true);
+    
+    try {
+      // Prepare parameters for pixel image generation
+      const params: PixelImageGenerateParams = {
+        user_input: aiPrompt.trim(),
+        image_size: '512x512', // Generate at higher resolution
+        num_inference_steps: 20,
+        guidance_scale: 7.5
+      };
+
+      // Call the pixel image generation service
+      const result = await alayaMcpService.pixelImageGenerate(params);
+      
+      if (result.success && result.data?.image_base64) {
+        console.log('✅ AI image generation successful');
+        
+        // Convert the generated image to pixel data and display on canvas
+        const success = await convertBase64ToPixelData(result.data.image_base64);
+        
+        if (success) {
+          toast({
+            title: t('gallery.aiCreationDrawer.errors.aiCreationStarted'),
+            description: t('gallery.aiCreationDrawer.errors.aiCreationStartedDesc', { prompt: aiPrompt }),
+            variant: "default",
+          });
+          
+          // Close drawer after successful generation
+          handleAiCreationClose();
+        } else {
+          throw new Error('Failed to process generated image');
+        }
+      } else {
+        throw new Error(result.error || 'Image generation failed');
+      }
+    } catch (error) {
+      console.error('❌ AI image generation failed:', error);
+      toast({
+        title: t('gallery.aiCreationDrawer.errors.aiCreationFailed'),
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // Handle Enter key press in textarea
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleAiPromptSubmit();
+    }
   };
 
   // Authentication is now handled by useAuth hook
@@ -136,6 +385,158 @@ const Creation = () => {
     pushHistory(clearPixels);
   }, [rows, cols, pushHistory]);
 
+  // Helper function to convert hex to RGB
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
+  // Convert base64 image to pixel data and display on canvas
+  const convertBase64ToPixelData = useCallback(async (base64Image: string) => {
+    try {
+      console.log('🎨 [Creation] Starting image conversion from MCP result...');
+      console.log('🎨 [Creation] Base64 image length:', base64Image.length);
+      console.log('🎨 [Creation] Base64 image preview:', base64Image.substring(0, 100) + '...');
+      console.log('🎨 [Creation] Base64 image format check:', {
+        hasDataUrlPrefix: base64Image.startsWith('data:image/'),
+        isPng: base64Image.includes('data:image/png'),
+        isJpg: base64Image.includes('data:image/jpeg'),
+        isWebp: base64Image.includes('data:image/webp')
+      });
+      
+      // Create an image element to load the base64 data
+      const img = new Image();
+      
+      return new Promise<boolean>((resolve) => {
+        img.onload = () => {
+          try {
+            console.log('🖼️ [Creation] Image loaded successfully from MCP result:');
+            console.log('🖼️ [Creation] - Original dimensions:', img.width, 'x', img.height);
+            console.log('🖼️ [Creation] - Natural dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+            console.log('🖼️ [Creation] - Image complete:', img.complete);
+            
+            // Create a temporary canvas to process the image
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            if (!tempCtx) {
+              console.error('❌ [Creation] Failed to get 2D context');
+              resolve(false);
+              return;
+            }
+
+            // Set canvas size to match our pixel grid (32x32)
+            tempCanvas.width = 32;
+            tempCanvas.height = 32;
+            
+            console.log('🎨 [Creation] Drawing MCP image to 32x32 canvas...');
+            
+            // Draw the image scaled to 32x32
+            tempCtx.drawImage(img, 0, 0, 32, 32);
+            
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, 32, 32);
+            const data = imageData.data;
+            
+            console.log('📊 [Creation] Image data extracted from MCP result:');
+            console.log('📊 [Creation] - Data length:', data.length, 'Expected:', 32 * 32 * 4);
+            console.log('📊 [Creation] - Data type:', typeof data, 'Is Uint8ClampedArray:', data instanceof Uint8ClampedArray);
+            
+            // Convert to pixel indices using existing palette
+            const newPixels = new Uint8Array(32 * 32);
+            let nonWhitePixels = 0;
+            let transparentPixels = 0;
+            let colorDistribution: { [key: number]: number } = {};
+            
+            console.log('🎨 [Creation] Converting MCP image to pixel art using palette:');
+            console.log('🎨 [Creation] - Palette size:', palette.length);
+            console.log('🎨 [Creation] - Palette colors:', palette);
+            
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const a = data[i + 3];
+              
+              // Skip transparent pixels
+              if (a < 128) {
+                newPixels[i / 4] = 1; // Use white (index 1) for transparent
+                transparentPixels++;
+                continue;
+              }
+              
+              // Convert RGB to hex
+              const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+              
+              // Find closest color in palette
+              let closestIndex = 1; // Default to white
+              let minDistance = Infinity;
+              
+              palette.forEach((paletteColor, index) => {
+                const paletteRgb = hexToRgb(paletteColor);
+                if (paletteRgb) {
+                  const distance = Math.sqrt(
+                    Math.pow(r - paletteRgb.r, 2) +
+                    Math.pow(g - paletteRgb.g, 2) +
+                    Math.pow(b - paletteRgb.b, 2)
+                  );
+                  
+                  if (distance < minDistance) {
+                    minDistance = distance;
+                    closestIndex = index;
+                  }
+                }
+              });
+              
+              newPixels[i / 4] = closestIndex;
+              
+              // Count color distribution
+              colorDistribution[closestIndex] = (colorDistribution[closestIndex] || 0) + 1;
+              
+              // Count non-white pixels for debugging
+              if (closestIndex !== 1) {
+                nonWhitePixels++;
+              }
+            }
+            
+            console.log('🎨 [Creation] MCP image conversion completed:');
+            console.log('🎨 [Creation] - Non-white pixels:', nonWhitePixels, 'out of', 32 * 32);
+            console.log('🎨 [Creation] - Transparent pixels:', transparentPixels);
+            console.log('🎨 [Creation] - Color distribution:', colorDistribution);
+            console.log('🎨 [Creation] - Sample pixels (first 20):', Array.from(newPixels.slice(0, 20)));
+            console.log('🎨 [Creation] - Sample pixels (last 20):', Array.from(newPixels.slice(-20)));
+            
+            // Update the canvas with new pixel data
+            console.log('🎨 [Creation] Updating canvas with MCP-generated pixel data...');
+            setPixels(newPixels);
+            pushHistory(newPixels);
+            
+            console.log('✅ [Creation] MCP image conversion and canvas update completed successfully');
+            resolve(true);
+          } catch (error) {
+            console.error('❌ [Creation] Error processing MCP image data:', error);
+            resolve(false);
+          }
+        };
+        
+        img.onerror = (error) => {
+          console.error('❌ [Creation] Error loading MCP image:', error);
+          console.error('❌ [Creation] Image source:', base64Image.substring(0, 200) + '...');
+          resolve(false);
+        };
+        
+        console.log('🎨 [Creation] Setting image source to load MCP result...');
+        img.src = base64Image;
+      });
+    } catch (error) {
+      console.error('❌ [Creation] Error in convertBase64ToPixelData:', error);
+      return false;
+    }
+  }, [palette, pushHistory]);
+
   // Drawing operations
   const setPixel = useCallback((x: number, y: number, idx: number) => {
     if (x < 0 || x >= cols || y < 0 || y >= rows) return;
@@ -166,7 +567,14 @@ const Creation = () => {
     setPixels(out);
   }, [pixels, cols, rows]);
 
-  const handleSave = async () => {
+  const handleSaveClick = () => {
+    // Set temporary values from current state
+    setTempTitle(title);
+    setTempDescription(description);
+    setShowSaveDialog(true);
+  };
+
+  const handleSaveConfirm = async () => {
     if (isSaving) return;
     
     setIsSaving(true);
@@ -183,6 +591,10 @@ const Creation = () => {
         return;
       }
 
+      // Update the actual title and description from dialog
+      setTitle(tempTitle);
+      setDescription(tempDescription);
+
       // Convert Uint8Array pixels to 2D number array for API
       const pixels2D: number[][] = [];
       for (let y = 0; y < rows; y++) {
@@ -195,8 +607,8 @@ const Creation = () => {
 
       // Prepare pixel art data
       const pixelArtData = {
-        title: title.trim() || undefined,
-        description: description.trim() || undefined,
+        title: tempTitle.trim() || undefined,
+        description: tempDescription.trim() || undefined,
         width: cols,
         height: rows,
         palette: palette,
@@ -220,7 +632,8 @@ const Creation = () => {
           variant: "default",
         });
         
-        // Navigate back to gallery
+        // Close dialog and navigate back to gallery
+        setShowSaveDialog(false);
         navigate('/gallery');
       } else {
         console.error('Failed to save pixel art:', result.error);
@@ -240,6 +653,12 @@ const Creation = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveCancel = () => {
+    setShowSaveDialog(false);
+    setTempTitle('');
+    setTempDescription('');
   };
 
   // Handle image import
@@ -594,6 +1013,18 @@ const Creation = () => {
     download(`${title || 'pixel-art'}-${cols}x${rows}.json`, blob);
   }, [title, description, cols, rows, palette, pixels]);
 
+  // Cleanup voice recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -664,7 +1095,7 @@ const Creation = () => {
                 
                 {/* Creation Header - Compact for mobile */}
                 <div className="flex-shrink-0 p-2 sm:p-3 md:p-4 border-b border-white/10 bg-white/5">
-                  <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     {/* Back Button */}
                     <Button
                       variant="outline"
@@ -682,7 +1113,7 @@ const Creation = () => {
 
                     {/* Save Button */}
                     <Button
-                      onClick={handleSave}
+                      onClick={handleSaveClick}
                       disabled={isSaving}
                       size="sm"
                       className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3"
@@ -692,85 +1123,82 @@ const Creation = () => {
                       <span className="xs:hidden">{isSaving ? '...' : 'Save'}</span>
                     </Button>
                   </div>
-                  
-                  {/* Metadata Input Fields - Stacked on mobile */}
-                  <div className="grid grid-cols-1 gap-2 sm:gap-3">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-white/80 mb-1">
-                        {t('gallery.artTitle')}
-                      </label>
-                      <Input
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder={t('gallery.titlePlaceholder')}
-                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 text-sm h-8 sm:h-10"
-                        maxLength={100}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-white/80 mb-1">
-                        {t('gallery.artDescription')}
-                      </label>
-                      <Input
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder={t('gallery.descriptionPlaceholder')}
-                        className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 text-sm h-8 sm:h-10"
-                        maxLength={200}
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Pixel Editor Content */}
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   
-                  {/* NFT Hero Banner Section - Compact for mobile */}
-                  <div className="flex-shrink-0 h-12 sm:h-16 md:h-20 z-10 overflow-hidden relative">
+                  {/* AI Creation Entry Banner - Attractive Design */}
+                  <div className="flex-shrink-0 h-16 sm:h-20 md:h-24 z-10 overflow-hidden relative">
                     {/* Animated background elements */}
                     <div className="absolute inset-0">
-                      <div className="absolute top-1 left-2 w-8 h-8 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 rounded-full blur-lg animate-pulse"></div>
-                      <div className="absolute top-2 right-4 w-6 h-6 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-md animate-pulse animation-delay-500"></div>
-                      <div className="absolute bottom-1 left-1/3 w-4 h-4 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-full blur-sm animate-pulse animation-delay-1000"></div>
+                      <div className="absolute top-2 left-3 w-12 h-12 bg-gradient-to-r from-cyan-400/30 to-blue-400/30 rounded-full blur-xl animate-pulse"></div>
+                      <div className="absolute top-3 right-6 w-8 h-8 bg-gradient-to-r from-purple-400/30 to-pink-400/30 rounded-full blur-lg animate-pulse animation-delay-500"></div>
+                      <div className="absolute bottom-2 left-1/4 w-6 h-6 bg-gradient-to-r from-yellow-400/30 to-orange-400/30 rounded-full blur-md animate-pulse animation-delay-1000"></div>
+                      <div className="absolute top-1/2 right-1/4 w-4 h-4 bg-gradient-to-r from-green-400/20 to-teal-400/20 rounded-full blur-sm animate-pulse animation-delay-1500"></div>
                     </div>
                     
                     {/* Main content */}
-                    <div className="relative h-full flex items-center justify-center p-2 sm:p-3">
-                      <div className="w-full max-w-2xl">
-                        {/* Background card */}
-                        <div className="relative bg-gradient-to-br from-white/15 via-white/10 to-white/5 backdrop-blur-lg rounded-xl border border-white/30 shadow-xl overflow-hidden">
-                          {/* Glow effect */}
-                          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
+                    <div className="relative h-full flex items-center justify-center p-3 sm:p-4">
+                      <div className="w-full max-w-3xl">
+                        {/* Background card with enhanced design */}
+                        <div 
+                          className="relative bg-gradient-to-br from-white/20 via-white/15 to-white/10 backdrop-blur-xl rounded-2xl border border-white/40 shadow-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-all duration-300 group"
+                          onClick={handleAiCreationClick}
+                        >
+                          {/* Enhanced glow effect */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 animate-pulse"></div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent group-hover:opacity-100 opacity-0 transition-opacity duration-300"></div>
                           
                           {/* Content */}
-                          <div className="relative p-1.5 sm:p-2 md:p-3">
-                            {/* Icon/Symbol */}
-                            <div className="flex justify-center mb-0.5 sm:mb-1">
-                              <div className="w-4 h-4 sm:w-6 sm:h-6 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-md flex items-center justify-center shadow-lg">
-                                <span className="text-white font-bold text-xs">💎</span>
+                          <div className="relative p-3 sm:p-4 md:p-5">
+                            {/* AI Icon with enhanced design */}
+                            <div className="flex justify-center mb-2 sm:mb-3">
+                              <div className="relative">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 rounded-xl flex items-center justify-center shadow-2xl group-hover:shadow-cyan-400/30 transition-all duration-300">
+                                  <span className="text-white font-bold text-sm sm:text-base">🤖</span>
+                                </div>
+                                {/* Floating particles around AI icon */}
+                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-ping"></div>
+                                <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
+                                <div className="absolute top-1/2 -right-2 w-1 h-1 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
                               </div>
                             </div>
                             
-                            {/* Main text */}
+                            {/* Main text with enhanced typography */}
                             <div className="text-center">
-                              <h2 className="text-white text-xs sm:text-sm font-bold mb-0.5 leading-tight">
-                                <span className="bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent animate-pulse">
-                                  {t('nft.mintMessage')}
+                              <h2 className="text-white text-sm sm:text-base md:text-lg font-bold mb-1 sm:mb-2 leading-tight">
+                                <span className="bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent group-hover:from-cyan-200 group-hover:via-blue-200 group-hover:to-purple-200 transition-all duration-300">
+                                  {t('gallery.aiCreation')}
                                 </span>
                               </h2>
                               
-                              {/* Subtitle/Description */}
-                              <p className="text-white/80 text-xs font-medium">
-                                <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
-                                  ⭐ Create • Mint • Earn ⭐
+                              {/* Subtitle with enhanced styling */}
+                              <p className="text-white/90 text-xs sm:text-sm font-medium mb-2 sm:mb-3">
+                                <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent group-hover:from-yellow-200 group-hover:to-orange-200 transition-all duration-300">
+                                  {t('gallery.aiCreationSubtitle')}
                                 </span>
                               </p>
+                              
+                              {/* Description */}
+                              <p className="text-white/70 text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed">
+                                {t('gallery.aiCreationDescription')}
+                              </p>
+                              
+                              {/* Action button */}
+                              <div className="flex justify-center">
+                                <button className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group-hover:shadow-cyan-400/30">
+                                  {t('gallery.startAiCreation')}
+                                </button>
+                              </div>
                             </div>
                             
-                            {/* Decorative elements */}
-                            <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-cyan-400 rounded-full animate-ping"></div>
-                            <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
-                            <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
+                            {/* Enhanced decorative elements */}
+                            <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></div>
+                            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
+                            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
+                            <div className="absolute top-1/2 left-2 w-1 h-1 bg-yellow-400 rounded-full animate-ping animation-delay-1000"></div>
+                            <div className="absolute top-1/2 right-2 w-1 h-1 bg-green-400 rounded-full animate-ping animation-delay-1500"></div>
                           </div>
                         </div>
                       </div>
@@ -973,6 +1401,191 @@ const Creation = () => {
           onChange={handleColorPickerChange}
           style={{ display: 'none' }}
         />
+
+        {/* Save Dialog */}
+        <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+          <DialogContent className="sm:max-w-md bg-slate-800 border-white/20 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white text-lg font-semibold">
+                {t('gallery.saveCreation')}
+              </DialogTitle>
+              <DialogDescription className="text-white/70 text-sm">
+                {t('gallery.saveDialogDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              {/* Title Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/80">
+                  {t('gallery.artTitle')} <span className="text-red-400">*</span>
+                </label>
+                <Input
+                  value={tempTitle}
+                  onChange={(e) => setTempTitle(e.target.value)}
+                  placeholder={t('gallery.titlePlaceholder')}
+                  className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400"
+                  maxLength={100}
+                  autoFocus
+                />
+                {!tempTitle.trim() && (
+                  <div className="text-xs text-red-400">
+                    {t('gallery.titleRequired')}
+                  </div>
+                )}
+              </div>
+              
+              {/* Description Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/80">
+                  {t('gallery.artDescription')}
+                </label>
+                <Textarea
+                  value={tempDescription}
+                  onChange={(e) => setTempDescription(e.target.value)}
+                  placeholder={t('gallery.descriptionPlaceholder')}
+                  className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 resize-none"
+                  maxLength={200}
+                  rows={3}
+                />
+                <div className="text-xs text-white/50 text-right">
+                  {tempDescription.length}/200 {t('gallery.characterCount')}
+                </div>
+              </div>
+            </div>
+            
+            {/* Dialog Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <Button
+                variant="outline"
+                onClick={handleSaveCancel}
+                disabled={isSaving}
+                className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                onClick={handleSaveConfirm}
+                disabled={isSaving || !tempTitle.trim()}
+                className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    {t('gallery.saving')}
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    {t('userManagement.save')}
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI Creation Drawer */}
+        <Sheet open={showAiCreationDrawer} onOpenChange={setShowAiCreationDrawer}>
+          <SheetContent side="bottom" className="h-[85vh] max-h-[600px] bg-slate-800 border-white/20 text-white flex flex-col">
+            <SheetHeader className="text-center pb-3 flex-shrink-0">
+              <SheetTitle className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+                {t('gallery.aiCreationDrawer.title')}
+              </SheetTitle>
+              <SheetDescription className="text-white/70 text-sm">
+                {t('gallery.aiCreationDrawer.subtitle')}
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="flex-1 flex flex-col space-y-4 px-4 min-h-0">
+              {/* Text Input Area */}
+              <div className="flex-1 flex flex-col space-y-2 min-h-0">
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  onKeyDown={handleTextareaKeyDown}
+                  placeholder={t('gallery.aiCreationDrawer.placeholder')}
+                  className="flex-1 min-h-[200px] max-h-[350px] resize-none bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-cyan-400 focus:ring-cyan-400/20 text-base"
+                  maxLength={500}
+                />
+                <div className="text-xs text-slate-400 text-right flex-shrink-0">
+                  {aiPrompt.length}/500 {t('gallery.aiCreationDrawer.characterCount')}
+                </div>
+              </div>
+
+              {/* Voice Input and Action Buttons */}
+              <div className="flex items-center justify-center space-x-4 flex-shrink-0">
+                {/* Microphone Button */}
+                <Button
+                  onClick={handleMicClick}
+                  disabled={isProcessingVoice}
+                  className={`w-16 h-16 rounded-full transition-all duration-200 ${
+                    isRecording 
+                      ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                      : isProcessingVoice
+                      ? 'bg-yellow-500 hover:bg-yellow-600'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  } shadow-lg hover:shadow-xl`}
+                >
+                  {isProcessingVoice ? (
+                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : isRecording ? (
+                    <MicOff className="w-6 h-6 text-white" />
+                  ) : (
+                    <Mic className="w-6 h-6 text-white" />
+                  )}
+                </Button>
+
+                {/* Confirm Button */}
+                <Button
+                  onClick={handleAiPromptSubmit}
+                  disabled={!aiPrompt.trim() || isProcessingVoice || isGeneratingImage}
+                  className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingImage ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      {t('gallery.aiCreationDrawer.generating')}
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5 mr-2" />
+                      {t('gallery.aiCreationDrawer.confirm')}
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Status Messages */}
+              <div className="flex-shrink-0">
+                {isRecording && (
+                  <div className="text-center text-cyan-400 text-sm font-medium animate-pulse">
+                    🎤 {t('gallery.aiCreationDrawer.recording')}
+                  </div>
+                )}
+                
+                {isProcessingVoice && (
+                  <div className="text-center text-yellow-400 text-sm font-medium">
+                    🔄 {t('gallery.aiCreationDrawer.processing')}
+                  </div>
+                )}
+                
+                {isGeneratingImage && (
+                  <div className="text-center text-purple-400 text-sm font-medium animate-pulse">
+                    🎨 {t('gallery.aiCreationDrawer.generatingImage')}
+                  </div>
+                )}
+              </div>
+
+              {/* Instructions */}
+              <div className="text-center text-white/60 text-xs space-y-1 flex-shrink-0 pb-2">
+                <p>💡 <strong>Tip:</strong> {t('gallery.aiCreationDrawer.tips.voice')}</p>
+                <p>⌨️ <strong>Keyboard:</strong> {t('gallery.aiCreationDrawer.tips.keyboard')}</p>
+                <p>🎨 {t('gallery.aiCreationDrawer.tips.specific')}</p>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
     </div>
   );
 };
