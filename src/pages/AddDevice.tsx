@@ -22,6 +22,11 @@ const AddDevice = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedWifi, setSelectedWifi] = useState<any>(null);
   
+  // Manual WiFi input states
+  const [showManualWifiDialog, setShowManualWifiDialog] = useState(false);
+  const [manualWifiSSID, setManualWifiSSID] = useState('');
+  const [manualWifiSecurity, setManualWifiSecurity] = useState('WPA2');
+  
   // Device management hook - only for device initialization
   const {
     deviceInitState,
@@ -29,6 +34,7 @@ const AddDevice = () => {
     error: deviceError,
     startDeviceInit,
     selectWiFi,
+    selectManualWiFi,
     selectBluetoothDevice,
     submitDeviceRecord,
     resetDeviceInit,
@@ -85,6 +91,35 @@ const AddDevice = () => {
     } catch (error) {
       console.error('Failed to connect to Bluetooth device:', error);
     }
+  };
+
+  const handleManualWifiSubmit = async () => {
+    if (!manualWifiSSID.trim()) return;
+    
+    try {
+      // Create a WiFi network object with manual input (without password)
+      const manualWifiNetwork = {
+        id: `manual_${Date.now()}`,
+        name: manualWifiSSID,
+        security: manualWifiSecurity,
+        strength: -50, // Default strength for manual input
+        frequency: 2400, // Default to 2.4GHz
+        channel: 6 // Default channel
+      };
+      
+      // Store the manual WiFi network and show password dialog
+      setSelectedWifi(manualWifiNetwork);
+      setShowManualWifiDialog(false);
+      setShowPasswordDialog(true);
+      setManualWifiSSID('');
+      setManualWifiSecurity('WPA2');
+    } catch (error) {
+      console.error('Failed to configure manual WiFi:', error);
+    }
+  };
+
+  const handleShowManualWifiDialog = () => {
+    setShowManualWifiDialog(true);
   };
 
 
@@ -204,7 +239,7 @@ const AddDevice = () => {
                         <span className="text-white/60 text-sm">Step {currentStep === DeviceInitStep.INIT ? 0 : 
                           currentStep === DeviceInitStep.BLUETOOTH_SCAN || currentStep === DeviceInitStep.BLUETOOTH_SELECT ? 1 :
                           currentStep === DeviceInitStep.BLUETOOTH_CONNECT ? 2 :
-                          currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT ? 3 :
+                          currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT || currentStep === DeviceInitStep.WIFI_MANUAL_INPUT ? 3 :
                           currentStep === DeviceInitStep.WIFI_CONFIG ? 4 :
                           currentStep === DeviceInitStep.SUCCESS ? 5 : 0} of 5</span>
                         <span className="text-cyan-400 text-sm font-medium">{stepDescription}</span>
@@ -216,7 +251,7 @@ const AddDevice = () => {
                             width: `${currentStep === DeviceInitStep.INIT ? 0 :
                               currentStep === DeviceInitStep.BLUETOOTH_SCAN || currentStep === DeviceInitStep.BLUETOOTH_SELECT ? 20 :
                               currentStep === DeviceInitStep.BLUETOOTH_CONNECT ? 40 :
-                              currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT ? 60 :
+                              currentStep === DeviceInitStep.WIFI_SCAN || currentStep === DeviceInitStep.WIFI_SELECT || currentStep === DeviceInitStep.WIFI_MANUAL_INPUT ? 60 :
                               currentStep === DeviceInitStep.WIFI_CONFIG ? 80 :
                               currentStep === DeviceInitStep.SUCCESS ? 100 : 0}%` 
                           }}
@@ -286,6 +321,74 @@ const AddDevice = () => {
                           <h3 className="text-2xl font-semibold text-white mb-4">Requesting WiFi Networks from Device...</h3>
                           <p className="text-white/60 text-lg">Device is scanning for nearby WiFi networks via Bluetooth</p>
                         </div>
+                        
+                        <div className="max-w-md mx-auto">
+                          <Button
+                            onClick={handleShowManualWifiDialog}
+                            variant="outline"
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                          >
+                            <Wifi className="h-4 w-4 mr-2" />
+                            Enter WiFi Manually
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Manual WiFi Input */}
+                    {currentStep === DeviceInitStep.WIFI_MANUAL_INPUT && (
+                      <div className="space-y-6">
+                        <div className="text-center mb-6">
+                          <Wifi className="h-16 w-16 text-cyan-400 mx-auto mb-4" />
+                          <h3 className="text-2xl font-semibold text-white mb-2">Enter WiFi Network Name</h3>
+                          <p className="text-white/60 text-lg">WiFi scan timed out. Please enter your WiFi network name manually.</p>
+                        </div>
+                        
+                        <div className="max-w-md mx-auto space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-white text-sm font-medium">WiFi Network Name (SSID)</label>
+                            <Input
+                              type="text"
+                              value={manualWifiSSID}
+                              onChange={(e) => setManualWifiSSID(e.target.value)}
+                              placeholder="Enter WiFi network name"
+                              className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
+                              onKeyPress={(e) => e.key === 'Enter' && handleManualWifiSubmit()}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="text-white text-sm font-medium">Security Type</label>
+                            <select
+                              value={manualWifiSecurity}
+                              onChange={(e) => setManualWifiSecurity(e.target.value)}
+                              className="w-full bg-white/5 border border-white/20 text-white rounded-md px-3 py-2 backdrop-blur-sm"
+                            >
+                              <option value="Open">Open (No Password)</option>
+                              <option value="WEP">WEP</option>
+                              <option value="WPA">WPA</option>
+                              <option value="WPA2">WPA2</option>
+                              <option value="WPA3">WPA3</option>
+                            </select>
+                          </div>
+                          
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              onClick={() => setShowManualWifiDialog(false)}
+                              variant="outline"
+                              className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleManualWifiSubmit}
+                              disabled={!manualWifiSSID.trim()}
+                              className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0"
+                            >
+                              Continue
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -296,6 +399,18 @@ const AddDevice = () => {
                           <Wifi className="h-16 w-16 text-cyan-400 mx-auto mb-4" />
                           <h3 className="text-2xl font-semibold text-white mb-2">Select WiFi Network</h3>
                           <p className="text-white/60 text-lg">Choose the WiFi network for your device</p>
+                          
+                          <div className="mt-4">
+                            <Button
+                              onClick={handleShowManualWifiDialog}
+                              variant="outline"
+                              size="sm"
+                              className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                            >
+                              <Wifi className="h-4 w-4 mr-2" />
+                              Enter WiFi Manually
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -533,6 +648,67 @@ const AddDevice = () => {
         <div className="lg:hidden">
           <BottomNavigation />
         </div>
+
+        {/* Manual WiFi Input Dialog */}
+        <Dialog open={showManualWifiDialog} onOpenChange={setShowManualWifiDialog}>
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-md mx-auto shadow-2xl">
+            <DialogHeader className="pb-4">
+              <DialogTitle className="text-white flex items-center gap-3">
+                <Wifi className="h-5 w-5 text-cyan-400" />
+                Enter WiFi Network Name
+              </DialogTitle>
+              <p className="text-white/60 text-sm">
+                WiFi scan timed out. Please enter your WiFi network name manually.
+              </p>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-white text-sm font-medium">WiFi Network Name (SSID)</label>
+                <Input
+                  type="text"
+                  value={manualWifiSSID}
+                  onChange={(e) => setManualWifiSSID(e.target.value)}
+                  placeholder="Enter WiFi network name"
+                  className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
+                  onKeyPress={(e) => e.key === 'Enter' && handleManualWifiSubmit()}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-white text-sm font-medium">Security Type</label>
+                <select
+                  value={manualWifiSecurity}
+                  onChange={(e) => setManualWifiSecurity(e.target.value)}
+                  className="w-full bg-white/5 border border-white/20 text-white rounded-md px-3 py-2 backdrop-blur-sm"
+                >
+                  <option value="Open">Open (No Password)</option>
+                  <option value="WEP">WEP</option>
+                  <option value="WPA">WPA</option>
+                  <option value="WPA2">WPA2</option>
+                  <option value="WPA3">WPA3</option>
+                </select>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => setShowManualWifiDialog(false)}
+                  variant="outline"
+                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleManualWifiSubmit}
+                  disabled={!manualWifiSSID.trim()}
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0"
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* WiFi Password Dialog */}
         <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>

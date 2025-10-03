@@ -35,6 +35,7 @@ export enum DeviceInitStep {
   BLUETOOTH_CONNECT = 'bluetooth_connect',
   WIFI_SCAN = 'wifi_scan',
   WIFI_SELECT = 'wifi_select',
+  WIFI_MANUAL_INPUT = 'wifi_manual_input',
   WIFI_CONFIG = 'wifi_config',
   SUCCESS = 'success'
 }
@@ -151,25 +152,33 @@ export class DeviceInitManager {
       // Use realDeviceService's GATT connection wrapper
       const gattServer = await realDeviceService.getGATTConnection(this.state.selectedBluetoothDevice);
       
-      // Read device information service
-      const deviceInfoService = await gattServer.getPrimaryService('device_info_service_uuid');
+      // Print all available GATT services and their characteristics
+      await this.printAllGATTServices(gattServer);
       
-      // Read Tencent IoT product information: ProductId + DeviceName
-      const productIdChar = await deviceInfoService.getCharacteristic('product_id_uuid');
-      const productIdData = await productIdChar.readValue();
-      const productId = new TextDecoder().decode(productIdData);
+      // Skip device information service - not available on this BLUFI device
+      console.log('Skipping Device Information Service - not available on BLUFI device');
+      console.log('Using device name from Bluetooth scan instead');
       
-      const deviceNameChar = await deviceInfoService.getCharacteristic('device_name_uuid');
-      const deviceNameData = await deviceNameChar.readValue();
-      const deviceName = new TextDecoder().decode(deviceNameData);
+      // Use device name from Bluetooth scan as fallback
+      const deviceName = this.state.selectedBluetoothDevice?.name || 'Unknown Device';
+      console.log('Using device name from scan:', deviceName);
+      
+      // Use device information from Bluetooth scan (no GATT service available)
+      const productId = deviceName; // Use device name as product ID
+      const finalDeviceName = deviceName;
+      
+      console.log('Using device information from Bluetooth scan:', {
+        productId: productId,
+        deviceName: finalDeviceName
+      });
       
       // Update device information with Tencent IoT product info
-      this.state.selectedBluetoothDevice.name = deviceName;
+      this.state.selectedBluetoothDevice.name = finalDeviceName;
       (this.state.selectedBluetoothDevice as any).productId = productId;
       
       console.log('Tencent IoT product info retrieved:', {
         productId: productId,
-        deviceName: deviceName
+        deviceName: finalDeviceName
       });
       
     } catch (error) {
@@ -182,7 +191,6 @@ export class DeviceInitManager {
   // Step 3: Request WiFi networks from device via Bluetooth
   private async requestWiFiNetworksFromDevice(): Promise<void> {
     try {
-
       this.state.error = null;
 
       if (!this.state.selectedBluetoothDevice) {
@@ -195,8 +203,44 @@ export class DeviceInitManager {
 
       this.state.step = DeviceInitStep.WIFI_SELECT;
     } catch (error) {
-      this.state.error = error instanceof Error ? error.message : 'WiFi scan request failed';
+      const errorMessage = error instanceof Error ? error.message : 'WiFi scan request failed';
+      
+      // Check if it's a timeout error
+      if (errorMessage.includes('timeout') || errorMessage.includes('Scan command response timeout')) {
+        console.log('WiFi scan timed out, offering manual input option');
+        this.state.error = null; // Clear error since we're providing an alternative
+        this.state.step = DeviceInitStep.WIFI_MANUAL_INPUT;
+        return; // Don't throw error, continue with manual input
+      }
+      
+      // For other errors, still throw
+      this.state.error = errorMessage;
+      throw error;
+    }
+  }
 
+  // Step 4a: Manual WiFi input (fallback when scan times out)
+  async selectManualWiFi(ssid: string, password: string, security: string = 'WPA2'): Promise<void> {
+    try {
+      this.state.error = null;
+
+      // Create a WiFi network object from manual input
+      const manualWifiNetwork: WiFiNetwork = {
+        id: `manual_${Date.now()}`,
+        name: ssid,
+        password: password,
+        security: security,
+        strength: -50, // Default strength for manual input
+        frequency: 2400, // Default to 2.4GHz
+        channel: 6 // Default channel
+      };
+
+      this.state.selectedWifi = manualWifiNetwork;
+      this.state.step = DeviceInitStep.WIFI_CONFIG;
+
+      console.log('Manual WiFi network selected:', ssid);
+    } catch (error) {
+      this.state.error = error instanceof Error ? error.message : 'Manual WiFi input failed';
       throw error;
     }
   }
@@ -214,10 +258,18 @@ export class DeviceInitManager {
         throw new Error('No Bluetooth device connected');
       }
 
+      // Device always needs WiFi configuration on each connection
+      console.log('Proceeding with WiFi configuration for device:', this.state.selectedBluetoothDevice.name);
+
       // Configure WiFi on device via Bluetooth
+      // Extract password from wifiNetwork if it exists
+      const password = (wifiNetwork as any).password || '';
+      console.log('Configuring WiFi with password:', password ? '***' : 'no password');
+      
       await realDeviceService.configureWiFiViaBluetooth(
         this.state.selectedBluetoothDevice,
-        wifiNetwork
+        wifiNetwork,
+        password
       );
 
       this.state.isConfiguringWifi = false;
@@ -435,6 +487,8 @@ export class DeviceInitManager {
         return 'Requesting WiFi Networks from Device';
       case DeviceInitStep.WIFI_SELECT:
         return 'Select WiFi Network';
+      case DeviceInitStep.WIFI_MANUAL_INPUT:
+        return 'Enter WiFi Information Manually';
       case DeviceInitStep.WIFI_CONFIG:
         return 'Configuring WiFi on Device';
       case DeviceInitStep.SUCCESS:
@@ -453,6 +507,8 @@ export class DeviceInitManager {
         return !this.state.isConnectingBluetooth;
       case DeviceInitStep.WIFI_SCAN:
         return this.state.wifiNetworks.length > 0;
+      case DeviceInitStep.WIFI_MANUAL_INPUT:
+        return this.state.selectedWifi !== null;
       case DeviceInitStep.WIFI_CONFIG:
         return !this.state.isConfiguringWifi;
       default:
@@ -463,6 +519,106 @@ export class DeviceInitManager {
   // Get error message
   getError(): string | null {
     return this.state.error;
+  }
+
+  // Print all available GATT services and their characteristics
+  private async printAllGATTServices(gattServer: any): Promise<void> {
+    try {
+      console.log('=== GATT Services Discovery ===');
+      console.log('Device:', this.state.selectedBluetoothDevice?.name);
+      console.log('GATT Server connected:', gattServer.connected);
+      
+      // Get all primary services
+      const allServices = await (gattServer as any).getPrimaryServices();
+      console.log(`Found ${allServices.length} primary services:`);
+      
+      for (let i = 0; i < allServices.length; i++) {
+        const service = allServices[i];
+        console.log(`\n--- Service ${i + 1} ---`);
+        console.log('Service UUID:', service.uuid);
+        console.log('Service Type:', service.type || 'primary');
+        
+        try {
+          // Get all characteristics for this service
+          const characteristics = await (service as any).getCharacteristics();
+          console.log(`Characteristics (${characteristics.length}):`);
+          
+          for (let j = 0; j < characteristics.length; j++) {
+            const char = characteristics[j];
+            console.log(`  ${j + 1}. UUID: ${char.uuid}`);
+            console.log(`     Properties: ${this.getCharacteristicProperties(char)}`);
+            
+            // Try to read value if readable
+            try {
+              if (char.properties.read) {
+                const value = await char.readValue();
+                const valueStr = this.formatCharacteristicValue(value);
+                console.log(`     Value: ${valueStr}`);
+              }
+            } catch (readError: any) {
+              console.log(`     Value: [Read failed: ${readError.message}]`);
+            }
+          }
+        } catch (charError: any) {
+          console.log(`Characteristics: [Failed to get: ${charError.message}]`);
+        }
+        
+        // Try to get included services
+        try {
+          const includedServices = await (service as any).getIncludedServices();
+          if (includedServices && includedServices.length > 0) {
+            console.log(`Included Services (${includedServices.length}):`);
+            includedServices.forEach((incService: any, idx: number) => {
+              console.log(`  ${idx + 1}. ${incService.uuid}`);
+            });
+          }
+        } catch (incError: any) {
+          // Included services are optional, ignore errors
+        }
+      }
+      
+      console.log('=== End GATT Services Discovery ===\n');
+    } catch (error: any) {
+      console.error('Failed to enumerate GATT services:', error);
+      console.log('GATT services enumeration failed, continuing with device setup...');
+    }
+  }
+
+  // Get characteristic properties as readable string
+  private getCharacteristicProperties(char: any): string {
+    const props = [];
+    if (char.properties.broadcast) props.push('broadcast');
+    if (char.properties.read) props.push('read');
+    if (char.properties.writeWithoutResponse) props.push('writeWithoutResponse');
+    if (char.properties.write) props.push('write');
+    if (char.properties.notify) props.push('notify');
+    if (char.properties.indicate) props.push('indicate');
+    if (char.properties.authenticatedSignedWrites) props.push('authenticatedSignedWrites');
+    if (char.properties.reliableWrite) props.push('reliableWrite');
+    if (char.properties.writableAuxiliaries) props.push('writableAuxiliaries');
+    
+    return props.length > 0 ? props.join(', ') : 'none';
+  }
+
+  // Format characteristic value as readable string
+  private formatCharacteristicValue(value: DataView): string {
+    try {
+      // Try to decode as UTF-8 text first
+      const textDecoder = new TextDecoder('utf-8');
+      const text = textDecoder.decode(value);
+      
+      // Check if it's printable text
+      if (text.length > 0 && /^[\x20-\x7E]*$/.test(text)) {
+        return `"${text}"`;
+      }
+      
+      // If not printable text, show as hex
+      const bytes = new Uint8Array(value.buffer);
+      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      return `[${hex}] (${bytes.length} bytes)`;
+    } catch (error) {
+      return '[Decode failed]';
+    }
   }
 
   // Clear error

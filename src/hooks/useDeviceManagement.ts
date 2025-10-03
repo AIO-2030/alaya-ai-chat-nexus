@@ -13,6 +13,7 @@ export interface UseDeviceManagementReturn {
   // Actions
   startDeviceInit: () => Promise<void>;
   selectWiFi: (wifiNetwork: any) => Promise<void>;
+  selectManualWiFi: (ssid: string, password: string, security?: string) => Promise<void>;
   selectBluetoothDevice: (device: any) => Promise<void>;
   submitDeviceRecord: () => Promise<boolean>;
   resetDeviceInit: () => void;
@@ -95,6 +96,19 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
       const errorMessage = error instanceof Error ? error.message : 'WiFi selection failed';
       setError(errorMessage);
       console.error('WiFi selection failed:', error);
+    }
+  }, []);
+
+  // Select manual WiFi input
+  const selectManualWiFi = useCallback(async (ssid: string, password: string, security: string = 'WPA2') => {
+    try {
+      setError(null);
+      await deviceInitManager.selectManualWiFi(ssid, password, security);
+      setDeviceInitState(deviceInitManager.getState());
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Manual WiFi input failed';
+      setError(errorMessage);
+      console.error('Manual WiFi input failed:', error);
     }
   }, []);
 
@@ -254,6 +268,7 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
     // Actions
     startDeviceInit,
     selectWiFi,
+    selectManualWiFi,
     selectBluetoothDevice,
     submitDeviceRecord,
     resetDeviceInit,
