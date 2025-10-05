@@ -64,6 +64,20 @@ const resources = {
         qrCodeScanErrorDesc: 'Please make sure the QR code is clearly visible and try again',
         switchToManual: 'Enter Manually',
         switchToScan: 'Scan QR Code',
+        // WiFi flow additions
+        requestingWifiNetworksTitle: 'Requesting WiFi Networks from Device...',
+        requestingWifiNetworksDesc: 'Device is scanning for nearby WiFi networks via Bluetooth',
+        enterWifiManually: 'Enter WiFi Manually',
+        enterWifiNameTitle: 'Enter WiFi Network Name',
+        enterWifiNameDesc: 'WiFi scan timed out. Please enter your WiFi network name manually.',
+        wifiSsidLabel: 'WiFi Network Name (SSID)',
+        wifiSsidPlaceholder: 'Enter WiFi network name',
+        wifiSecurityType: 'Security Type',
+        'continue': 'Continue',
+        selectWifiNetworkTitle: 'Select WiFi Network',
+        selectWifiNetworkDesc: 'Choose the WiFi network for your device',
+        noWifiNetworksFoundTitle: 'No WiFi networks found',
+        noWifiNetworksFoundDesc: 'Try scanning again or check device connection',
         wifiNetworks: {
           myHomeWiFi: 'MyHome WiFi',
           guestNetwork: 'Guest Network',
@@ -72,7 +86,8 @@ const resources = {
         wifiSecurity: {
           wpa2: 'WPA2',
           wpa3: 'WPA3',
-          open: 'Open'
+          open: 'Open',
+          openNoPassword: 'Open (No Password)'
         },
         signalStrength: 'Signal',
         contracts: 'Friends',
@@ -327,6 +342,20 @@ const resources = {
         qrCodeScanErrorDesc: '请确保二维码清晰可见，然后重试',
         switchToManual: '手动输入',
         switchToScan: '扫描二维码',
+        // WiFi flow additions
+        requestingWifiNetworksTitle: '正在从设备请求 Wi‑Fi 列表...',
+        requestingWifiNetworksDesc: '设备正通过蓝牙扫描附近的 Wi‑Fi 网络',
+        enterWifiManually: '手动输入 Wi‑Fi',
+        enterWifiNameTitle: '输入 Wi‑Fi 名称',
+        enterWifiNameDesc: 'Wi‑Fi 扫描超时，请手动输入您的 Wi‑Fi 名称。',
+        wifiSsidLabel: 'Wi‑Fi 名称（SSID）',
+        wifiSsidPlaceholder: '请输入 Wi‑Fi 名称',
+        wifiSecurityType: '加密方式',
+        'continue': '继续',
+        selectWifiNetworkTitle: '选择 Wi‑Fi 网络',
+        selectWifiNetworkDesc: '请选择要连接到设备的 Wi‑Fi 网络',
+        noWifiNetworksFoundTitle: '未发现可用的 Wi‑Fi',
+        noWifiNetworksFoundDesc: '请重试扫描或检查设备连接',
         wifiNetworks: {
           myHomeWiFi: '我的家庭WiFi',
           guestNetwork: '访客网络',
@@ -335,7 +364,8 @@ const resources = {
         wifiSecurity: {
           wpa2: 'WPA2',
           wpa3: 'WPA3',
-          open: '开放'
+          open: '开放',
+          openNoPassword: '开放（无密码）'
         },
         signalStrength: '信号强度',
         contracts: '好友',
