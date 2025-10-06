@@ -18,23 +18,24 @@ export async function createOrderAndGetInvoiceUrl(args: CreateOrderArgs) {
     }
 
     const actor = createActor(canisterId, {agent});
-    const res = await actor.createOrderAndInvoice({
-        orderId: args.orderId,
-        amount: args.amount,
-        currency: args.currency,
-        buyerEmail: args.buyerEmail ? [args.buyerEmail] : [],
-        shippingAddress: args.shippingAddress,
-        sku: args.sku,
-        redirectBase: args.redirectBase,
-    });
+    // const res = await actor.createOrderAndInvoice({
+    //     orderId: args.orderId,
+    //     amount: args.amount,
+    //     currency: args.currency,
+    //     buyerEmail: args.buyerEmail ? [args.buyerEmail] : [],
+    //     shippingAddress: args.shippingAddress,
+    //     sku: args.sku,
+    //     redirectBase: args.redirectBase,
+    // });
 
-    const invoiceId = (res.invoiceId ?? res['invoiceId']) as string;
-    const invoiceUrl = (res.invoiceUrl ?? res['invoiceUrl']) as string;
-    if (!invoiceUrl) {
-        throw new Error('No invoiceUrl from canister');
-    }
+    // const invoiceId = (res.invoiceId ?? res['invoiceId']) as string;
+    // const invoiceUrl = (res.invoiceUrl ?? res['invoiceUrl']) as string;
+    // if (!invoiceUrl) {
+    //     throw new Error('No invoiceUrl from canister');
+    // }
 
-    return {invoiceId, invoiceUrl};
+    // return {invoiceId, invoiceUrl};
+    return {};
 }
 
 

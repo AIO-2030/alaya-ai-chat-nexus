@@ -247,7 +247,7 @@ class RealDeviceService {
       console.log(`   📡 FF02 notification channel re-established for device ${deviceId}`);
 
       // Perform a quick BLUFI handshake to align sequence expectations on device side (with safe retry and backoff)
-      // 但根据当前策略：保持现有序列计数，不清零，使用 seq=3 做握手
+      // But according to current strategy: maintain existing sequence count, don't reset, use seq=3 for handshake
       let handshakeOk = await this.performBlufiHandshake(gattServer, deviceId, 3);
       if (!handshakeOk) {
         console.warn(`   ⚠️  Handshake not confirmed, retrying after 500ms...`);
@@ -269,7 +269,87 @@ class RealDeviceService {
   
   // WiFi configuration lock to prevent concurrent configuration
   private activeWiFiConfigurations = new Set<string>();
+  
+  // Track WiFi connection success status per device
+  private wifiConnectionSuccessStatus = new Map<string, boolean>();
 
+
+  // Handle WiFi connection success (0x3d frame)
+  private handleWiFiConnectionSuccess(deviceId: string, data: Uint8Array): void {
+    console.log(`   🎉 WiFi connection success ACK received (0x3d)!`);
+    console.log(`   📊 Success data: ${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+    
+    // Mark WiFi connection success for this device
+    this.wifiConnectionSuccessStatus.set(deviceId, true);
+    console.log(`   ✅ WiFi connection success status marked for device ${deviceId}`);
+    
+    // Parse success response data
+    if (data.length >= 4) {
+      const frameType = data[0];
+      const frameControl = data[1];
+      const sequence = data[2];
+      const dataLength = data[3];
+      
+      console.log(`   🔍 Success frame parse: Type=0x${frameType.toString(16)}, FC=0x${frameControl.toString(16)}, Seq=${sequence}, DataLen=${dataLength}`);
+      
+      // If there's additional data, parse connection info
+      if (data.length > 4) {
+        const successData = data.slice(4);
+        console.log(`   📦 Success data payload: ${Array.from(successData).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')}`);
+        
+        // Try to parse IP address and other info (if exists)
+        if (successData.length >= 4) {
+          const ipBytes = successData.slice(0, 4);
+          const ipAddress = Array.from(ipBytes).join('.');
+          console.log(`   🌐 Device IP address: ${ipAddress}`);
+        }
+      }
+    }
+    
+    // Trigger WiFi configuration success event
+    this.triggerWiFiConnectionSuccess(deviceId);
+  }
+
+  // Check if WiFi connection success has been received for a device
+  private hasReceivedWiFiConnectionSuccess(deviceId: string): boolean {
+    return this.wifiConnectionSuccessStatus.get(deviceId) === true;
+  }
+
+  // Clear WiFi connection success status for a device
+  private clearWiFiConnectionSuccessStatus(deviceId: string): void {
+    this.wifiConnectionSuccessStatus.delete(deviceId);
+    console.log(`   🧹 WiFi connection success status cleared for device ${deviceId}`);
+  }
+
+  // Trigger WiFi connection success event
+  private triggerWiFiConnectionSuccess(deviceId: string): void {
+    console.log(`   🚀 Triggering WiFi connection success for device ${deviceId}`);
+    
+    // Create custom event
+    const successEvent = new CustomEvent('wifiConnectionSuccess', {
+      detail: {
+        deviceId,
+        timestamp: new Date().toISOString(),
+        message: 'WiFi connection established successfully'
+      }
+    });
+    
+    // Dispatch event
+    window.dispatchEvent(successEvent);
+    
+    // Can also call callback directly (if available)
+    if (this.wifiConnectionSuccessCallback) {
+      this.wifiConnectionSuccessCallback(deviceId);
+    }
+  }
+
+  // Callback for WiFi connection success
+  private wifiConnectionSuccessCallback?: (deviceId: string) => void;
+
+  // Set WiFi connection success callback
+  setWiFiConnectionSuccessCallback(callback: (deviceId: string) => void): void {
+    this.wifiConnectionSuccessCallback = callback;
+  }
 
   // ✅ Unified notification dispatcher - single entry point for all FF02 notifications
   private createUnifiedNotificationHandler(deviceId: string): (event: any) => void {
@@ -283,7 +363,7 @@ class RealDeviceService {
       const data = new Uint8Array(dataView.buffer);
       const frameType = data[0];
       
-      // ✅ 打印完整的原始数据用于分析
+      // ✅ Print complete raw data for analysis
       const fullHexData = Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' ');
       console.log(`   🔔 Unified dispatcher received: device=${deviceId}, length=${data.byteLength}`);
       console.log(`   📊 Full raw data: ${fullHexData}`);
@@ -301,9 +381,9 @@ class RealDeviceService {
       
       console.log(`   📋 Available handlers: ackHandler=${!!handlers.ackHandler}, wifiScanHandler=${!!handlers.wifiScanHandler}, statusHandler=${!!handlers.statusHandler}`);
       
-      // ✅ 优先路由ACK：确保FF02通知监听在整个会话里始终在线且先路由ACK
+      // ✅ Priority route ACK: ensure FF02 notification listening is always online throughout the session and route ACK first
       if (frameType === 0x49) {
-        // ACK/Status frame (Type=0x49) - 最高优先级
+        // ACK/Status frame (Type=0x49) - highest priority
         if (handlers.ackHandler) {
           console.log(`   📨 Routing ACK frame (0x49) to ackHandler - PRIORITY`);
           handlers.ackHandler(data);
@@ -313,8 +393,12 @@ class RealDeviceService {
         } else {
           console.log(`   ⚠️  ACK frame received but no handler registered - THIS IS THE PROBLEM!`);
         }
+      } else if (frameType === 0x3d) {
+        // WiFi connection success ACK (Type=0x3d) - high priority
+        console.log(`   🎉 WiFi connection success ACK received (0x3d)!`);
+        this.handleWiFiConnectionSuccess(deviceId, data);
       } else {
-        // WiFi scan data or other data frames - 低优先级
+        // WiFi scan data or other data frames - low priority
         console.log(`   🔀 Non-ACK frame, frameType=0x${frameType.toString(16)}`);
         if (handlers.wifiScanHandler) {
           console.log(`   📨 Routing data frame (0x${frameType.toString(16)}) to wifiScanHandler`);
@@ -415,7 +499,7 @@ class RealDeviceService {
 
   // Create BLUFI command with correct format
   private createBLUFICommand(type: number, sequence: number, data: Uint8Array = new Uint8Array(0)): Uint8Array {
-    // ✅ 正确的 BLUFI 帧格式（不分片，带校验）:
+    // ✅ Correct BLUFI frame format (no fragmentation, with checksum):
     // [Type(1)][FrameControl(1)][Sequence(1)][DataLength(1)][Data(n)][Checksum(2)]
     // 
     // Type = 1 byte (low 2 bits: frame type, high 6 bits: subtype)
@@ -425,12 +509,12 @@ class RealDeviceService {
     // Data = n bytes
     // Checksum = 2 bytes CRC16-CCITT (if FrameControl bit 1 is set)
     
-    // Frame control byte: 0x02 = 带校验、无加密、不要求ACK、无分片
+    // Frame control byte: 0x02 = with checksum, no encryption, no ACK required, no fragmentation
     const frameControl = 0x02; // bit 1 set = has checksum
     const dataLength = data.length;
     
-    // ✅ 修复：BLUFI校验和计算应该校验"序列号 + 数据长度 + 明文数据"
-    // 构建帧（用于校验计算）: [Seq][Len][Data]
+    // ✅ Fix: BLUFI checksum calculation should verify "sequence number + data length + plaintext data"
+    // Build frame (for checksum calculation): [Seq][Len][Data]
     const checksumData = new Uint8Array(2 + dataLength);
     checksumData[0] = sequence;
     checksumData[1] = dataLength;
@@ -438,12 +522,12 @@ class RealDeviceService {
       checksumData.set(data, 2);
     }
     
-    // 计算 CRC16 (使用 encriptutil.ts 中的实现)
+    // Calculate CRC16 (using implementation from encriptutil.ts)
     const crc16 = calculateCRC16(checksumData);
     const crcLow = crc16 & 0xFF;
     const crcHigh = (crc16 >> 8) & 0xFF;
     
-    // 构建完整帧: [Type][FC][Seq][Len][Data][CRC_Low][CRC_High]
+    // Build complete frame: [Type][FC][Seq][Len][Data][CRC_Low][CRC_High]
     const command = new Uint8Array(4 + dataLength + 2);
     command[0] = type;
     command[1] = frameControl;
@@ -458,14 +542,14 @@ class RealDeviceService {
     // Parse Type field for debugging
     const frameType = type & 0x03; // Low 2 bits
     const subtype = (type >> 2) & 0x3F; // High 6 bits
-    const frameTypeStr = frameType === 0 ? '控制帧' : frameType === 1 ? '数据帧' : '未知';
+    const frameTypeStr = frameType === 0 ? 'Control Frame' : frameType === 1 ? 'Data Frame' : 'Unknown';
     
     console.log('🔍 BLUFI Command Debug:', {
       type: `0x${type.toString(16).padStart(2, '0')} (${frameTypeStr}, subtype=${subtype})`,
-      frameControl: `0x${frameControl.toString(16).padStart(2, '0')} (带校验/无加密/无分片)`,
+      frameControl: `0x${frameControl.toString(16).padStart(2, '0')} (with checksum/no encryption/no fragmentation)`,
       sequence: sequence,
       dataLength: dataLength,
-      data: dataLength > 0 ? Array.from(data).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ') : '无',
+      data: dataLength > 0 ? Array.from(data).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ') : 'None',
       crc16: `0x${crc16.toString(16).padStart(4, '0')} (Low: 0x${crcLow.toString(16).padStart(2, '0')}, High: 0x${crcHigh.toString(16).padStart(2, '0')})`,
       finalCommand: Array.from(command).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')
     });
@@ -490,14 +574,14 @@ class RealDeviceService {
 
     const frameType = type & 0x03;
     const subtype = (type >> 2) & 0x3F;
-    const frameTypeStr = frameType === 0 ? '控制帧' : frameType === 1 ? '数据帧' : '未知';
+    const frameTypeStr = frameType === 0 ? 'Control Frame' : frameType === 1 ? 'Data Frame' : 'Unknown';
 
     console.log('🔍 BLUFI Command Debug (no CRC):', {
       type: `0x${type.toString(16).padStart(2, '0')} (${frameTypeStr}, subtype=${subtype})`,
-      frameControl: `0x${frameControl.toString(16).padStart(2, '0')} (无校验/无加密/无分片)`,
+      frameControl: `0x${frameControl.toString(16).padStart(2, '0')} (no checksum/no encryption/no fragmentation)`,
       sequence: sequence,
       dataLength: dataLength,
-      data: dataLength > 0 ? Array.from(data).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ') : '无',
+      data: dataLength > 0 ? Array.from(data).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ') : 'None',
       finalCommand: Array.from(command).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')
     });
 
@@ -698,7 +782,7 @@ class RealDeviceService {
       let expectedTotalLength = 0;
       let receivedDataLength = 0;
       let isFirstFrame = true;
-      let expectedSequence = 0; // 添加期望的序列号跟踪
+      let expectedSequence = 0; // Add expected sequence number tracking
       
       const handleResponse = (event: any) => {
         console.log(`   📨 BLE Notification received (frame ${allFrames.length + 1})`);
@@ -731,11 +815,11 @@ class RealDeviceService {
             console.log(`   ⏳ Skipping single-byte response, waiting for WiFi data frames`);
             
           } else if (responseData.length >= 5) {
-            // ✅ 根据 BLUFI 协议，检查帧类型
-            // 正确的帧格式: [Type][FrameControl][Sequence][DataLength][Data]
+            // ✅ Check frame type according to BLUFI protocol
+            // Correct frame format: [Type][FrameControl][Sequence][DataLength][Data]
             const frameType = responseData[0];
             
-            // 🚫 跳过错误/状态响应帧 (Type=0x49)，这不是WiFi扫描数据
+            // 🚫 Skip error/status response frames (Type=0x49), these are not WiFi scan data
             if (frameType === 0x49) {
               const fc = responseData[1];
               const seq = responseData[2];
@@ -749,27 +833,27 @@ class RealDeviceService {
                 console.log(`      Error Code: ${data}`);
               }
               console.log(`   ⏭️  Skipping status response, waiting for WiFi scan data`);
-              return; // 不处理这个帧
+              return; // Don't process this frame
             }
             
-            // Parse WiFi scan frame format: [帧控制(分片)][序列号][数据长度][内容总长度(2字节)][数据内容][校验]
+            // Parse WiFi scan frame format: [FrameControl(fragmentation)][Sequence][DataLength][TotalLength(2 bytes)][Data][Checksum]
             const frameControl = responseData[0];
             const sequenceNumber = responseData[1];
             const dataLength = responseData[2];
             const totalContentLength = (responseData[3] << 8) | responseData[4]; // 2-byte content total length
             
-            // 检查分片状态标志
-            // 根据BluFi协议，0x45 = 01000101，Bit 6 (0x40) 是1，表示最后一个分片
-            // 但Bit 4 (0x10) 是0，这可能意味着这是分片序列的最后一个帧
+            // Check fragmentation status flags
+            // According to BluFi protocol, 0x45 = 01000101, Bit 6 (0x40) is 1, indicating last fragment
+            // But Bit 4 (0x10) is 0, which might mean this is the last frame of a fragmented sequence
             const isFragmented = (frameControl & 0x10) !== 0;
             const isFirstFragment = (frameControl & 0x20) !== 0;
             const isLastFragment = (frameControl & 0x40) !== 0;
             const isMiddleFragment = isFragmented && !isFirstFragment && !isLastFragment;
             
-            // 特殊处理：如果Bit 6是1但Bit 4是0，这可能是分片序列的最后一个帧
+            // Special handling: if Bit 6 is 1 but Bit 4 is 0, this might be the last frame of a fragmented sequence
             const isLastFrameInSequence = (frameControl & 0x40) !== 0 && (frameControl & 0x10) === 0;
             
-            // 调试：显示帧控制位的详细分析
+            // Debug: show detailed analysis of frame control bits
             console.log(`   🔍 Frame Control Analysis:`);
             console.log(`      Binary: ${frameControl.toString(2).padStart(8, '0')}`);
             console.log(`      Bit 4 (0x10): ${(frameControl & 0x10) ? '1' : '0'} (Fragmented)`);
@@ -778,7 +862,7 @@ class RealDeviceService {
             console.log(`      Bit 7 (0x80): ${(frameControl & 0x80) ? '1' : '0'} (Reserved)`);
             
             console.log(`   📋 Frame ${allFrames.length + 1} analysis: Multi-byte frame`);
-            console.log(`      Frame Control: 0x${frameControl.toString(16).padStart(2, '0')} (分片控制)`);
+            console.log(`      Frame Control: 0x${frameControl.toString(16).padStart(2, '0')} (fragmentation control)`);
             console.log(`      Sequence: ${sequenceNumber}`);
             console.log(`      Data Length: ${dataLength}`);
             console.log(`      Total Content Length: ${totalContentLength} bytes`);
@@ -792,7 +876,7 @@ class RealDeviceService {
               isFirstFrame = false;
             }
             
-            // 验证分片顺序
+            // Verify fragmentation sequence
             if (isFirstFragment) {
               expectedSequence = sequenceNumber;
               console.log(`   📊 First fragment sequence: ${expectedSequence}`);
@@ -801,13 +885,13 @@ class RealDeviceService {
               if (sequenceNumber !== expectedSequence) {
                 console.warn(`   ⚠️  Fragment sequence mismatch: expected ${expectedSequence}, got ${sequenceNumber}`);
                 console.warn(`   🔄 Adjusting expected sequence to ${sequenceNumber}`);
-                expectedSequence = sequenceNumber; // 调整期望序列号
+                expectedSequence = sequenceNumber; // Adjust expected sequence number
               } else {
                 console.log(`   ✅ Fragment sequence correct: ${sequenceNumber}`);
               }
             }
             
-            // 显示分片状态信息
+            // Display fragmentation status info
             if (isFragmented || isLastFrameInSequence) {
               console.log(`   📊 Fragment status: First=${isFirstFragment}, Last=${isLastFragment}, Middle=${isMiddleFragment}, LastInSequence=${isLastFrameInSequence}`);
               console.log(`   📊 Fragment progress: ${allFrames.length} fragments received, ${receivedDataLength}/${expectedTotalLength} bytes`);
@@ -818,9 +902,9 @@ class RealDeviceService {
             let actualDataLength: number;
             
             if (isFragmented || isLastFrameInSequence) {
-              // 分片帧或分片序列的最后一个帧：数据在 [帧控制][序列号][数据长度][内容总长度(2字节)][数据内容][校验]
-              // 对于分片帧，dataLength通常为0，实际数据在分片数据部分
-            const dataStart = 5; // Skip [帧控制][序列号][数据长度][内容总长度(2字节)]
+              // Fragmented frame or last frame of fragmented sequence: data is in [FrameControl][Sequence][DataLength][TotalLength(2 bytes)][Data][Checksum]
+              // For fragmented frames, dataLength is usually 0, actual data is in the fragment data part
+            const dataStart = 5; // Skip [FrameControl][Sequence][DataLength][TotalLength(2 bytes)]
             const dataEnd = responseData.length - 2; // Skip 2-byte checksum at end
               actualDataLength = dataEnd - dataStart;
               actualData = responseData.slice(dataStart, dataEnd);
@@ -829,8 +913,8 @@ class RealDeviceService {
               console.log(`      Data start: ${dataStart}, Data end: ${dataEnd}`);
               console.log(`      Actual data length: ${actualDataLength} bytes`);
             } else {
-              // 普通帧：数据在 [帧控制][序列号][数据长度][数据内容][校验]
-              const dataStart = 3; // Skip [帧控制][序列号][数据长度]
+              // Normal frame: data is in [FrameControl][Sequence][DataLength][Data][Checksum]
+              const dataStart = 3; // Skip [FrameControl][Sequence][DataLength]
               const dataEnd = responseData.length - 2; // Skip 2-byte checksum at end
               actualDataLength = dataEnd - dataStart;
               actualData = responseData.slice(dataStart, dataEnd);
@@ -851,12 +935,12 @@ class RealDeviceService {
               console.log(`   ✅ Frame ${allFrames.length} data stored (${actualDataLength} bytes)`);
               console.log(`   📊 Progress: ${receivedDataLength}/${expectedTotalLength} bytes received`);
               
-              // 检查是否是最后一个分片
+              // Check if this is the last fragment
               if (isLastFragment || isLastFrameInSequence) {
                 console.log(`   ✅ Last fragment received, completing reassembly`);
                 console.log(`   📊 Total data received: ${receivedDataLength} bytes`);
                 
-                // 即使没有达到期望长度，如果是最后一个分片就完成重组
+                // Complete reassembly even if expected length not reached, if this is the last fragment
                 if (receivedDataLength > 0) {
                   // Combine all data into a single buffer
                   const combinedData = new Uint8Array(receivedDataLength);
@@ -909,8 +993,8 @@ class RealDeviceService {
               clearTimeout(timeoutId);
             }
             
-            // 根据分片状态调整超时时间
-            let timeoutMs = 10000; // 默认10秒
+            // Adjust timeout based on fragmentation status
+            let timeoutMs = 10000; // Default 10 seconds
             if (responseData.length >= 5) {
               const frameControl = responseData[0];
               const isLastFragment = (frameControl & 0x40) !== 0;
@@ -919,9 +1003,9 @@ class RealDeviceService {
               const isFirstFragment = (frameControl & 0x20) !== 0;
               
               if (isLastFragment || isLastFrameInSequence) {
-                timeoutMs = 2000; // 如果是最后一个分片，只等待2秒
+                timeoutMs = 2000; // If this is the last fragment, only wait 2 seconds
               } else if (isFragmented || isFirstFragment) {
-                timeoutMs = 15000; // 如果是分片帧，等待15秒
+                timeoutMs = 15000; // If this is a fragmented frame, wait 15 seconds
               }
             }
             
@@ -1155,7 +1239,7 @@ class RealDeviceService {
     const optionalServices = [
       '00001800-0000-1000-8000-00805f9b34fb',  // Generic Access Service (0x1800)
       '00001801-0000-1000-8000-00805f9b34fb',  // Generic Attribute Service (0x1801)
-      '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi配网服务
+      '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi configuration service
     ];
     let options: any;
     
@@ -1305,7 +1389,7 @@ class RealDeviceService {
         optionalServices: [
           '00001800-0000-1000-8000-00805f9b34fb',  // Generic Access Service (0x1800)
           '00001801-0000-1000-8000-00805f9b34fb',  // Generic Attribute Service (0x1801)
-          '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi配网服务
+          '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi configuration service
         ]
       });
 
@@ -1347,7 +1431,7 @@ class RealDeviceService {
           optionalServices: [
             '00001800-0000-1000-8000-00805f9b34fb',  // Generic Access Service (0x1800)
             '00001801-0000-1000-8000-00805f9b34fb',  // Generic Attribute Service (0x1801)
-            '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi配网服务
+            '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi configuration service
           ]
         });
 
@@ -1422,7 +1506,7 @@ class RealDeviceService {
           optionalServices: [
             '00001800-0000-1000-8000-00805f9b34fb',  // Generic Access Service (0x1800)
             '00001801-0000-1000-8000-00805f9b34fb',  // Generic Attribute Service (0x1801)
-            '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi配网服务
+            '0000ffff-0000-1000-8000-00805f9b34fb'   // BLUFI Service (0xffff) - WiFi configuration service
           ]
         });
 
@@ -1670,7 +1754,7 @@ class RealDeviceService {
   private async sendWiFiConfigStartSignal(characteristic: BluetoothRemoteGATTCharacteristic): Promise<void> {
     try {
       // Send a BLUFI control frame to indicate WiFi configuration is starting
-      // Type=0x00 (control frame), Subtype=0x00 (handshake), Sequence=4 (匹配设备期望)
+      // Type=0x00 (control frame), Subtype=0x00 (handshake), Sequence=4 (matches device expectation)
       const startSignal = new Uint8Array([0x00, 0x02, 0x04, 0x00, 0x02, 0x00]); // [Type][FC][Seq][Len][Data][Checksum]
       
       console.log(`   📡 Sending WiFi config start signal: ${Array.from(startSignal).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
@@ -1938,21 +2022,21 @@ class RealDeviceService {
       
       // Send sequence 0 command (handshake/initialization) with proper CRC16 checksum
       // Frame format: [Type][Frame Control][Sequence][Data Length][Data][Checksum Low][Checksum High]
-      // Type byte: Subtype=0 (Negotiate), FrameType=00 (控制帧)
+      // Type byte: Subtype=0 (Negotiate), FrameType=00 (control frame)
       // Type = (0 << 2) | 0 = 0x00
-      // Frame Control = 0x02 (带校验和标志)
-      // Sequence = 0x00 (BLUFI 协议标准起始序列)
-      // Data Length = 0x00 (无数据)
+      // Frame Control = 0x02 (with checksum flag)
+      // Sequence = 0x00 (BLUFI protocol standard starting sequence)
+      // Data Length = 0x00 (no data)
       // Data = none
       // Checksum = CRC16 of [Sequence][Data Length][Data]
       const handshakeCommand0 = this.createBLUFICommand(0x00, 0, new Uint8Array(0));
       console.log('📊 Handshake command 0 (hex):', Array.from(handshakeCommand0).map(b => b.toString(16).padStart(2, '0')).join(' '));
       console.log('📋 Command format analysis:');
-      console.log('   Frame Control: 0x00 (控制帧，带校验)');
-      console.log('   Sequence: 0x00 (序列号0 - BLUFI协议标准)');
-      console.log('   Data Length: 0x00 (无数据)');
-      console.log('   Data: 无');
-      console.log('   Checksum: 0x' + Array.from(handshakeCommand0.slice(-2)).map(b => b.toString(16).padStart(2, '0')).join('') + ' (CRC16校验)');
+      console.log('   Frame Control: 0x00 (control frame, with checksum)');
+      console.log('   Sequence: 0x00 (sequence 0 - BLUFI protocol standard)');
+      console.log('   Data Length: 0x00 (no data)');
+      console.log('   Data: None');
+      console.log('   Checksum: 0x' + Array.from(handshakeCommand0.slice(-2)).map(b => b.toString(16).padStart(2, '0')).join('') + ' (CRC16 checksum)');
       console.log('📤 Writing handshake command 0 to GATT characteristic...');
       console.log('📊 Command data (hex):', Array.from(handshakeCommand0).map(b => b.toString(16).padStart(2, '0')).join(' '));
       console.log('📊 Command data (bytes):', handshakeCommand0.length, 'bytes');
@@ -2049,18 +2133,18 @@ class RealDeviceService {
       console.log('🔔 According to BLUFI docs: ESP device will scan WiFi and send back WiFi hotspot report');
       
       // First, send "Disconnect from AP" command with sequence 1
-      // 原因：设备可能正在连接之前保存的WiFi，导致 "STA is connecting, scan are not allowed!"
+      // Reason: device might be connecting to previously saved WiFi, causing "STA is connecting, scan are not allowed!"
       console.log('🔄 Step 1: Sending Disconnect from AP command...');
       // Type byte for "Disconnect from AP" control frame:
-      // Subtype=4 (断开AP连接), FrameType=00 (控制帧)
+      // Subtype=4 (disconnect from AP), FrameType=00 (control frame)
       // Type = (4 << 2) | 0 = 0x10
       const disconnectCommand = this.createBLUFICommand(0x10, 1, new Uint8Array(0));
       
       console.log('📊 Disconnect command (hex):', Array.from(disconnectCommand).map(b => b.toString(16).padStart(2, '0')).join(' '));
       console.log('📋 Command format analysis:');
-      console.log('   Type: 0x10 (控制帧，断开AP连接)');
-      console.log('   Sequence: 0x01 (序列号1 - 握手后)');
-      console.log('   Data Length: 0x00 (无数据)');
+      console.log('   Type: 0x10 (control frame, disconnect from AP)');
+      console.log('   Sequence: 0x01 (sequence 1 - after handshake)');
+      console.log('   Data Length: 0x00 (no data)');
       
       try {
         await commandCharacteristic.writeValue(disconnectCommand);
@@ -2075,17 +2159,17 @@ class RealDeviceService {
       // Now send WiFi List Request command with sequence 2 (adjusted from 1)
       console.log('🔄 Step 2: Sending WiFi List Request command...');
       // Type byte for "Get WiFi List" control frame:
-      // Subtype=9 (获取WiFi列表), FrameType=00 (控制帧)
+      // Subtype=9 (get WiFi list), FrameType=00 (control frame)
       // Type = (9 << 2) | 0 = 0x24
       const wifiListCommand = this.createBLUFICommand(0x24, 2, new Uint8Array(0));
       
       console.log('📊 WiFi List Request command (hex):', Array.from(wifiListCommand).map(b => b.toString(16).padStart(2, '0')).join(' '));
       console.log('📋 Command format analysis:');
-      console.log('   Type: 0x24 (控制帧，获取Wi-Fi列表)');
-      console.log('   Sequence: 0x02 (序列号2 - 断开AP后)');
-      console.log('   Data Length: 0x00 (无数据)');
-      console.log('   Data: 无');
-      console.log('   Checksum: 0x' + Array.from(wifiListCommand.slice(-2)).map(b => b.toString(16).padStart(2, '0')).join('') + ' (CRC16校验)');
+      console.log('   Type: 0x24 (control frame, get WiFi list)');
+      console.log('   Sequence: 0x02 (sequence 2 - after disconnecting from AP)');
+      console.log('   Data Length: 0x00 (no data)');
+      console.log('   Data: None');
+      console.log('   Checksum: 0x' + Array.from(wifiListCommand.slice(-2)).map(b => b.toString(16).padStart(2, '0')).join('') + ' (CRC16 checksum)');
       
       try {
         console.log('📊 Command data (hex):', Array.from(wifiListCommand).map(b => b.toString(16).padStart(2, '0')).join(' '));
@@ -2179,12 +2263,12 @@ class RealDeviceService {
         console.log(`\n--- Parsing Frame ${i + 1}/${result.allFrames.length} ---`);
         const frameData = result.allFrames[i];
         
-        // 直接使用改进的WiFi网络解析逻辑
+        // Use improved WiFi network parsing logic directly
         console.log(`\n--- Parsing Frame ${i + 1}/${result.allFrames.length} ---`);
         console.log(`Frame data length: ${frameData.length} bytes`);
         console.log(`Frame data (hex): ${Array.from(frameData).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
         
-        // 使用改进的WiFi网络解析方法
+        // Use improved WiFi network parsing method
         const frameNetworks = this.parseWiFiNetworksFromPayload(frameData);
           allWiFiNetworks.push(...frameNetworks);
           console.log(`Frame ${i + 1} contributed ${frameNetworks.length} networks`);
@@ -2425,18 +2509,18 @@ class RealDeviceService {
         return networks;
       }
       
-      // 检查是否是分片帧格式还是直接的WiFi数据
+      // Check if this is fragmented frame format or direct WiFi data
       let dataStart: number;
       let dataEnd: number;
       
-      // 检查是否是分片帧格式：前5个字节是头部，第3个字节（dataLength）为0
+      // Check if this is fragmented frame format: first 5 bytes are header, 3rd byte (dataLength) is 0
       if (payloadData.length >= 5 && payloadData[2] === 0) {
-        // 分片帧格式：[帧控制][序列号][数据长度][内容总长度(2字节)][数据内容][校验]
+        // Fragmented frame format: [FrameControl][Sequence][DataLength][TotalLength(2 bytes)][Data][Checksum]
         console.log('📋 Fragmented frame format detected');
         dataStart = 5;
         dataEnd = payloadData.length - 2; // Skip 2-byte checksum at end
       } else {
-        // 直接的WiFi数据
+        // Direct WiFi data
         console.log('📋 Direct WiFi data format detected');
         dataStart = 0;
         dataEnd = payloadData.length;
@@ -2451,9 +2535,9 @@ class RealDeviceService {
         return networks;
       }
       
-      // 简化的WiFi数据解析：基于实际日志分析
-      // 格式：[RSSI][SSID_ASCII_DATA][RSSI][SSID_ASCII_DATA]...
-      // 示例：c6 48 33 43 5f 34 30 31 07 bd 34 30 31 34
+      // Simplified WiFi data parsing: based on actual log analysis
+      // Format: [RSSI][SSID_ASCII_DATA][RSSI][SSID_ASCII_DATA]...
+      // Example: c6 48 33 43 5f 34 30 31 07 bd 34 30 31 34
       //       -58 H3C_401     7 -67 4014
       
       let offset = dataStart;
@@ -2468,35 +2552,35 @@ class RealDeviceService {
         console.log('Offset:', offset, 'Remaining:', dataEnd - offset);
         console.log('Next bytes:', Array.from(payloadData.slice(offset, Math.min(offset + 10, dataEnd))).map(b => b.toString(16).padStart(2, '0')).join(' '));
         
-        // 读取RSSI
+        // Read RSSI
         const rssiRaw = payloadData[offset];
         const rssi = rssiRaw > 127 ? rssiRaw - 256 : rssiRaw;
         console.log('RSSI raw:', rssiRaw, '→', rssi, 'dBm');
         
-        // 查找连续的ASCII字符作为SSID
+        // Find consecutive ASCII characters as SSID
         let ssidStart = offset + 1;
         let ssidLength = 0;
         let ssidEnd = ssidStart;
         
-        // 从RSSI后开始查找ASCII字符
+        // Start searching for ASCII characters after RSSI
         for (let i = ssidStart; i < dataEnd; i++) {
           const char = payloadData[i];
           if (char >= 0x20 && char <= 0x7E) {
-            // 可打印ASCII字符
+            // Printable ASCII character
             ssidLength++;
             ssidEnd = i + 1;
           } else {
-            // 遇到非ASCII字符，检查下一个字节是否可能是RSSI
+            // Encountered non-ASCII character, check if next byte might be RSSI
             const nextByte = payloadData[i];
             const nextRssi = nextByte > 127 ? nextByte - 256 : nextByte;
             
-            // 如果下一个字节看起来像RSSI值（-100到-30之间），则停止
+            // If next byte looks like RSSI value (between -100 and -30), stop
             if (nextRssi >= -100 && nextRssi <= -30) {
               console.log('Found potential next RSSI at offset', i, 'value:', nextRssi);
               break;
             }
             
-            // 否则继续查找
+            // Otherwise continue searching
             ssidLength++;
             ssidEnd = i + 1;
           }
@@ -2508,7 +2592,7 @@ class RealDeviceService {
           
           console.log('Found SSID:', `"${ssid}"`, '(length:', ssidLength, ')');
           
-          // 创建WiFi网络对象
+          // Create WiFi network object
           const network: WiFiNetwork = {
             id: `wifi_${Date.now()}_${networkCount}`,
             name: ssid,
@@ -2522,14 +2606,14 @@ class RealDeviceService {
           networkCount++;
           console.log(`✅ Successfully parsed WiFi network ${networkCount}: "${ssid}" (${rssi} dBm)`);
           
-          // 更新偏移量到SSID结束位置
+          // Update offset to SSID end position
           offset = ssidEnd;
         } else {
           console.log('No valid SSID found, skipping to next byte');
           offset++;
         }
         
-        // 防止无限循环
+        // Prevent infinite loop
         if (offset >= dataEnd) {
           break;
         }
@@ -2545,28 +2629,28 @@ class RealDeviceService {
   }
 
 
-  // 推测完整的SSID（用于处理截断的情况）
+  // Guess complete SSID (for handling truncated cases)
   private guessFullSSID(partialSSID: string): string {
-    // 常见的WiFi命名模式
+    // Common WiFi naming patterns
     const commonPatterns = [
-      /^(\d+)$/, // 纯数字
-      /^(\d+)-(\d+)$/, // 数字-数字
-      /^(\d+)-5G$/, // 数字-5G
-      /^(\d+)-2G$/, // 数字-2G
+      /^(\d+)$/, // Pure numbers
+      /^(\d+)-(\d+)$/, // Numbers-numbers
+      /^(\d+)-5G$/, // Numbers-5G
+      /^(\d+)-2G$/, // Numbers-2G
     ];
     
     for (const pattern of commonPatterns) {
       const match = partialSSID.match(pattern);
       if (match) {
-        // 如果匹配常见模式，尝试补全
+        // If matches common pattern, try to complete
         if (partialSSID.length >= 4 && /^\d+$/.test(partialSSID)) {
-          // 可能是401401-5G的截断
+          // Might be truncated 401401-5G
           return `${partialSSID}-5G`;
         }
       }
     }
     
-    return partialSSID; // 无法推测，返回原值
+    return partialSSID; // Cannot guess, return original value
   }
 
   // Parse WiFi network list from response data according to BLUFI protocol
@@ -2765,10 +2849,10 @@ class RealDeviceService {
     try {
       console.log('Writing WiFi configuration to device:', wifiConfig);
       
-      // ✅ 保持现有 GATT 连接：不主动断开/重连
+      // ✅ Keep existing GATT connection: don't actively disconnect/reconnect
       const gattServer = await this.getGATTConnection(device);
       const deviceId = device.id || device.name;
-      // 确保 FF02 notify 已启用
+      // Ensure FF02 notify is enabled
       await this.ensureBlufiNotificationChannel(deviceId, gattServer);
       
       // ✅ Pass device ID for FF02 notification channel lookup
@@ -2777,7 +2861,7 @@ class RealDeviceService {
       return statusResponse;
     } catch (error) {
       console.error('❌ Failed to write WiFi configuration:', error);
-      throw error; // ✅ 直接抛出，不再fallback到模拟成功
+      throw error; // ✅ Throw directly, no longer fallback to simulated success
     }
   }
 
@@ -2785,7 +2869,7 @@ class RealDeviceService {
   private async waitForDeviceAck(
     deviceId: string,
     stepContext: string, // e.g., "SSID", "Password", "Connect"
-    timeoutMs: number = 15000,
+    timeoutMs: number = 5000,
     expectedSeq?: number
   ): Promise<boolean> {
     return new Promise((resolve) => {
@@ -2800,7 +2884,7 @@ class RealDeviceService {
         console.log(`   📊 Raw data: ${hexStr}`);
         
         if (responseData.byteLength >= 4) {
-          // ✅ 正确的 BLUFI 帧格式解析
+          // ✅ Correct BLUFI frame format parsing
           // [Type(1)][FrameControl(1)][Sequence(1)][DataLength(1)][Data(n)]
           const frameType = responseData[0];
           const frameControl = responseData[1];
@@ -2813,11 +2897,11 @@ class RealDeviceService {
             console.log(`   🔢 ACK sequence check: expected=${expectedSeq}, received=${sequence}, match=${seqMatch}`);
           }
           
-          // ✅ 关键判断：0x49 + ok + 时间窗/步骤上下文
+          // ✅ Key judgment: 0x49 + ok + time window/step context
           if (frameType === 0x49) {
             console.log(`   📨 Device ACK/Status frame (Type=0x49) for ${stepContext}`);
             
-            // 检查是否有实际数据
+            // Check if there's actual data
             const actualDataBytes = responseData.length > 4 ? responseData.slice(4) : [];
             if (actualDataBytes.length > 0) {
               console.log(`   📦 Data (${actualDataBytes.length} bytes): ${Array.from(actualDataBytes).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')}`);
@@ -2826,7 +2910,7 @@ class RealDeviceService {
               console.log(`   📊 Status error code: ${errorCode}`);
               
               if (errorCode === 0) {
-                console.log(`   ✅ ACK confirmed for ${stepContext}: error code 0 (成功)`);
+                console.log(`   ✅ ACK confirmed for ${stepContext}: error code 0 (success)`);
                 clearTimeout(timeoutHandle);
                 this.unregisterNotificationHandler(deviceId, 'ack');
                 resolved = true;
@@ -2834,7 +2918,7 @@ class RealDeviceService {
                 return;
               } else {
                 console.log(`   ⚠️  ACK with error for ${stepContext}: error code ${errorCode}`);
-                // 即使有错误，也认为是ACK响应，继续下一步
+                // Even with error, consider it as ACK response, continue to next step
                 clearTimeout(timeoutHandle);
                 this.unregisterNotificationHandler(deviceId, 'ack');
                 resolved = true;
@@ -2842,7 +2926,7 @@ class RealDeviceService {
                 return;
               }
             } else {
-              // 没有数据部分，也认为是ACK
+              // No data part, also consider as ACK
               console.log(`   ✅ ACK confirmed for ${stepContext}: Type=0x49 without data`);
               clearTimeout(timeoutHandle);
               this.unregisterNotificationHandler(deviceId, 'ack');
@@ -2883,15 +2967,18 @@ class RealDeviceService {
   ): Promise<any> {
     const configKey = `${wifiConfig.ssid}_${Date.now()}`;
     
-    // ✅ 防止并发配网：检查是否已有配网流程在进行
+    // ✅ Prevent concurrent configuration: check if configuration process is already in progress
     if (this.activeWiFiConfigurations.size > 0) {
       const activeConfig = Array.from(this.activeWiFiConfigurations)[0];
-      console.error(`⚠️  配网流程已在进行中: ${activeConfig}，拒绝重复配网请求`);
+      console.error(`⚠️  Configuration process already in progress: ${activeConfig}, rejecting duplicate configuration request`);
       throw new Error('WiFi configuration already in progress');
     }
     
+    // Clear any previous WiFi connection success status for this device
+    this.clearWiFiConnectionSuccessStatus(deviceId);
+    
     this.activeWiFiConfigurations.add(configKey);
-    console.log(`🔒 配网流程已锁定: ${configKey}`);
+    console.log(`🔒 Configuration process locked: ${configKey}`);
     
     try {
       console.log('Writing WiFi configuration to GATT characteristic using BLUFI protocol:', {
@@ -2920,13 +3007,13 @@ class RealDeviceService {
       console.log(`📡 Ensuring FF02 notification channel is active for device ${deviceId}`);
       const responseCharacteristic = await this.ensureBlufiNotificationChannel(deviceId, gattServer);
       
-      // ✅ 不再进行额外握手/断开：直接从设备期望的 seq=4 开始
+      // ✅ No additional handshake/disconnect: start directly from device expected seq=4
       console.log(`🔄 Sending WiFi config frames starting at SSID(seq=4) → Password(5) → Connect(6)`);
       
-      // 缓冲：停止扫描与配网之间等待 400ms
+      // Buffer: wait 400ms between stopping scan and configuration
       await new Promise(resolve => setTimeout(resolve, 400));
 
-      // 恢复：发送 Set Opmode(seq=3) 一次（不重试），先注册 ACK，再写入，再等待；无论 ACK 与否都继续
+      // Recovery: send Set Opmode(seq=3) once (no retry), register ACK first, then write, then wait; continue regardless of ACK
       try {
         console.log(`   ⚙️  Sending Set Opmode (STA) with seq=3`);
         const opmodeFrame = this.createSetOpmodeFrame(3, 0x01);
@@ -2952,7 +3039,7 @@ class RealDeviceService {
       console.log(`WiFi config data prepared: ${configFrames.length} frames`);
       console.log('🔄 Using ACK-based flow: wait for device confirmation before sending next frame');
       
-      // ✅ 严格串行化：一帧一ACK，防止序号混乱
+      // ✅ Strict serialization: one frame one ACK, prevent sequence confusion
       for (let i = 0; i < configFrames.length; i++) {
         const frame = configFrames[i];
         const frameSeq = frame[2]; // Sequence number is at index 2
@@ -2965,35 +3052,37 @@ class RealDeviceService {
           sequence: frameSeq
         });
         
-        // ✅ 写入前小延时，确保BLE栈准备好（100ms）
+        // ✅ Small delay before writing, ensure BLE stack is ready (100ms)
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // ✅ CRITICAL FIX: 在写入数据之前就设置好ACK监听器
+        // ✅ CRITICAL FIX: set up ACK listener before writing data
         const stepContext = i === 0 ? 'SSID' : i === 1 ? 'Password' : 'Connect';
         console.log(`   🎧 Setting up ACK listener before writing ${stepContext} (seq ${frameSeq})...`);
-        // 设备 ACK 0x49 的序列独立于上行，实测为 1/2/3 对应 SSID/Password/Connect
-        // ACK 序号仅用于日志：Opmode→1，SSID→2，Password→3，Connect→4
+        // Device ACK 0x49 sequence is independent of uplink, actual test shows 1/2/3 corresponding to SSID/Password/Connect
+        // ACK sequence number only for logging: Opmode→1, SSID→2, Password→3, Connect→4
         const expectedAckSeq = i + 2;
-        const ackPromise = this.waitForDeviceAck(deviceId, stepContext, 15000, expectedAckSeq);
+        // Use reasonable timeout: SSID/Password use 8000ms, Connect use 5000ms
+        const timeoutMs = i === 2 ? 5000 : 8000; // Connect step uses shorter timeout
+        const ackPromise = this.waitForDeviceAck(deviceId, stepContext, timeoutMs, expectedAckSeq);
         
         try {
-          // ✅ 单次写入，不重试
+          // ✅ Single write, no retry
           await characteristic.writeValue(frame);
           console.log(`   ✅ Frame ${i + 1} written (seq ${frameSeq})`);
           
-          // ✅ 写入后固定等待窗口（20-50ms），让BLE通知到达
+          // ✅ Fixed wait window after writing (20-50ms), let BLE notification arrive
           await new Promise(resolve => setTimeout(resolve, 50));
           
         } catch (writeError: any) {
-          // ✅ 写入失败立即终止，不重发
+          // ✅ Write failure immediately terminates, no retry
           console.error(`   ❌ Frame ${i + 1} write failed:`, writeError);
           if (writeError.message?.includes('in progress')) {
-            console.error(`   ⚠️  GATT operation already in progress - 并发写错误！`);
+            console.error(`   ⚠️  GATT operation already in progress - concurrent write error!`);
           }
           throw new Error(`Failed to write frame ${i + 1} (seq ${frameSeq}): ${writeError.message}`);
         }
         
-        // ✅ 等待设备ACK（监听器已经在写入前设置好了）
+        // ✅ Wait for device ACK (listener already set up before writing)
         console.log(`   ⏳ Waiting for ACK (seq ${frameSeq})...`);
         const ackReceived = await ackPromise;
         
@@ -3003,7 +3092,7 @@ class RealDeviceService {
           console.log(`   ✅ ACK received for ${stepContext}`);
         }
 
-        // ✅ 下一帧前等待（无论是否收到ACK，都给设备处理时间）
+        // ✅ Wait before next frame (regardless of ACK received, give device processing time)
         if (i < configFrames.length - 1) {
           console.log(`   ⏸️  Waiting 2000ms before next frame...`);
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -3012,8 +3101,24 @@ class RealDeviceService {
       
       console.log('✅ All WiFi configuration frames sent successfully');
       
-      // After sending all configuration frames, wait for status response
-      console.log('🔍 Waiting for device status response...');
+      // Check if WiFi connection success has already been confirmed via 0x3d ACK
+      if (this.hasReceivedWiFiConnectionSuccess(deviceId)) {
+        console.log('✅ WiFi connection success already confirmed via 0x3d ACK, skipping status response wait');
+        console.log('🚀 WiFi configuration completed successfully - device connected to WiFi');
+        
+        // Clear the success status to avoid affecting future configurations
+        this.clearWiFiConnectionSuccessStatus(deviceId);
+        
+        return {
+          success: true,
+          message: 'WiFi connection established successfully',
+          confirmedBy: '0x3d ACK',
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      // Only wait for status response if 0x3d ACK was not received
+      console.log('🔍 No 0x3d ACK received yet, waiting for device status response...');
       const statusResponse = await this.waitForWiFiStatusResponse(service);
       
       if (statusResponse) {
@@ -3027,9 +3132,9 @@ class RealDeviceService {
       console.error('Failed to write WiFi configuration to GATT:', error);
       throw new Error('GATT write failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
-      // ✅ 释放配网锁
+      // ✅ Release configuration lock
       this.activeWiFiConfigurations.delete(configKey);
-      console.log(`🔓 配网流程已解锁: ${configKey}`);
+      console.log(`🔓 Configuration process unlocked: ${configKey}`);
     }
   }
 
@@ -3063,9 +3168,9 @@ class RealDeviceService {
   private createSSIDFrame(ssid: string, sequence: number): Uint8Array {
     // SSID: Data Frame (FrameType=1), Subtype=2
     // Type = (2 << 2) | 1 = 0x09
-    // Data format: [SSID_Bytes...]  ← 长度由外层 DataLength 提供（不再额外前置内部长度字节）
+    // Data format: [SSID_Bytes...]  ← length provided by outer DataLength (no additional internal length prefix)
     const ssidBytes = new TextEncoder().encode(ssid);
-    // 按文档：Data 直接为 SSID 字节序列
+    // According to documentation: Data is directly SSID byte sequence
     const ssidData = ssidBytes;
     
     console.log('🔍 SSID encoding debug:', {
@@ -3075,7 +3180,7 @@ class RealDeviceService {
       payload: Array.from(ssidData).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')
     });
     
-    // 恢复CRC
+    // Restore CRC
     const ssidFrame = this.createBLUFICommand(0x09, sequence, ssidData);
     console.log(`✅ SSID frame created (seq ${sequence}, type 0x09: SSID, format=[len][ssid])`);
     return ssidFrame;
@@ -3085,9 +3190,9 @@ class RealDeviceService {
   private createPasswordFrame(password: string, sequence: number): Uint8Array {
     // Password: Data Frame (FrameType=1), Subtype=3
     // Type = (3 << 2) | 1 = 0x0D
-    // Data format: [Password_Bytes...]  ← 长度由外层 DataLength 提供（不再额外前置内部长度字节）
+    // Data format: [Password_Bytes...]  ← length provided by outer DataLength (no additional internal length prefix)
     const passwordBytes = new TextEncoder().encode(password);
-    // 按文档：Data 直接为密码字节序列
+    // According to documentation: Data is directly password byte sequence
     const passwordData = passwordBytes;
     
     console.log('🔍 Password encoding debug:', {
@@ -3115,7 +3220,7 @@ class RealDeviceService {
     // Set opmode: Control Frame (FrameType=0), Subtype=1 → Type = (1 << 2) | 0 = 0x04
     // Data: [opmode], 0x01 = STA
     const data = new Uint8Array([mode]);
-    // 恢复CRC
+    // Restore CRC
     const opmodeFrame = this.createBLUFICommand(0x04, sequence, data);
     console.log(`✅ Set Opmode frame created (seq ${sequence}, type 0x04: opmode=${mode})`);
     return opmodeFrame;
@@ -3133,8 +3238,8 @@ class RealDeviceService {
   // Prepare WiFi configuration data for GATT transmission using proper BLUFI protocol
   private prepareWiFiConfigData(wifiConfig: WiFiConfigData): Uint8Array[] {
     try {
-      // ⚠️ 关键修复：清理SSID，移除非打印字符（如\x07）
-      // WiFi扫描结果可能包含控制字符，需要过滤掉
+      // ⚠️ Critical fix: clean SSID, remove non-printable characters (like \x07)
+      // WiFi scan results may contain control characters, need to filter them out
       const cleanSSID = wifiConfig.ssid.replace(/[\x00-\x1F\x7F]/g, '').trim();
       
       if (cleanSSID !== wifiConfig.ssid) {
@@ -3160,12 +3265,12 @@ class RealDeviceService {
       const frames: Uint8Array[] = [];
       
       console.log('🔢 Starting BLUFI WiFi configuration sequence');
-      console.log('📋 Type字段格式: (Subtype << 2) | FrameType, 其中FrameType: 00=控制帧, 01=数据帧');
-      console.log('✅ 配网流程：SSID → Password → Connect');
-      console.log('📋 上行序列（客户端→设备）：seq 4=SSID, seq 5=Password, seq 6=Connect');
-      console.log('ℹ️  上下行序列独立：设备响应有自己的序列号，不占用客户端上行序列');
+      console.log('📋 Type field format: (Subtype << 2) | FrameType, where FrameType: 00=control frame, 01=data frame');
+      console.log('✅ Configuration flow: SSID → Password → Connect');
+      console.log('📋 Uplink sequence (client→device): seq 4=SSID, seq 5=Password, seq 6=Connect');
+      console.log('ℹ️  Uplink/downlink sequences are independent: device responses have their own sequence numbers, not occupying client uplink sequences');
 
-      // Step 1: Send SSID (使用清理后的SSID) - seq 4
+      // Step 1: Send SSID (using cleaned SSID) - seq 4
       const ssidFrame = this.createSSIDFrame(cleanSSID, 4);
       frames.push(ssidFrame);
       

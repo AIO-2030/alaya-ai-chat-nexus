@@ -89,6 +89,49 @@ export class DeviceInitManager {
       connectionProgress: 0,
       error: null
     };
+
+    // 监听 WiFi 连接成功事件
+    this.setupWiFiConnectionSuccessListener();
+  }
+
+  // 设置 WiFi 连接成功事件监听器
+  private setupWiFiConnectionSuccessListener(): void {
+    // 监听自定义事件
+    window.addEventListener('wifiConnectionSuccess', (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { deviceId, timestamp } = customEvent.detail;
+      console.log(`[DeviceInitManager] WiFi connection success received for device ${deviceId} at ${timestamp}`);
+      
+      // 如果当前在 WiFi 配置步骤，自动进入成功步骤
+      if (this.state.step === DeviceInitStep.WIFI_CONFIG) {
+        console.log(`[DeviceInitManager] Auto-advancing to success step after WiFi connection success`);
+        this.handleWiFiConnectionSuccess();
+      }
+    });
+
+    // 设置回调函数
+    realDeviceService.setWiFiConnectionSuccessCallback((deviceId: string) => {
+      console.log(`[DeviceInitManager] WiFi connection success callback for device ${deviceId}`);
+      
+      // 如果当前在 WiFi 配置步骤，自动进入成功步骤
+      if (this.state.step === DeviceInitStep.WIFI_CONFIG) {
+        console.log(`[DeviceInitManager] Auto-advancing to success step after WiFi connection success callback`);
+        this.handleWiFiConnectionSuccess();
+      }
+    });
+  }
+
+  // 处理 WiFi 连接成功
+  private handleWiFiConnectionSuccess(): void {
+    console.log(`[DeviceInitManager] Handling WiFi connection success`);
+    
+    // 更新状态
+    this.state.isConfiguringWifi = false;
+    this.state.connectionProgress = 100;
+    this.state.step = DeviceInitStep.SUCCESS;
+    this.state.error = null;
+    
+    console.log(`[DeviceInitManager] Device configuration completed successfully`);
   }
 
   // Get current state

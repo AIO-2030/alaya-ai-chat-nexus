@@ -721,38 +721,38 @@ const AddDevice = () => {
 
         {/* Manual WiFi Input Dialog */}
         <Dialog open={showManualWifiDialog} onOpenChange={setShowManualWifiDialog}>
-          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 w-[95vw] max-w-md mx-auto shadow-2xl">
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] max-w-md mx-auto shadow-2xl">
             <DialogHeader className="pb-4">
               <DialogTitle className="text-white flex items-center gap-3">
                 <Wifi className="h-5 w-5 text-cyan-400" />
-                Enter WiFi Network Name
+                {t('common.enterWifiNameTitle')}
               </DialogTitle>
               <p className="text-white/60 text-sm">
-                WiFi scan timed out. Please enter your WiFi network name manually.
+                {t('common.enterWifiNameDesc')}
               </p>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-white text-sm font-medium">WiFi Network Name (SSID)</label>
+                <label className="text-white text-sm font-medium">{t('common.wifiSsidLabel')}</label>
                 <Input
                   type="text"
                   value={manualWifiSSID}
                   onChange={(e) => setManualWifiSSID(e.target.value)}
-                  placeholder="Enter WiFi network name"
+                  placeholder={t('common.wifiSsidPlaceholder')}
                   className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
                   onKeyPress={(e) => e.key === 'Enter' && handleManualWifiSubmit()}
                 />
               </div>
               
               <div className="space-y-2">
-                <label className="text-white text-sm font-medium">Security Type</label>
+                <label className="text-white text-sm font-medium">{t('common.wifiSecurityType')}</label>
                 <select
                   value={manualWifiSecurity}
                   onChange={(e) => setManualWifiSecurity(e.target.value)}
                   className="w-full bg-white/5 border border-white/20 text-white rounded-md px-3 py-2 backdrop-blur-sm"
                 >
-                  <option value="Open">Open (No Password)</option>
+                  <option value="Open">{t('common.wifiSecurity.openNoPassword')}</option>
                   <option value="WEP">WEP</option>
                   <option value="WPA">WPA</option>
                   <option value="WPA2">WPA2</option>
@@ -766,14 +766,14 @@ const AddDevice = () => {
                   variant="outline"
                   className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={handleManualWifiSubmit}
                   disabled={!manualWifiSSID.trim()}
                   className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0"
                 >
-                  Continue
+                  {t('common.continue')}
                 </Button>
               </div>
             </div>
@@ -790,14 +790,14 @@ const AddDevice = () => {
             setWifiSsid('');
           }
         }}>
-          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 w-[95vw] max-w-md mx-auto shadow-2xl">
+          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] max-w-md mx-auto shadow-2xl">
             <DialogHeader className="pb-4">
               <DialogTitle className="text-white flex items-center gap-3">
                 <Wifi className="h-5 w-5 text-cyan-400" />
                 {t('common.enterWifiPassword')}
               </DialogTitle>
               <p className="text-white/60 text-sm">
-                请输入所选 WiFi 网络的密码以完成设备配置
+                {t('common.enterWifiPasswordDesc')}
               </p>
             </DialogHeader>
             
