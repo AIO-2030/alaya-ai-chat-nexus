@@ -9,6 +9,7 @@ import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
+import {createOrderAndGetInvoiceUrl} from '@/services/bitpay';
 
 const Shop = () => {
   const { user, loading: authLoading } = useAuth();
