@@ -13,7 +13,8 @@ export type CreateOrderArgs = {
 
 export async function createOrderAndGetInvoiceUrl(args: CreateOrderArgs) {
     const agent = new HttpAgent();
-    if (process.env.DFX_NETWORK !== 'ic') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((globalThis as any).process?.env?.DFX_NETWORK !== 'ic') {
         await agent.fetchRootKey();
     }
 

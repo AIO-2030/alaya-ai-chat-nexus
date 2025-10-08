@@ -1,5 +1,6 @@
 // Real Device Service - Implement actual WiFi and Bluetooth functionality
 // botrate:74880
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { deviceApiService, DeviceRecord as ApiDeviceRecord } from './api/deviceApi';
 import type { DeviceType, DeviceStatus as BackendDeviceStatus } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 import { calculateCRC16 } from '../lib/encriptutil';
@@ -12,7 +13,9 @@ declare global {
   
   interface BluetoothRemoteGATTServer {
     connect(): Promise<BluetoothRemoteGATTServer>;
+    disconnect(): void;
     getPrimaryService(service: BluetoothServiceUUID): Promise<BluetoothRemoteGATTService>;
+    connected: boolean;
   }
   
   interface BluetoothRemoteGATTService {
@@ -104,8 +107,8 @@ class RealDeviceService {
   // WiFi scan listening management
   private activeWiFiScanListeners = new Map<string, {
     responseCharacteristic: BluetoothRemoteGATTCharacteristic;
-    timeoutId?: NodeJS.Timeout;
-    readInterval?: NodeJS.Timeout;
+    timeoutId?: number;
+    readInterval?: number;
     isActive: boolean;
     handleResponse?: (event: any) => void; // ✅ Store listener reference for cleanup
   }>();
@@ -775,8 +778,8 @@ class RealDeviceService {
       const allFrames: Uint8Array[] = [];
       let lastSequence = -1;
       let isComplete = false;
-      let timeoutId: NodeJS.Timeout | undefined;
-      let readInterval: NodeJS.Timeout;
+      let timeoutId: number | undefined;
+      let readInterval: number | undefined;
       
       // Set up notification listener for multiple frames
       let expectedTotalLength = 0;
@@ -1112,6 +1115,7 @@ class RealDeviceService {
       });
       
       // Set up periodic reading to check for data (less frequent to avoid duplicates)
+      // eslint-disable-next-line prefer-const
       readInterval = setInterval(async () => {
         try {
           const value = await responseCharacteristic.readValue();
@@ -1615,11 +1619,9 @@ class RealDeviceService {
         try {
           // Request device with flexible connection strategy
           console.log('[BLE] Requesting device:', device.name);
-          let bluetoothDevice;
-          
           // Request device with single strategy (by name with services first)
           console.log('[BLE] Requesting device connection');
-          bluetoothDevice = await this.requestBluetoothDevice(device, 'nameWithServices');
+          const bluetoothDevice = await this.requestBluetoothDevice(device, 'nameWithServices');
 
           if (!bluetoothDevice) {
             throw new Error('No device selected');
@@ -2558,7 +2560,7 @@ class RealDeviceService {
         console.log('RSSI raw:', rssiRaw, '→', rssi, 'dBm');
         
         // Find consecutive ASCII characters as SSID
-        let ssidStart = offset + 1;
+        const ssidStart = offset + 1;
         let ssidLength = 0;
         let ssidEnd = ssidStart;
         
@@ -2873,7 +2875,8 @@ class RealDeviceService {
     expectedSeq?: number
   ): Promise<boolean> {
     return new Promise((resolve) => {
-      let timeoutHandle: NodeJS.Timeout;
+      // eslint-disable-next-line prefer-const
+      let timeoutHandle: number | undefined;
       let resolved = false;
       
       const handleAck = (responseData: Uint8Array) => {
@@ -3125,8 +3128,8 @@ class RealDeviceService {
         console.log('✅ WiFi status response received:', statusResponse);
         return statusResponse;
       } else {
-        console.log('⚠️  No status response received, configuration may have failed');
-        return null;
+        console.error('❌ No status response received, WiFi configuration failed');
+        throw new Error('WiFi configuration failed: No status response received from device after 30 seconds timeout');
       }
     } catch (error) {
       console.error('Failed to write WiFi configuration to GATT:', error);
@@ -3240,6 +3243,7 @@ class RealDeviceService {
     try {
       // ⚠️ Critical fix: clean SSID, remove non-printable characters (like \x07)
       // WiFi scan results may contain control characters, need to filter them out
+      // eslint-disable-next-line no-control-regex
       const cleanSSID = wifiConfig.ssid.replace(/[\x00-\x1F\x7F]/g, '').trim();
       
       if (cleanSSID !== wifiConfig.ssid) {
@@ -3307,7 +3311,7 @@ class RealDeviceService {
       // Wait for status response with timeout
       const statusResponse = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          console.log('⏰ Status response timeout (30 seconds)');
+          console.error('⏰ Status response timeout (30 seconds) - WiFi configuration may have failed');
           resolve(null);
         }, 30000); // 30 second timeout
         
@@ -3879,9 +3883,9 @@ class RealDeviceService {
   stopAllWiFiScanListening(): void {
     console.log('🛑 Stopping all WiFi scan listening');
     
-    for (const [deviceId, listener] of this.activeWiFiScanListeners) {
+    this.activeWiFiScanListeners.forEach((listener, deviceId) => {
       this.stopWiFiScanListening(deviceId);
-    }
+    });
     
     this.activeWiFiScanListeners.clear();
     console.log('✅ All WiFi scan listening stopped');
