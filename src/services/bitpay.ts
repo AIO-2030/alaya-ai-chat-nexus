@@ -1,5 +1,5 @@
-import {createActor, canisterId} from '../../declarations/alaya-chat-nexus-frontend';
-import {HttpAgent} from '@dfinity/agent';
+import { createActor, canisterId } from '../../declarations/aio-base-backend';
+import { HttpAgent } from '@dfinity/agent';
 
 export type CreateOrderArgs = {
     orderId: string;
@@ -13,28 +13,28 @@ export type CreateOrderArgs = {
 
 export async function createOrderAndGetInvoiceUrl(args: CreateOrderArgs) {
     const agent = new HttpAgent();
-    if (process.env.DFX_NETWORK !== 'ic') {
-        await agent.fetchRootKey();
-    }
+    if (process.env.DFX_NETWORK !== 'ic') await agent.fetchRootKey();
+    const actor = createActor(canisterId, { agent });
 
-    const actor = createActor(canisterId, {agent});
-    const res = await actor.createOrderAndInvoice({
-        orderId: args.orderId,
+    const res = await actor.create_order_and_invoice({
+        order_id: args.orderId,
         amount: args.amount,
         currency: args.currency,
-        buyerEmail: args.buyerEmail ? [args.buyerEmail] : [],
-        shippingAddress: args.shippingAddress,
+        buyer_email: args.buyerEmail ? [args.buyerEmail] : [],
+        shipping_address: args.shippingAddress,
         sku: args.sku,
-        redirectBase: args.redirectBase,
+        redirect_base: args.redirectBase,
     });
 
-    const invoiceId = (res.invoiceId ?? res['invoiceId']) as string;
-    const invoiceUrl = (res.invoiceUrl ?? res['invoiceUrl']) as string;
-    if (!invoiceUrl) {
-        throw new Error('No invoiceUrl from canister');
-    }
-
-    return {invoiceId, invoiceUrl};
+    const invoiceUrl = (res as any).invoice_url as string;
+    const invoiceId  = (res as any).invoice_id as string;
+    if (!invoiceUrl) throw new Error('No invoiceUrl from backend');
+    return { invoiceId, invoiceUrl };
 }
 
-
+export async function getOrderById(orderId: string) {
+    const agent = new HttpAgent();
+    if (process.env.DFX_NETWORK !== 'ic') await agent.fetchRootKey();
+    const actor = createActor(canisterId, { agent });
+    return await actor.get_order_by_id(orderId);
+}

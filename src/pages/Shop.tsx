@@ -153,31 +153,30 @@ const Shop = () => {
     }
 
     setProcessingPayment(product.id);
-    
     try {
-      // Simulate calling wallet plugin for USDT payment
-      console.log(`Processing payment for ${product.name}: ${product.price} USDT`);
-      
-      // Here should call the actual wallet payment API
-      // await walletProvider.pay(product.price, 'USDT');
-      
-      // Simulate payment delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log(`Payment successful for ${product.name}`);
-      toast({
-        title: t('shop.paymentSuccess'),
-        description: t('shop.paymentSuccessDesc', { productName: product.name }),
-        variant: 'default'
+      const orderId =
+          (globalThis.crypto as any)?.randomUUID?.() ??
+          `pm-${Date.now()}-${Math.floor(Math.random()*1e6)}`;
+
+      const buyerEmail = (user as any)?.email ?? null;
+      const shippingAddress = 'TODO: collect from user form';
+      const sku = 'PIXELMUG-CLASSIC';
+      const currency = 'USD';
+
+      const { invoiceUrl } = await createOrderAndGetInvoiceUrl({
+        orderId,
+        amount: Number(product.price),
+        currency,
+        buyerEmail,
+        shippingAddress,
+        sku,
+        redirectBase: window.location.origin,
       });
-      
-    } catch (error) {
-      console.error('Payment failed:', error);
-      toast({
-        title: t('shop.paymentFailed'),
-        description: t('shop.paymentFailedDesc'),
-        variant: 'destructive'
-      });
+
+      window.location.href = invoiceUrl;
+
+    } catch (err) {
+      console.error('Create BitPay invoice failed:', err);
     } finally {
       setProcessingPayment(null);
     }
