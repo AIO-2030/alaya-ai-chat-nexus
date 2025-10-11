@@ -1,6 +1,5 @@
 // Device Message Service - Handle sending messages to connected devices
 import { GifInfo, PixelArtInfo, PixelAnimationData } from './api/chatApi';
-import { tencentIoTService, TencentDeviceStatus } from './tencentIoTService';
 import { DeviceRecord } from './api/deviceApi';
 import { alayaMcpService } from './alayaMcpService';
 
@@ -27,45 +26,52 @@ export interface DeviceConnectionStatus {
   lastSeen?: number;
 }
 
+export interface DeviceStatus {
+  deviceId: string;
+  deviceName: string;
+  isOnline: boolean;
+  lastSeen: number;
+  mqttConnected: boolean;
+  ipAddress?: string;
+  signalStrength?: number;
+  batteryLevel?: number;
+  productId?: string;
+}
+
 class DeviceMessageService {
   private connectedDevices: Map<string, DeviceConnectionStatus> = new Map();
   private messageQueue: DeviceMessage[] = [];
   private tencentIoTEnabled: boolean = false;
   private deviceSyncInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Initialize Tencent IoT Cloud integration
+  // Initialize Tencent IoT Cloud integration via MCP
   async initializeTencentIoT(): Promise<boolean> {
     try {
-      console.log('[DeviceMessageService] Initializing Tencent IoT Cloud integration...');
+      console.log('[DeviceMessageService] Initializing Tencent IoT Cloud integration via MCP...');
       
-      // Connect to Tencent IoT Cloud
-      const connected = await tencentIoTService.connectToTencentIoT();
-      if (!connected) {
-        console.warn('[DeviceMessageService] Tencent IoT Cloud connection failed, using local device management');
+      // Test MCP service availability
+      const helpResult = await alayaMcpService.getHelp();
+      if (!helpResult.success) {
+        console.warn('[DeviceMessageService] MCP service not available, using local device management');
         return false;
       }
 
       this.tencentIoTEnabled = true;
 
-      // Register device status update callback
-      tencentIoTService.onDeviceStatusUpdate((statuses: TencentDeviceStatus[]) => {
-        this.updateConnectedDevicesFromTencentIoT(statuses);
-      });
-
       // Start device status synchronization
       this.startDeviceSync();
 
-      console.log('[DeviceMessageService] Tencent IoT Cloud integration initialized successfully');
+      console.log('[DeviceMessageService] Tencent IoT Cloud integration initialized successfully via MCP');
       return true;
     } catch (error) {
-      console.error('[DeviceMessageService] Failed to initialize Tencent IoT Cloud integration:', error);
+      console.error('[DeviceMessageService] Failed to initialize Tencent IoT Cloud integration via MCP:', error);
       return false;
     }
   }
 
-  // Update connected device status from Tencent IoT Cloud
-  private updateConnectedDevicesFromTencentIoT(statuses: TencentDeviceStatus[]): void {
-    console.log('[DeviceMessageService] Updating device status from Tencent IoT Cloud:', statuses.length, 'devices');
+  // Update connected device status from MCP service
+  private updateConnectedDevicesFromMcp(statuses: DeviceStatus[]): void {
+    console.log('[DeviceMessageService] Updating device status from MCP service:', statuses.length, 'devices');
     
     statuses.forEach(status => {
       const deviceStatus: DeviceConnectionStatus = {
@@ -114,8 +120,10 @@ class DeviceMessageService {
         const apiDevices = devices.map(device => ({
           id: device.id || `device_${Date.now()}`,
           name: device.name,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           deviceType: { Other: device.type } as any,
           owner: device.principalId || '',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           status: device.status === 'Connected' ? { Online: null } : { Offline: null } as any,
           capabilities: [],
           metadata: {
@@ -127,7 +135,8 @@ class DeviceMessageService {
           updatedAt: Date.now(),
           lastSeen: Date.now(),
         }));
-        await tencentIoTService.syncDevicesFromCanister(apiDevices);
+        // Sync devices via MCP service (no direct sync needed, devices are managed by MCP)
+        console.log('[DeviceMessageService] Devices synced via MCP service');
       } else {
         // If Tencent IoT Cloud is not enabled, use local device management
         this.updateConnectedDevicesFromLocal(devices);
@@ -138,6 +147,7 @@ class DeviceMessageService {
   }
 
   // Update connection status from local device list
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private updateConnectedDevicesFromLocal(devices: any[]): void {
     console.log('[DeviceMessageService] Updating status from local device list:', devices.length, 'devices');
     
@@ -170,11 +180,22 @@ class DeviceMessageService {
   }
 
   // Get Tencent IoT Cloud device statuses
-  getTencentIoTDevices(): TencentDeviceStatus[] {
+  getTencentIoTDevices(): DeviceStatus[] {
     if (!this.tencentIoTEnabled) {
       return [];
     }
-    return tencentIoTService.getDeviceStatuses();
+    // Return connected devices as DeviceStatus array
+    return Array.from(this.connectedDevices.entries()).map(([deviceId, status]) => ({
+      deviceId,
+      deviceName: status.deviceName || 'Unknown Device',
+      isOnline: status.isConnected,
+      lastSeen: status.lastSeen || Date.now(),
+      mqttConnected: status.isConnected,
+      ipAddress: undefined,
+      signalStrength: undefined,
+      batteryLevel: undefined,
+      productId: deviceId.includes(':') ? deviceId.split(':')[0] : 'DEFAULT_PRODUCT'
+    }));
   }
 
   // check if any device is connected
@@ -289,6 +310,7 @@ class DeviceMessageService {
   }
 
   // Send pixel art via ALAYA MCP (direct method)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async sendPixelArtViaAlayaMcp(deviceId: string, pixelArtData: any): Promise<{ success: boolean; error?: string }> {
     try {
       console.log('[DeviceMessageService] Sending pixel art via ALAYA MCP:', { deviceId });
@@ -305,6 +327,7 @@ class DeviceMessageService {
   }
 
   // Send pixel animation via ALAYA MCP (direct method)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async sendPixelAnimationViaAlayaMcp(deviceId: string, animationData: any): Promise<{ success: boolean; error?: string }> {
     try {
       console.log('[DeviceMessageService] Sending pixel animation via ALAYA MCP:', { deviceId });
@@ -321,6 +344,7 @@ class DeviceMessageService {
   }
 
   // Send GIF via ALAYA MCP (direct method)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async sendGifViaAlayaMcp(deviceId: string, gifData: any): Promise<{ success: boolean; error?: string }> {
     try {
       console.log('[DeviceMessageService] Sending GIF via ALAYA MCP:', { deviceId });
@@ -352,7 +376,8 @@ class DeviceMessageService {
     }
   }
 
-  // Advanced MCP call method - directly call any pixelmug_stdio method
+  // Advanced MCP call method - directly call any mcp_pixelmug method
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async callPixelMugMcp(deviceId: string, method: string, params: any): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       console.log('[DeviceMessageService] Advanced MCP call:', { deviceId, method });
@@ -472,16 +497,16 @@ class DeviceMessageService {
       // Route to appropriate MCP method based on message type
       switch (message.type) {
         case 'pixel_art':
-          result = await alayaMcpService.sendPixelArtMessage(productId, deviceName, message.content);
+          result = await alayaMcpService.sendPixelArtMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
           break;
         case 'pixel_animation':
-          result = await alayaMcpService.sendPixelAnimationMessage(productId, deviceName, message.content);
+          result = await alayaMcpService.sendPixelAnimationMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
           break;
         case 'gif':
-          result = await alayaMcpService.sendGifMessage(productId, deviceName, message.content);
+          result = await alayaMcpService.sendGifMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
           break;
         case 'text':
-          result = await alayaMcpService.sendTextMessage(productId, deviceName, message.content);
+          result = await alayaMcpService.sendTextMessage(productId, deviceName, message.content as string);
           break;
         default:
           throw new Error(`Unsupported message type: ${message.type}`);
@@ -503,36 +528,61 @@ class DeviceMessageService {
     }
   }
 
-  // Send message via Tencent IoT Cloud MQTT
+  // Send message via MCP service
   private async sendMessageViaTencentIoT(deviceId: string, message: DeviceMessage): Promise<void> {
     try {
-      // Build MQTT message payload
-      const mqttPayload = JSON.stringify({
-        type: message.type,
-        content: message.content,
-        metadata: message.metadata,
-        timestamp: message.timestamp,
-        messageId: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      });
+      // Parse deviceId to extract product_id and device_name
+      const { productId, deviceName } = this.parseDeviceId(deviceId);
 
-      // Send MQTT message
-      const success = await tencentIoTService.sendMessageToDevice(deviceId, {
-        topic: `$thing/down/property/${tencentIoTService.getConfig()?.productId}/${deviceId}`,
-        payload: mqttPayload,
-        qos: 1,
-        retain: false
-      });
-
-      if (!success) {
-        throw new Error('Failed to send message via Tencent IoT MQTT');
+      // Send message via MCP service based on message type
+      let result;
+      if (message.type === 'pixel_art') {
+        result = await alayaMcpService.sendPixelImage({
+          product_id: productId,
+          device_name: deviceName,
+          image_data: message.content,
+          target_width: message.metadata?.width || 16,
+          target_height: message.metadata?.height || 16,
+          use_cos: true,
+          ttl_sec: 900
+        });
+      } else if (message.type === 'gif' || message.type === 'pixel_animation') {
+        result = await alayaMcpService.sendGifAnimation({
+          product_id: productId,
+          device_name: deviceName,
+          gif_data: message.content,
+          frame_delay: message.metadata?.frame_delay || 100,
+          loop_count: message.metadata?.loop_count || 0,
+          target_width: message.metadata?.width || 16,
+          target_height: message.metadata?.height || 16,
+          use_cos: true,
+          ttl_sec: 900
+        });
+      } else {
+        // For text messages, send as pixel image
+        result = await alayaMcpService.sendPixelImage({
+          product_id: productId,
+          device_name: deviceName,
+          image_data: JSON.stringify({ text: message.content, type: 'text_message' }),
+          target_width: 16,
+          target_height: 16,
+          use_cos: true,
+          ttl_sec: 900
+        });
       }
 
-      console.log('[DeviceMessageService] Message sent via Tencent IoT MQTT:', {
+      if (!result.success) {
+        throw new Error('Failed to send message via MCP: ' + result.error);
+      }
+
+      console.log('[DeviceMessageService] Message sent via MCP:', {
         deviceId,
-        messageType: message.type
+        messageType: message.type,
+        productId,
+        deviceName
       });
     } catch (error) {
-      console.error('[DeviceMessageService] Failed to send message via Tencent IoT:', error);
+      console.error('[DeviceMessageService] Failed to send message via MCP:', error);
       throw error;
     }
   }
@@ -614,7 +664,7 @@ class DeviceMessageService {
     }
 
     if (this.tencentIoTEnabled) {
-      tencentIoTService.disconnect();
+      // MCP service doesn't need explicit disconnect
       this.tencentIoTEnabled = false;
     }
 

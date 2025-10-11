@@ -215,6 +215,7 @@ export async function runAllExamples() {
 }
 
 // If running this file directly
-if (typeof require !== 'undefined' && require.main === module) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+if (typeof (globalThis as any).require !== 'undefined' && (globalThis as any).require.main === (globalThis as any).module) {
   runAllExamples().catch(console.error);
 }

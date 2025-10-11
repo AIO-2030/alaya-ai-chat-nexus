@@ -68,7 +68,7 @@ const Creation = () => {
   // Voice recording state
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimeoutRef = useRef<number | null>(null);
   
   // ElevenLabs hook for speech to text
   const agentId = "agent_01jz8rr062f41tsyt56q8fzbrz";

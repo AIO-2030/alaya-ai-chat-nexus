@@ -185,39 +185,40 @@ const MyDevices = () => {
               <div className="flex-1 min-w-0 flex">
                 <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
                   <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center">
-                          <Smartphone className="h-6 w-6 text-white" />
+                    <div className="flex items-center justify-between mb-6 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Smartphone className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                         </div>
-                        <div>
-                          <h1 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
+                        <div className="min-w-0">
+                          <h1 className="text-base sm:text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400 whitespace-nowrap overflow-hidden text-ellipsis">
                             {t('common.myDevices')}
                           </h1>
                           {isTencentIoTEnabled && (
-                            <div className="text-xs text-blue-400 flex items-center gap-1 mt-1">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                              IoT Cloud Connected
+                            <div className="text-[10px] sm:text-xs text-blue-400 flex items-center gap-1 mt-0.5">
+                              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0"></div>
+                              <span className="whitespace-nowrap">IoT Cloud Connected</span>
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                         <Button 
                           onClick={refreshDeviceStatus}
                           variant="outline"
                           size="sm"
-                          className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                          className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2"
                           title="Refresh device status"
                         >
-                          <Settings className="h-4 w-4" />
+                          <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                         <Button 
                           onClick={handleAddDevice}
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl"
+                          size="sm"
+                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl text-xs sm:text-sm whitespace-nowrap"
                         >
-                          <Plus className="h-4 w-4 mr-2" />
-                          {t('common.addDevice')}
+                          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">{t('common.addDevice')}</span>
                         </Button>
                       </div>
                     </div>

@@ -22,17 +22,63 @@ interface MultiMcpConfig {
   methodMapping: MethodMcpMapping;
 }
 
+// Tencent Cloud STS types
+export interface STSToken {
+  credentials: {
+    token: string;        // Session token
+    tmpSecretId: string;  // Temporary Secret ID
+    tmpSecretKey: string; // Temporary Secret Key
+  };
+  expiredTime: number;    // Expiration timestamp in seconds
+  expiration: string;     // Expiration time in ISO8601 format
+  requestId: string;      // Request ID
+}
+
+export interface STSRequestParams {
+  durationSeconds?: number;
+  policy?: string;
+  roleSessionName?: string;
+  roleArn?: string;
+}
+
+// Tencent IoT types
+export interface TencentIoTConfig {
+  productId: string;
+  deviceName: string;
+  region: string;
+  brokerUrl: string;
+  clientId: string;
+}
+
+export interface TencentDeviceStatus {
+  deviceId: string;
+  deviceName: string;
+  isOnline: boolean;
+  lastSeen: number;
+  mqttConnected: boolean;
+  ipAddress?: string;
+  signalStrength?: number;
+  batteryLevel?: number;
+}
+
+export interface MQTTMessage {
+  topic: string;
+  payload: string;
+  qos: 0 | 1 | 2;
+  retain: boolean;
+}
+
 // MCP Request/Response types
 interface McpRequest {
   jsonrpc: string;
   method: string;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   id: number;
 }
 
 interface McpResponse {
   jsonrpc: string;
-  result?: any;
+  result?: unknown;
   error?: {
     code: number;
     message: string;
@@ -104,9 +150,9 @@ class AlayaMcpService {
   constructor() {
     this.config = {
       services: {
-        pixelmug_stdio: {
-          mcpName: 'pixelmug_stdio',
-          methods: ['help', 'issue_sts', 'send_pixel_image', 'send_gif_animation', 'convert_image_to_pixels']
+        mcp_pixelmug: {
+          mcpName: 'mcp_pixelmug',
+          methods: ['help', 'issue_sts', 'send_pixel_image', 'send_gif_animation', 'convert_image_to_pixels', 'get_device_status']
         },
         mcp_image: {
           mcpName: 'mcp_image',
@@ -114,12 +160,13 @@ class AlayaMcpService {
         }
       },
       methodMapping: {
-        help: 'pixelmug_stdio',
-        issueSts: 'pixelmug_stdio',
-        sendPixelImage: 'pixelmug_stdio',
-        sendGifAnimation: 'pixelmug_stdio',
-        convertImageToPixels: 'pixelmug_stdio',
-        pixelImageGenerate: 'mcp_image'
+        help: 'mcp_pixelmug',
+        issueSts: 'mcp_pixelmug',
+        sendPixelImage: 'mcp_pixelmug',
+        sendGifAnimation: 'mcp_pixelmug',
+        convertImageToPixels: 'mcp_pixelmug',
+        pixelImageGenerate: 'mcp_image',
+        getDeviceStatus: 'mcp_pixelmug'
       }
     };
   }
@@ -208,7 +255,8 @@ class AlayaMcpService {
       sendPixelImage: 'send_pixel_image',
       sendGifAnimation: 'send_gif_animation',
       convertImageToPixels: 'convert_image_to_pixels',
-      pixelImageGenerate: 'pixel_image_generate'
+      pixelImageGenerate: 'pixel_image_generate',
+      getDeviceStatus: 'get_device_status'
     };
     
     return methodMapping[methodKey] || methodKey;
@@ -223,9 +271,9 @@ class AlayaMcpService {
    */
   private async callMcpMethod(
     methodKey: string, 
-    params: any, 
+    params: Record<string, unknown>, 
     contextName: string
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
       const mcpServiceName = this.getMcpServiceForMethod(methodKey);
       const actualMethodName = this.getActualMethodName(methodKey);
@@ -266,8 +314,8 @@ class AlayaMcpService {
    * @param method MCP method name
    * @returns Input schema definition
    */
-  private getInputSchemaForMethod(method: string): any {
-    const schemas: Record<string, any> = {
+  private getInputSchemaForMethod(method: string): Record<string, unknown> {
+    const schemas: Record<string, Record<string, unknown>> = {
       'help': {
         type: 'object',
         properties: {},
@@ -330,6 +378,14 @@ class AlayaMcpService {
           image_size: { type: 'string' }
         },
         required: ['user_input']
+      },
+      'get_device_status': {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string' },
+          device_name: { type: 'string' }
+        },
+        required: ['product_id', 'device_name']
       }
     };
 
@@ -341,12 +397,12 @@ class AlayaMcpService {
   }
 
   // Get service help information
-  async getHelp(): Promise<{ success: boolean; data?: any; error?: string }> {
+  async getHelp(): Promise<{ success: boolean; data?: unknown; error?: string }> {
     return this.callMcpMethod('help', {}, 'help');
   }
 
   // Issue STS credentials for device access
-  async issueStsCredentials(productId: string, deviceName: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  async issueStsCredentials(productId: string, deviceName: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     return this.callMcpMethod(
       'issueSts', 
       { product_id: productId, device_name: deviceName }, 
@@ -355,7 +411,7 @@ class AlayaMcpService {
   }
 
   // Send pixel image to device
-  async sendPixelImage(params: PixelImageParams): Promise<{ success: boolean; data?: any; error?: string }> {
+  async sendPixelImage(params: PixelImageParams): Promise<{ success: boolean; data?: unknown; error?: string }> {
     const mcpParams = {
       product_id: params.product_id,
       device_name: params.device_name,
@@ -374,7 +430,7 @@ class AlayaMcpService {
   }
 
   // Send GIF animation to device
-  async sendGifAnimation(params: GifAnimationParams): Promise<{ success: boolean; data?: any; error?: string }> {
+  async sendGifAnimation(params: GifAnimationParams): Promise<{ success: boolean; data?: unknown; error?: string }> {
     const mcpParams = {
       product_id: params.product_id,
       device_name: params.device_name,
@@ -395,7 +451,7 @@ class AlayaMcpService {
   }
 
   // Convert image to pixels
-  async convertImageToPixels(params: ConvertImageParams): Promise<{ success: boolean; data?: any; error?: string }> {
+  async convertImageToPixels(params: ConvertImageParams): Promise<{ success: boolean; data?: unknown; error?: string }> {
     const mcpParams = {
       image_data: params.image_data,
       target_width: params.target_width || 16,
@@ -486,9 +542,9 @@ class AlayaMcpService {
           hasData: !!result.data,
           dataType: typeof result.data,
           dataKeys: result.data ? Object.keys(result.data) : [],
-          imageSize: result.data?.image_size,
-          hasImageBase64: !!(result.data?.image_base64 || result.data?.image_data),
-          imageBase64Length: (result.data?.image_base64 || result.data?.image_data || '').length
+          imageSize: (result.data as Record<string, unknown>)?.image_size,
+          hasImageBase64: !!((result.data as Record<string, unknown>)?.image_base64 || (result.data as Record<string, unknown>)?.image_data),
+          imageBase64Length: ((result.data as Record<string, unknown>)?.image_base64 as string || (result.data as Record<string, unknown>)?.image_data as string || '').length
         });
 
         // Validate returned data structure according to JSON-RPC 2.0
@@ -500,13 +556,15 @@ class AlayaMcpService {
           };
         }
 
+        const data = result.data as Record<string, unknown>;
+        
         // Check if image data is included in the result
-        const imageBase64 = result.data.image_base64 || result.data.image_data || result.data;
+        const imageBase64 = data.image_base64 || data.image_data || data;
         if (!imageBase64 || typeof imageBase64 !== 'string') {
           console.error(`[AlayaMcpService] ❌ Missing image data in JSON-RPC 2.0 result:`, {
-            image_base64: result.data.image_base64 ? 'present' : 'missing',
-            image_data: result.data.image_data ? 'present' : 'missing',
-            result: result.data
+            image_base64: data.image_base64 ? 'present' : 'missing',
+            image_data: data.image_data ? 'present' : 'missing',
+            result: data
           });
           return {
             success: false,
@@ -534,7 +592,7 @@ class AlayaMcpService {
           success: true,
           data: {
             image_base64: base64Pattern,
-            image_size: result.data.image_size || mcpParams.image_size,
+            image_size: (data.image_size as string) || mcpParams.image_size,
             generation_params: {
               user_input: mcpParams.user_input,
               negative_prompt: mcpParams.negative_prompt,
@@ -581,9 +639,9 @@ class AlayaMcpService {
    */
   async callMcpMethodDirect(
     methodKey: string, 
-    params: any, 
-    customInputSchema?: any
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    params: Record<string, unknown>, 
+    customInputSchema?: Record<string, unknown>
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
       const mcpServiceName = this.getMcpServiceForMethod(methodKey);
       const actualMethodName = this.getActualMethodName(methodKey);
@@ -620,14 +678,14 @@ class AlayaMcpService {
   }
 
   /**
-   * Legacy method for backward compatibility - calls pixelmug_stdio MCP
+   * Legacy method for backward compatibility - calls mcp_pixelmug MCP
    * @deprecated Use callMcpMethodDirect instead
    */
   async callPixelMugMcp(
     method: string, 
-    params: any, 
-    customInputSchema?: any
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    params: Record<string, unknown>, 
+    customInputSchema?: Record<string, unknown>
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
     console.warn('[AlayaMcpService] callPixelMugMcp is deprecated, use callMcpMethodDirect instead');
     
     // Map legacy method names to new method keys
@@ -645,24 +703,24 @@ class AlayaMcpService {
   }
 
   // Legacy methods for backward compatibility
-  async sendMqttMessage(deviceId: string, message: any): Promise<{ success: boolean; error?: string }> {
+  async sendMqttMessage(deviceId: string, message: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     // Extract product_id and device_name from deviceId or use defaults
     const [productId, deviceName] = deviceId.includes(':') 
       ? deviceId.split(':') 
       : ['DEFAULT_PRODUCT', deviceId];
 
-    if (message.messageType === 'pixel_art') {
-      return this.sendPixelArtMessage(productId, deviceName, message.content);
-    } else if (message.messageType === 'pixel_animation') {
-      return this.sendGifAnimationMessage(productId, deviceName, message.content);
-    } else if (message.messageType === 'gif') {
-      return this.sendGifAnimationMessage(productId, deviceName, message.content);
-    } else {
-      return this.sendTextMessage(productId, deviceName, message.content);
-    }
+      if (message.messageType === 'pixel_art') {
+        return this.sendPixelArtMessage(productId, deviceName, message.content as Record<string, unknown>);
+      } else if (message.messageType === 'pixel_animation') {
+        return this.sendGifAnimationMessage(productId, deviceName, message.content as Record<string, unknown>);
+      } else if (message.messageType === 'gif') {
+        return this.sendGifAnimationMessage(productId, deviceName, message.content as Record<string, unknown>);
+      } else {
+        return this.sendTextMessage(productId, deviceName, message.content as string);
+      }
   }
 
-  async sendPixelArtMessage(productId: string, deviceName: string, pixelArtData: any): Promise<{ success: boolean; error?: string }> {
+  async sendPixelArtMessage(productId: string, deviceName: string, pixelArtData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     try {
       // Convert pixel art data to base64 image or pixel matrix
       let imageData: string;
@@ -671,8 +729,10 @@ class AlayaMcpService {
         imageData = pixelArtData;
       } else if (pixelArtData.pixels && pixelArtData.palette) {
         // Convert palette-based format to 2D array
-        const pixelMatrix = pixelArtData.pixels.map((row: number[]) => 
-          row.map((colorIndex: number) => pixelArtData.palette[colorIndex] || '#000000')
+        const pixels = pixelArtData.pixels as number[][];
+        const palette = pixelArtData.palette as string[];
+        const pixelMatrix = pixels.map((row: number[]) => 
+          row.map((colorIndex: number) => palette[colorIndex] || '#000000')
         );
         imageData = JSON.stringify(pixelMatrix);
       } else {
@@ -683,8 +743,8 @@ class AlayaMcpService {
         product_id: productId,
         device_name: deviceName,
         image_data: imageData,
-        target_width: pixelArtData.width || 16,
-        target_height: pixelArtData.height || 16
+        target_width: (pixelArtData.width as number) || 16,
+        target_height: (pixelArtData.height as number) || 16
       });
 
       return { success: result.success, error: result.error };
@@ -696,11 +756,11 @@ class AlayaMcpService {
     }
   }
 
-  async sendPixelAnimationMessage(productId: string, deviceName: string, animationData: any): Promise<{ success: boolean; error?: string }> {
+  async sendPixelAnimationMessage(productId: string, deviceName: string, animationData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     return this.sendGifAnimationMessage(productId, deviceName, animationData);
   }
 
-  async sendGifAnimationMessage(productId: string, deviceName: string, gifData: any): Promise<{ success: boolean; error?: string }> {
+  async sendGifAnimationMessage(productId: string, deviceName: string, gifData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     try {
       // Convert animation data to GIF format
       let gifDataString: string;
@@ -709,10 +769,12 @@ class AlayaMcpService {
         gifDataString = gifData;
       } else if (gifData.frames && gifData.palette) {
         // Convert palette-based animation to frame array
-        const frameArray = gifData.frames.map((frame: any) => ({
+        const frames = gifData.frames as Record<string, unknown>[];
+        const palette = gifData.palette as string[];
+        const frameArray = frames.map((frame: Record<string, unknown>) => ({
           frame_index: frame.frame_index || 0,
-          pixel_matrix: frame.pixels.map((row: number[]) => 
-            row.map((colorIndex: number) => gifData.palette[colorIndex] || '#000000')
+          pixel_matrix: (frame.pixels as number[][]).map((row: number[]) => 
+            row.map((colorIndex: number) => palette[colorIndex] || '#000000')
           ),
           duration: frame.duration || gifData.frame_delay || 100
         }));
@@ -725,10 +787,10 @@ class AlayaMcpService {
         product_id: productId,
         device_name: deviceName,
         gif_data: gifDataString,
-        frame_delay: gifData.frame_delay || 100,
-        loop_count: gifData.loop_count || 0,
-        target_width: gifData.width || 16,
-        target_height: gifData.height || 16
+        frame_delay: (gifData.frame_delay as number) || 100,
+        loop_count: (gifData.loop_count as number) || 0,
+        target_width: (gifData.width as number) || 16,
+        target_height: (gifData.height as number) || 16
       });
 
       return { success: result.success, error: result.error };
@@ -740,7 +802,7 @@ class AlayaMcpService {
     }
   }
 
-  async sendGifMessage(productId: string, deviceName: string, gifData: any): Promise<{ success: boolean; error?: string }> {
+  async sendGifMessage(productId: string, deviceName: string, gifData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     return this.sendGifAnimationMessage(productId, deviceName, gifData);
   }
 
@@ -807,19 +869,31 @@ class AlayaMcpService {
       }
       
       // In Node.js environment, write file
-      if (typeof require !== 'undefined') {
-        const fs = require('fs');
-        const path = require('path');
-        
-        // Ensure directory exists
-        const dir = path.dirname(defaultPath);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (typeof (globalThis as any).require !== 'undefined') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const fs = (globalThis as any).require('fs');
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const path = (globalThis as any).require('path');
+          
+          // Ensure directory exists
+          const dir = path.dirname(defaultPath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          
+          // Write file
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const buffer = (globalThis as any).Buffer.from(cleanBase64, 'base64');
+          fs.writeFileSync(defaultPath, buffer);
+        } catch (nodeError) {
+          console.warn('[AlayaMcpService] Node.js file operations not available:', nodeError);
+          return {
+            success: false,
+            error: 'File operations not supported in this environment'
+          };
         }
-        
-        // Write file
-        const buffer = Buffer.from(cleanBase64, 'base64');
-        fs.writeFileSync(defaultPath, buffer);
         
         return {
           success: true,
@@ -950,6 +1024,28 @@ class AlayaMcpService {
       };
     }
   }
+
+  // ==================== Device Status Methods ====================
+
+  /**
+   * Get device online status via MCP
+   * @param productId Product ID
+   * @param deviceName Device name
+   * @returns Promise<{ success: boolean; data?: any; error?: string }>
+   */
+  async getDeviceStatus(productId: string, deviceName: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    const mcpParams = {
+      product_id: productId,
+      device_name: deviceName
+    };
+
+    return this.callMcpMethod(
+      'getDeviceStatus',
+      mcpParams,
+      'get_device_status'
+    );
+  }
+
 }
 
 export const alayaMcpService = AlayaMcpService.getInstance();

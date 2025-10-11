@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { deviceMessageService } from '../services/deviceMessageService';
 import { initializeDeviceMessageService, getDeviceConnectionSummary } from '../services/deviceMessageServiceInit';
+import { alayaMcpService } from '../services/alayaMcpService';
+import { PixelArtInfo, GifInfo } from '../services/api/chatApi';
 
 export interface DeviceStatus {
   id: string;
@@ -13,6 +15,8 @@ export interface DeviceStatus {
   ipAddress?: string;
   signalStrength?: number;
   batteryLevel?: number;
+  productId?: string;
+  deviceName?: string;
 }
 
 export interface DeviceStatusSummary {
@@ -33,22 +37,25 @@ export function useDeviceStatus() {
     deviceList: []
   });
 
-  // Initialize device message service
+  // Initialize device message service using MCP
   const initializeService = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
+      console.log('[useDeviceStatus] Initializing device service via MCP...');
+      
+      // Initialize device message service (this will test MCP availability and sync devices from canister)
       const success = await initializeDeviceMessageService();
       if (success) {
         setIsInitialized(true);
-        console.log('[useDeviceStatus] Device message service initialized successfully');
+        console.log('[useDeviceStatus] Device message service initialized successfully via MCP');
       } else {
-        console.warn('[useDeviceStatus] Device message service initialization failed, using fallback mode');
-        setIsInitialized(true); // Still mark as initialized for fallback mode
+        console.warn('[useDeviceStatus] Device message service initialization failed, using MCP-only mode');
+        setIsInitialized(true); // Still mark as initialized for MCP-only mode
       }
     } catch (err) {
-      console.error('[useDeviceStatus] Failed to initialize device message service:', err);
+      console.error('[useDeviceStatus] Failed to initialize device service via MCP:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize device service');
       setIsInitialized(true); // Mark as initialized even on error to prevent infinite loading
     } finally {
@@ -56,11 +63,80 @@ export function useDeviceStatus() {
     }
   }, []);
 
-  // Update device status
-  const updateDeviceStatus = useCallback(() => {
+  // Update device status using MCP service
+  const updateDeviceStatus = useCallback(async () => {
     try {
+      // First get the basic device summary from the existing service
       const summary = getDeviceConnectionSummary();
-      setDeviceStatus(summary);
+      
+      // If we have devices, try to get their online status via MCP
+      if (summary.deviceList.length > 0) {
+        const updatedDevices = await Promise.all(
+          summary.deviceList.map(async (device) => {
+            try {
+              // Convert basic device to extended device type
+              const extendedDevice: DeviceStatus = {
+                ...device,
+                productId: device.id.includes(':') ? device.id.split(':')[0] : 'DEFAULT_PRODUCT',
+                deviceName: device.id.includes(':') ? device.id.split(':')[1] : device.id,
+                isOnline: device.isConnected,
+                mqttConnected: device.isConnected,
+                ipAddress: undefined,
+                signalStrength: undefined,
+                batteryLevel: undefined
+              };
+              
+              // Use MCP to get device status
+              const mcpResult = await alayaMcpService.getDeviceStatus(
+                extendedDevice.productId!, 
+                extendedDevice.deviceName!
+              );
+              
+              if (mcpResult.success && mcpResult.data) {
+                const mcpData = mcpResult.data as Record<string, unknown>;
+                return {
+                  ...extendedDevice,
+                  isOnline: mcpData.is_online as boolean || extendedDevice.isOnline,
+                  mqttConnected: mcpData.mqtt_connected as boolean || extendedDevice.mqttConnected,
+                  lastSeen: mcpData.last_seen as number || extendedDevice.lastSeen,
+                  ipAddress: mcpData.ip_address as string || extendedDevice.ipAddress,
+                  signalStrength: mcpData.signal_strength as number || extendedDevice.signalStrength,
+                  batteryLevel: mcpData.battery_level as number || extendedDevice.batteryLevel,
+                  isConnected: (mcpData.is_online as boolean) || extendedDevice.isConnected
+                };
+              }
+              
+              // Fallback to extended device data if MCP call fails
+              return extendedDevice;
+            } catch (mcpError) {
+              console.warn(`[useDeviceStatus] MCP status check failed for device ${device.id}:`, mcpError);
+              // Return extended device with original data
+              return {
+                ...device,
+                productId: device.id.includes(':') ? device.id.split(':')[0] : 'DEFAULT_PRODUCT',
+                deviceName: device.id.includes(':') ? device.id.split(':')[1] : device.id,
+                isOnline: device.isConnected,
+                mqttConnected: device.isConnected,
+                ipAddress: undefined,
+                signalStrength: undefined,
+                batteryLevel: undefined
+              };
+            }
+          })
+        );
+        
+        // Update the summary with MCP-enhanced device data
+        const updatedSummary = {
+          ...summary,
+          deviceList: updatedDevices,
+          connectedDevices: updatedDevices.filter(device => device.isConnected).length
+        };
+        
+        setDeviceStatus(updatedSummary);
+      } else {
+        // No devices to check, just use the original summary
+        setDeviceStatus(summary);
+      }
     } catch (err) {
       console.error('[useDeviceStatus] Failed to update device status:', err);
       setError(err instanceof Error ? err.message : 'Failed to update device status');
@@ -83,7 +159,7 @@ export function useDeviceStatus() {
   }, [isInitialized]);
 
   // Send pixel art to devices
-  const sendPixelArtToDevices = useCallback(async (pixelArt: any) => {
+  const sendPixelArtToDevices = useCallback(async (pixelArt: PixelArtInfo) => {
     try {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
@@ -98,7 +174,7 @@ export function useDeviceStatus() {
   }, [isInitialized]);
 
   // Send pixel art via ALAYA MCP (direct method)
-  const sendPixelArtViaAlayaMcp = useCallback(async (deviceId: string, pixelArt: any) => {
+  const sendPixelArtViaAlayaMcp = useCallback(async (deviceId: string, pixelArt: Record<string, unknown>) => {
     try {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
@@ -113,7 +189,7 @@ export function useDeviceStatus() {
   }, [isInitialized]);
 
   // Send GIF to devices
-  const sendGifToDevices = useCallback(async (gifInfo: any) => {
+  const sendGifToDevices = useCallback(async (gifInfo: GifInfo) => {
     try {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
@@ -128,7 +204,7 @@ export function useDeviceStatus() {
   }, [isInitialized]);
 
   // Send pixel animation via ALAYA MCP (direct method)
-  const sendPixelAnimationViaAlayaMcp = useCallback(async (deviceId: string, animationData: any) => {
+  const sendPixelAnimationViaAlayaMcp = useCallback(async (deviceId: string, animationData: Record<string, unknown>) => {
     try {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
@@ -143,7 +219,7 @@ export function useDeviceStatus() {
   }, [isInitialized]);
 
   // Send GIF via ALAYA MCP (direct method)
-  const sendGifViaAlayaMcp = useCallback(async (deviceId: string, gifData: any) => {
+  const sendGifViaAlayaMcp = useCallback(async (deviceId: string, gifData: Record<string, unknown>) => {
     try {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
@@ -172,6 +248,21 @@ export function useDeviceStatus() {
     }
   }, [isInitialized]);
 
+  // Get device status via MCP (direct method)
+  const getDeviceStatusViaMcp = useCallback(async (productId: string, deviceName: string) => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Device service not initialized');
+      }
+      
+      const result = await alayaMcpService.getDeviceStatus(productId, deviceName);
+      return result;
+    } catch (err) {
+      console.error('[useDeviceStatus] Failed to get device status via MCP:', err);
+      throw err;
+    }
+  }, [isInitialized]);
+
   // Refresh device status manually
   const refreshDeviceStatus = useCallback(async () => {
     try {
@@ -180,7 +271,7 @@ export function useDeviceStatus() {
       }
       
       await deviceMessageService.syncDevicesFromCanister();
-      updateDeviceStatus();
+      await updateDeviceStatus();
     } catch (err) {
       console.error('[useDeviceStatus] Failed to refresh device status:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh device status');
@@ -199,8 +290,10 @@ export function useDeviceStatus() {
     // Initial status update
     updateDeviceStatus();
 
-    // Set up interval for periodic updates
-    const interval = setInterval(updateDeviceStatus, 10000); // Update every 10 seconds
+    // Set up interval for periodic updates with MCP status checks
+    const interval = setInterval(async () => {
+      await updateDeviceStatus();
+    }, 10000); // Update every 10 seconds
 
     return () => {
       clearInterval(interval);
@@ -229,6 +322,7 @@ export function useDeviceStatus() {
     sendPixelAnimationViaAlayaMcp,
     sendGifViaAlayaMcp,
     sendTextViaAlayaMcp,
+    getDeviceStatusViaMcp,
     
     // Utilities
     getDeviceById: (id: string) => deviceStatus.deviceList.find(device => device.id === id),
