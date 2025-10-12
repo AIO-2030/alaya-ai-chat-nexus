@@ -116,12 +116,30 @@ const resources = {
         languageEnglish: 'English',
         languageChinese: '中文',
         langShortEN: 'EN',
-        langShortZH: '中文'
+        langShortZH: '中文',
+        loginRequired: 'Login Required',
+        loginToViewContacts: 'Please login to view and manage your contacts',
+        noContacts: 'No Contacts',
+        addFirstContact: 'Add your first contact to get started',
+        addContact: 'Add Contact'
       },
       auth: {
         loginRequired: 'Login Required',
         loginWithGoogle: 'Login with Google',
         loginWithWallet: 'Login with Wallet'
+      },
+      contracts: {
+        howToLogin: 'How to Login',
+        loginStep1: 'Click the "Login" button in the top-right corner',
+        loginStep2: 'Choose your preferred login method (Google or Wallet)',
+        loginStep3: 'Complete the authentication process',
+        loginStep4: 'Return here to view and manage your contacts',
+        benefitsOfLogin: 'Benefits of Login',
+        benefit1: 'Save and sync your contacts across devices',
+        benefit2: 'Access AI-powered features and chat',
+        benefit3: 'Connect with friends and share content',
+        benefit4: 'Secure your data with blockchain technology',
+        noAccountTip: 'Don\'t have an account? Login will create one automatically'
       },
       gallery: {
         title: 'Gallery',
@@ -395,12 +413,30 @@ const resources = {
         languageEnglish: 'English',
         languageChinese: '中文',
         langShortEN: 'EN',
-        langShortZH: '中文'
+        langShortZH: '中文',
+        loginRequired: '需要登录',
+        loginToViewContacts: '请登录查看和管理您的联系人',
+        noContacts: '暂无联系人',
+        addFirstContact: '添加您的第一个联系人开始使用',
+        addContact: '添加联系人'
       },
       auth: {
         loginRequired: '需要登录',
         loginWithGoogle: '使用 Google 登录',
         loginWithWallet: '使用钱包登录'
+      },
+      contracts: {
+        howToLogin: '如何登录',
+        loginStep1: '点击右上角的"登录"按钮',
+        loginStep2: '选择您喜欢的登录方式（Google 或钱包）',
+        loginStep3: '完成身份验证流程',
+        loginStep4: '返回此处查看和管理您的联系人',
+        benefitsOfLogin: '登录的好处',
+        benefit1: '跨设备保存和同步您的联系人',
+        benefit2: '访问 AI 功能并开始聊天',
+        benefit3: '与朋友连接并分享内容',
+        benefit4: '使用区块链技术保护您的数据',
+        noAccountTip: '没有账户？登录将自动创建一个'
       },
       gallery: {
         title: '图库',

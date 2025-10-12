@@ -166,16 +166,6 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Welcome Message */}
-            <div className="max-w-3xl mx-auto mb-12">
-              <p className="text-xl text-white/80 leading-relaxed mb-6">
-                Welcome to the future of AI communication. I am Univoice, your intelligent companion designed to understand, assist, and grow with you.
-              </p>
-              <p className="text-lg text-white/60 leading-relaxed">
-                Experience authentic conversations, explore infinite possibilities, and discover the freedom of true AI companionship.
-              </p>
-            </div>
-
             {/* Call to Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-12">
               <button
@@ -194,6 +184,16 @@ const Index = () => {
                 <Sparkles className="w-6 h-6 mr-3" />
                 Learn More
               </Button>
+            </div>
+
+            {/* Welcome Message */}
+            <div className="max-w-3xl mx-auto mb-12">
+              <p className="text-xl text-white/80 leading-relaxed mb-6">
+                Welcome to the future of AI communication. I am Univoice, your intelligent companion designed to understand, assist, and grow with you.
+              </p>
+              <p className="text-lg text-white/60 leading-relaxed">
+                Experience authentic conversations, explore infinite possibilities, and discover the freedom of true AI companionship.
+              </p>
             </div>
 
             {/* Status Indicators */}

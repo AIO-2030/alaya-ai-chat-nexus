@@ -127,6 +127,19 @@ export const idlFactory = ({ IDL }) => {
     'start_time' : IDL.Nat64,
     'amount' : IDL.Nat64,
   });
+  const CreateOrderArgs = IDL.Record({
+    'sku' : IDL.Text,
+    'redirect_base' : IDL.Text,
+    'shipping_address' : IDL.Text,
+    'buyer_email' : IDL.Opt(IDL.Text),
+    'currency' : IDL.Text,
+    'order_id' : IDL.Text,
+    'amount' : IDL.Float64,
+  });
+  const InvoiceResp = IDL.Record({
+    'invoice_id' : IDL.Text,
+    'invoice_url' : IDL.Text,
+  });
   const SourceMeta = IDL.Record({
     'title' : IDL.Opt(IDL.Text),
     'tags' : IDL.Opt(IDL.Vec(IDL.Text)),
@@ -326,6 +339,30 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Nat64,
     'message_id' : IDL.Nat64,
   });
+  const OrderStatus = IDL.Variant({
+    'New' : IDL.Null,
+    'Invalid' : IDL.Null,
+    'Paid' : IDL.Null,
+    'Delivered' : IDL.Null,
+    'Complete' : IDL.Null,
+    'Confirmed' : IDL.Null,
+    'Created' : IDL.Null,
+    'Expired' : IDL.Null,
+  });
+  const Order = IDL.Record({
+    'sku' : IDL.Text,
+    'status' : OrderStatus,
+    'shipment_no' : IDL.Opt(IDL.Text),
+    'shipping_address' : IDL.Text,
+    'updated_at_ns' : IDL.Nat64,
+    'buyer_email' : IDL.Opt(IDL.Text),
+    'created_at_ns' : IDL.Nat64,
+    'currency' : IDL.Text,
+    'order_id' : IDL.Text,
+    'amount' : IDL.Float64,
+    'bitpay_invoice_url' : IDL.Opt(IDL.Text),
+    'bitpay_invoice_id' : IDL.Opt(IDL.Text),
+  });
   const Version = IDL.Record({
     'version_id' : VersionId,
     'source' : PixelArtSource,
@@ -449,6 +486,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : UserProfile, 'Err' : IDL.Text })],
         [],
       ),
+    'admin_set_bitpay_pos_token' : IDL.Func([IDL.Text], [], []),
     'cal_unclaim_rewards' : IDL.Func([IDL.Text], [IDL.Nat64], ['query']),
     'calculate_emission' : IDL.Func(
         [IDL.Text],
@@ -504,6 +542,11 @@ export const idlFactory = ({ IDL }) => {
     'create_mcp_grant' : IDL.Func(
         [NewMcpGrant],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'create_order_and_invoice' : IDL.Func(
+        [CreateOrderArgs],
+        [IDL.Variant({ 'Ok' : InvoiceResp, 'Err' : IDL.Text })],
         [],
       ),
     'create_pixel_project' : IDL.Func(
@@ -779,6 +822,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(NotificationItem)],
         ['query'],
       ),
+    'get_order_by_id' : IDL.Func([IDL.Text], [IDL.Opt(Order)], ['query']),
     'get_pixel_current_source' : IDL.Func(
         [ProjectId],
         [IDL.Opt(PixelArtSource)],

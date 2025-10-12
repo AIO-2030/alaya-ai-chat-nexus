@@ -85,6 +85,15 @@ export type ContactType = { 'Family' : null } |
   { 'System' : null } |
   { 'Business' : null } |
   { 'Friend' : null };
+export interface CreateOrderArgs {
+  'sku' : string,
+  'redirect_base' : string,
+  'shipping_address' : string,
+  'buyer_email' : [] | [string],
+  'currency' : string,
+  'order_id' : string,
+  'amount' : number,
+}
 export interface CreditActivity {
   'status' : TransferStatus,
   'activity_type' : CreditActivityType,
@@ -178,6 +187,7 @@ export interface InvertedIndexItem {
   'keyword' : string,
   'confidence' : number,
 }
+export interface InvoiceResp { 'invoice_id' : string, 'invoice_url' : string }
 export type LoginMethod = { 'II' : null } |
   { 'Google' : null } |
   { 'Wallet' : null };
@@ -233,6 +243,28 @@ export interface NotificationItem {
   'timestamp' : bigint,
   'message_id' : bigint,
 }
+export interface Order {
+  'sku' : string,
+  'status' : OrderStatus,
+  'shipment_no' : [] | [string],
+  'shipping_address' : string,
+  'updated_at_ns' : bigint,
+  'buyer_email' : [] | [string],
+  'created_at_ns' : bigint,
+  'currency' : string,
+  'order_id' : string,
+  'amount' : number,
+  'bitpay_invoice_url' : [] | [string],
+  'bitpay_invoice_id' : [] | [string],
+}
+export type OrderStatus = { 'New' : null } |
+  { 'Invalid' : null } |
+  { 'Paid' : null } |
+  { 'Delivered' : null } |
+  { 'Complete' : null } |
+  { 'Confirmed' : null } |
+  { 'Created' : null } |
+  { 'Expired' : null };
 export interface PixelArtData {
   'height' : number,
   'device_format' : string,
@@ -462,6 +494,7 @@ export interface _SERVICE {
     { 'Ok' : UserProfile } |
       { 'Err' : string }
   >,
+  'admin_set_bitpay_pos_token' : ActorMethod<[string], undefined>,
   'cal_unclaim_rewards' : ActorMethod<[string], bigint>,
   'calculate_emission' : ActorMethod<
     [string],
@@ -513,6 +546,11 @@ export interface _SERVICE {
   'create_mcp_grant' : ActorMethod<
     [NewMcpGrant],
     { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'create_order_and_invoice' : ActorMethod<
+    [CreateOrderArgs],
+    { 'Ok' : InvoiceResp } |
       { 'Err' : string }
   >,
   'create_pixel_project' : ActorMethod<
@@ -690,6 +728,7 @@ export interface _SERVICE {
     [string],
     Array<NotificationItem>
   >,
+  'get_order_by_id' : ActorMethod<[string], [] | [Order]>,
   'get_pixel_current_source' : ActorMethod<[ProjectId], [] | [PixelArtSource]>,
   'get_pixel_project' : ActorMethod<[ProjectId], [] | [Project]>,
   'get_pixel_project_count_by_owner' : ActorMethod<[Principal], bigint>,

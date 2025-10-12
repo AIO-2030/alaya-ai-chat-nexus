@@ -116,33 +116,111 @@ class DeviceMessageService {
       const devices = await realDeviceService.getDeviceList();
       
       if (this.tencentIoTEnabled) {
-        // Convert device record format to match API format
-        const apiDevices = devices.map(device => ({
-          id: device.id || `device_${Date.now()}`,
-          name: device.name,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          deviceType: { Other: device.type } as any,
-          owner: device.principalId || '',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          status: device.status === 'Connected' ? { Online: null } : { Offline: null } as any,
-          capabilities: [],
-          metadata: {
-            macAddress: device.macAddress,
-            wifiNetwork: device.wifiNetwork,
-            connectedAt: device.connectedAt,
-          },
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          lastSeen: Date.now(),
-        }));
-        // Sync devices via MCP service (no direct sync needed, devices are managed by MCP)
-        console.log('[DeviceMessageService] Devices synced via MCP service');
+        // Sync devices via MCP service - get real device status for each device
+        await this.syncDevicesViaMcp(devices);
       } else {
         // If Tencent IoT Cloud is not enabled, use local device management
         this.updateConnectedDevicesFromLocal(devices);
       }
     } catch (error) {
       console.error('[DeviceMessageService] Failed to sync device list:', error);
+    }
+  }
+
+  // Sync devices via MCP service - get real device status
+  private async syncDevicesViaMcp(devices: any[]): Promise<void> {
+    try {
+      console.log('[DeviceMessageService] Syncing devices via MCP service:', devices.length, 'devices');
+      
+      const deviceStatuses: DeviceStatus[] = [];
+      const syncPromises = devices.map(async (device) => {
+        try {
+          // Parse device ID to get product_id and device_name
+          const deviceId = device.id || `device_${Date.now()}`;
+          const { productId, deviceName } = this.parseDeviceId(deviceId);
+          
+          // Call MCP getDeviceStatus for this device
+          const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceName);
+          
+          if (mcpResult.success && mcpResult.data) {
+            // Map MCP response to DeviceStatus format
+            const mcpData = mcpResult.data as Record<string, unknown>;
+            const deviceStatus: DeviceStatus = {
+              deviceId: deviceId,
+              deviceName: device.name || (mcpData.deviceName as string) || 'Unknown Device',
+              isOnline: (mcpData.isOnline as boolean) || false,
+              lastSeen: (mcpData.lastSeen as number) || Date.now(),
+              mqttConnected: (mcpData.mqttConnected as boolean) || false,
+              ipAddress: mcpData.ipAddress as string | undefined,
+              signalStrength: mcpData.signalStrength as number | undefined,
+              batteryLevel: mcpData.batteryLevel as number | undefined,
+              productId: productId
+            };
+            
+            deviceStatuses.push(deviceStatus);
+            console.log('[DeviceMessageService] Device status retrieved via MCP:', {
+              deviceId,
+              deviceName: deviceStatus.deviceName,
+              isOnline: deviceStatus.isOnline,
+              mqttConnected: deviceStatus.mqttConnected
+            });
+          } else {
+            // If MCP call failed, create offline status
+            console.warn('[DeviceMessageService] MCP device status call failed for device:', {
+              deviceId,
+              productId,
+              deviceName,
+              error: mcpResult.error
+            });
+            
+            const offlineStatus: DeviceStatus = {
+              deviceId: deviceId,
+              deviceName: device.name || 'Unknown Device',
+              isOnline: false,
+              lastSeen: Date.now(),
+              mqttConnected: false,
+              productId: productId
+            };
+            
+            deviceStatuses.push(offlineStatus);
+          }
+        } catch (error) {
+          console.error('[DeviceMessageService] Error getting device status via MCP:', {
+            deviceId: device.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          
+          // Add offline status for failed devices
+          const offlineStatus: DeviceStatus = {
+            deviceId: device.id || `device_${Date.now()}`,
+            deviceName: device.name || 'Unknown Device',
+            isOnline: false,
+            lastSeen: Date.now(),
+            mqttConnected: false,
+            productId: this.parseDeviceId(device.id || `device_${Date.now()}`).productId
+          };
+          
+          deviceStatuses.push(offlineStatus);
+        }
+      });
+
+      // Wait for all MCP calls to complete
+      await Promise.all(syncPromises);
+      
+      // Update connected devices with real MCP status
+      this.updateConnectedDevicesFromMcp(deviceStatuses);
+      
+      console.log('[DeviceMessageService] Devices synced via MCP service:', {
+        totalDevices: devices.length,
+        onlineDevices: deviceStatuses.filter(d => d.isOnline && d.mqttConnected).length,
+        offlineDevices: deviceStatuses.filter(d => !d.isOnline || !d.mqttConnected).length
+      });
+    } catch (error) {
+      console.error('[DeviceMessageService] Failed to sync devices via MCP:', error);
+      
+      // Fallback to local device management if MCP sync fails
+      console.log('[DeviceMessageService] Falling back to local device management');
+      this.updateConnectedDevicesFromLocal(devices);
     }
   }
 
@@ -196,6 +274,63 @@ class DeviceMessageService {
       batteryLevel: undefined,
       productId: deviceId.includes(':') ? deviceId.split(':')[0] : 'DEFAULT_PRODUCT'
     }));
+  }
+
+  // Get real-time device status via MCP
+  async getDeviceStatusViaMcp(deviceId: string): Promise<{ success: boolean; data?: DeviceStatus; error?: string }> {
+    try {
+      if (!this.tencentIoTEnabled) {
+        return {
+          success: false,
+          error: 'Tencent IoT Cloud not enabled'
+        };
+      }
+
+      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      
+      console.log('[DeviceMessageService] Getting device status via MCP:', { deviceId, productId, deviceName });
+      
+      const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceName);
+      
+      if (mcpResult.success && mcpResult.data) {
+        const mcpData = mcpResult.data as Record<string, unknown>;
+        const deviceStatus: DeviceStatus = {
+          deviceId: deviceId,
+          deviceName: (mcpData.deviceName as string) || 'Unknown Device',
+          isOnline: (mcpData.isOnline as boolean) || false,
+          lastSeen: (mcpData.lastSeen as number) || Date.now(),
+          mqttConnected: (mcpData.mqttConnected as boolean) || false,
+          ipAddress: mcpData.ipAddress as string | undefined,
+          signalStrength: mcpData.signalStrength as number | undefined,
+          batteryLevel: mcpData.batteryLevel as number | undefined,
+          productId: productId
+        };
+        
+        // Update local cache
+        this.connectedDevices.set(deviceId, {
+          isConnected: deviceStatus.isOnline && deviceStatus.mqttConnected,
+          deviceName: deviceStatus.deviceName,
+          deviceId: deviceStatus.deviceId,
+          lastSeen: deviceStatus.lastSeen
+        });
+        
+        return {
+          success: true,
+          data: deviceStatus
+        };
+      } else {
+        return {
+          success: false,
+          error: mcpResult.error || 'Failed to get device status via MCP'
+        };
+      }
+    } catch (error) {
+      console.error('[DeviceMessageService] Error getting device status via MCP:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
   }
 
   // check if any device is connected

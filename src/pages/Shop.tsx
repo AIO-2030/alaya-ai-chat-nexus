@@ -9,7 +9,7 @@ import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
-import {createOrderAndGetInvoiceUrl} from '@/services/bitpay';
+import { bitPayApiService } from '@/services/api/bitpayApi';
 
 const Shop = () => {
   const { user, loading: authLoading } = useAuth();
@@ -163,7 +163,7 @@ const Shop = () => {
       const sku = 'PIXELMUG-CLASSIC';
       const currency = 'USD';
 
-      const { invoiceUrl } = await createOrderAndGetInvoiceUrl({
+      const response = await bitPayApiService.createOrderAndGetInvoiceUrl({
         orderId,
         amount: Number(product.price),
         currency,
@@ -173,7 +173,11 @@ const Shop = () => {
         redirectBase: window.location.origin,
       });
 
-      window.location.href = invoiceUrl;
+      if (response.success && response.data) {
+        window.location.href = response.data.invoiceUrl;
+      } else {
+        throw new Error(response.error || 'Failed to create order');
+      }
 
     } catch (err) {
       console.error('Create BitPay invoice failed:', err);
