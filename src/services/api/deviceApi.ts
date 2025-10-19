@@ -73,6 +73,7 @@ export interface DeviceRecord {
   createdAt: number;
   updatedAt: number;
   lastSeen: number;
+  deleted: boolean;
 }
 
 export interface DeviceConnectionRequest {
@@ -108,6 +109,7 @@ class DeviceApiService {
       createdAt: Number(deviceInfo.created_at),
       updatedAt: Number(deviceInfo.updated_at),
       lastSeen: Number(deviceInfo.last_seen),
+      deleted: deviceInfo.deleted,
     };
   }
 
@@ -141,6 +143,7 @@ class DeviceApiService {
         created_at: BigInt(record.createdAt),
         updated_at: BigInt(record.updatedAt),
         last_seen: BigInt(record.lastSeen),
+        deleted: record.deleted,
       };
     } catch (error) {
       console.error('[DeviceApi] Error converting principal:', error);

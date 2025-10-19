@@ -3668,6 +3668,7 @@ class RealDeviceService {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         lastSeen: Date.now(),
+        deleted: false, // New devices are not deleted
       };
       
       // Use deviceApiService to submit to backend canister

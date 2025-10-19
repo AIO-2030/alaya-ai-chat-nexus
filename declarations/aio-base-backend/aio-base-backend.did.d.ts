@@ -124,6 +124,7 @@ export interface DeviceInfo {
   'id' : string,
   'status' : DeviceStatus,
   'updated_at' : bigint,
+  'deleted' : boolean,
   'capabilities' : Array<DeviceCapability>,
   'owner' : Principal,
   'metadata' : Array<[string, string]>,

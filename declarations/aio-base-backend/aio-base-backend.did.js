@@ -60,6 +60,7 @@ export const idlFactory = ({ IDL }) => {
     'id' : IDL.Text,
     'status' : DeviceStatus,
     'updated_at' : IDL.Nat64,
+    'deleted' : IDL.Bool,
     'capabilities' : IDL.Vec(DeviceCapability),
     'owner' : IDL.Principal,
     'metadata' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),

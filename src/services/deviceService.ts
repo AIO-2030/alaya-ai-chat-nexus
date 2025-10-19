@@ -122,6 +122,7 @@ class DeviceService {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         lastSeen: Date.now(),
+        deleted: false, // New devices are not deleted
       };
       
       const response = await deviceApiService.submitDeviceRecord(apiRecord);
