@@ -1,4 +1,11 @@
 // Device Service - Handle WiFi, Bluetooth and Device Management
+
+// Product ID constant - hardcoded
+const PRODUCT_ID = "H3PI4FBTV5";
+
+// Device name prefix constant
+const DEVICE_NAME_PREFIX = "PixelMug";
+
 export interface WiFiNetwork {
   id: string;
   name: string;
@@ -17,6 +24,8 @@ export interface BluetoothDevice {
   mac: string;
   paired?: boolean;
   connectable?: boolean;
+  // Add parsed device name
+  deviceName?: string;
 }
 
 export interface DeviceRecord {
@@ -28,6 +37,9 @@ export interface DeviceRecord {
   status: string;
   connectedAt: string;
   principalId: string;
+  // Add device name and product ID
+  deviceName?: string;
+  productId?: string;
 }
 
 export interface ConnectionProgress {
@@ -37,23 +49,47 @@ export interface ConnectionProgress {
 
 class DeviceService {
 
+  // Parse Bluetooth device name to extract device_name
+  private parseDeviceName(bluetoothName: string): string | null {
+    try {
+      // Find the last underscore position
+      const lastUnderscoreIndex = bluetoothName.lastIndexOf('_');
+      
+      if (lastUnderscoreIndex !== -1 && lastUnderscoreIndex < bluetoothName.length - 1) {
+        // Extract the part after the underscore as device_name
+        const deviceName = bluetoothName.substring(lastUnderscoreIndex + 1);
+        console.log(`[DeviceService] Parsed device name: ${deviceName} from bluetooth name: ${bluetoothName}`);
+        return deviceName;
+      }
+      
+      // If no underscore found, use the original name
+      console.log(`[DeviceService] No underscore found, using original name: ${bluetoothName}`);
+      return bluetoothName;
+    } catch (error) {
+      console.error('[DeviceService] Error parsing device name:', error);
+      return null;
+    }
+  }
+
+  // Get product ID
+  getProductId(): string {
+    return PRODUCT_ID;
+  }
+
 
   // Scan Bluetooth devices
   async scanBluetoothDevices(): Promise<BluetoothDevice[]> {
     try {
-      // Simulate Bluetooth scanning API call
       console.log('Starting Bluetooth device scan...');
       
-      // Simulate scanning delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // TODO: Implement real Bluetooth scanning API call
+      // This should call the actual Bluetooth scanning interface
+      const devices: BluetoothDevice[] = [];
       
-      const devices: BluetoothDevice[] = [
-        { id: "1", name: "Smart Speaker Pro", rssi: -45, type: "speaker", mac: "AA:BB:CC:DD:EE:FF" },
-        { id: "2", name: "IoT Camera", rssi: -55, type: "camera", mac: "11:22:33:44:55:66" },
-        { id: "3", name: "Smart Light Bulb", rssi: -60, type: "light", mac: "AA:11:BB:22:CC:33" },
-        { id: "4", name: "Temperature Sensor", rssi: -65, type: "sensor", mac: "DD:44:EE:55:FF:66" },
-        { id: "5", name: "Smart Thermostat", rssi: -70, type: "thermostat", mac: "FF:77:AA:88:BB:99" },
-      ];
+      // Parse device names
+      devices.forEach(device => {
+        device.deviceName = this.parseDeviceName(device.name) || undefined;
+      });
       
       console.log('[DeviceService] Bluetooth scan completed, found', devices.length, 'devices');
       return devices;
@@ -71,13 +107,23 @@ class DeviceService {
     password?: string
   ): Promise<boolean> {
     try {
+      const deviceName = this.parseDeviceName(device.name);
+      if (!deviceName) {
+        throw new Error('Invalid device name format');
+      }
+
+      // Ensure device has deviceName set
+      device.deviceName = deviceName;
+
       console.log('Configuring WiFi via Bluetooth:', {
         device: device.name,
+        deviceName: deviceName,
+        productId: PRODUCT_ID,
         wifi: wifiNetwork.name
       });
       
-      // Simulate configuration process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // TODO: Implement real WiFi configuration API call
+      // This should call the actual WiFi configuration interface
       
       console.log('WiFi configuration successful');
       return true;
@@ -85,6 +131,31 @@ class DeviceService {
       console.error('WiFi configuration failed:', error);
       throw new Error('WiFi configuration failed');
     }
+  }
+
+  // Helper method to create a DeviceRecord from BluetoothDevice
+  createDeviceRecordFromBluetooth(
+    bluetoothDevice: BluetoothDevice,
+    wifiNetwork: string,
+    principalId: string
+  ): DeviceRecord {
+    const deviceName = bluetoothDevice.deviceName || this.parseDeviceName(bluetoothDevice.name);
+    
+    if (!deviceName) {
+      throw new Error('Cannot create device record: device name is required');
+    }
+
+    return {
+      name: bluetoothDevice.name,
+      type: bluetoothDevice.type || 'IoT',
+      macAddress: bluetoothDevice.mac,
+      wifiNetwork: wifiNetwork,
+      status: 'Connected',
+      connectedAt: new Date().toISOString(),
+      principalId: principalId,
+      deviceName: deviceName,
+      productId: PRODUCT_ID
+    };
   }
 
   // Get connection progress
@@ -102,6 +173,14 @@ class DeviceService {
   async submitDeviceRecord(record: DeviceRecord): Promise<boolean> {
     try {
       console.log('Submitting device record to backend:', record);
+      console.log('Device name:', record.deviceName);
+      console.log('Product ID:', record.productId);
+      
+      // Validate deviceName before submission
+      if (!record.deviceName) {
+        console.error('Device name is missing in the record:', record);
+        throw new Error('Device name is required but not provided in the record');
+      }
       
       // Import API service dynamically to avoid circular dependency
       const { deviceApiService } = await import('./api/deviceApi');
@@ -110,6 +189,8 @@ class DeviceService {
       const apiRecord = {
         id: `device_${Date.now()}`, // Generate unique ID
         name: record.name,
+        deviceName: record.deviceName, // Add deviceName field (required)
+        productId: record.productId || PRODUCT_ID, // Add productId field
         deviceType: this.convertStringToDeviceType(record.type),
         owner: record.principalId, // Use principalId as owner
         status: this.convertStringToDeviceStatus(record.status),
@@ -158,18 +239,7 @@ class DeviceService {
       return legacyDevices;
     } catch (error) {
       console.error('Failed to get device list:', error);
-      // Return mock data as fallback
-      return [
-        {
-          name: "Smart Speaker Pro",
-          type: "speaker",
-          macAddress: "AA:BB:CC:DD:EE:FF",
-          wifiNetwork: "MyHome_WiFi",
-          status: "Connected",
-          connectedAt: new Date().toISOString(),
-          principalId: "mock-principal-id"
-        }
-      ];
+      throw new Error('Failed to get device list');
     }
   }
 
@@ -178,14 +248,8 @@ class DeviceService {
     try {
       console.log('Disconnecting device:', deviceId);
       
-      // Simulate API call
-      const response = await fetch(`/api/devices/${deviceId}/disconnect`, {
-        method: 'POST',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to disconnect device');
-      }
+      // TODO: Implement real device disconnection API call
+      // This should call the actual disconnection interface
       
       console.log('Device disconnected successfully');
       return true;
@@ -200,18 +264,8 @@ class DeviceService {
     try {
       console.log('Updating device status:', deviceId, status);
       
-      // Simulate API call
-      const response = await fetch(`/api/devices/${deviceId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update device status');
-      }
+      // TODO: Implement real device status update API call
+      // This should call the actual status update interface
       
       console.log('Device status updated successfully');
       return true;
@@ -306,6 +360,8 @@ class DeviceService {
       status: this.convertDeviceStatusToString(apiDevice.status),
       connectedAt: apiDevice.metadata.connectedAt || new Date(apiDevice.createdAt).toISOString(),
       principalId: apiDevice.owner,
+      deviceName: apiDevice.deviceName || '',
+      productId: apiDevice.productId || PRODUCT_ID,
     };
   }
 

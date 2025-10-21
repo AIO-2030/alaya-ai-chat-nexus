@@ -75,7 +75,9 @@ class DeviceMessageService {
     
     statuses.forEach(status => {
       const deviceStatus: DeviceConnectionStatus = {
-        isConnected: status.isOnline && status.mqttConnected,
+        // More lenient connection check: consider device connected if either online or mqtt connected
+        // This helps when MCP service is unavailable but device is still functional
+        isConnected: status.isOnline || status.mqttConnected,
         deviceName: status.deviceName,
         deviceId: status.deviceId,
         lastSeen: status.lastSeen
@@ -84,12 +86,16 @@ class DeviceMessageService {
       this.connectedDevices.set(status.deviceId, deviceStatus);
     });
 
-    // Remove devices not in Tencent Cloud status
+    // Update device status based on MCP response, but don't remove devices
+    // Device status should only be controlled by MCP, not by local removal
     const tencentDeviceIds = new Set(statuses.map(s => s.deviceId));
     for (const [deviceId, device] of this.connectedDevices.entries()) {
       if (!tencentDeviceIds.has(deviceId)) {
-        this.connectedDevices.delete(deviceId);
-        console.log('[DeviceMessageService] Removed offline device:', deviceId);
+        // Instead of removing, mark as offline but keep in the list
+        device.isConnected = false;
+        device.lastSeen = Date.now();
+        this.connectedDevices.set(deviceId, device);
+        console.log('[DeviceMessageService] Marked device as offline (not removed):', deviceId);
       }
     }
   }
@@ -137,7 +143,7 @@ class DeviceMessageService {
         try {
           // Parse device ID to get product_id and device_name
           const deviceId = device.id || `device_${Date.now()}`;
-          const { productId, deviceName } = this.parseDeviceId(deviceId);
+          const { productId, deviceName } = this.parseDeviceIdFromRecord(device);
           
           // Call MCP getDeviceStatus for this device
           const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceName);
@@ -145,15 +151,17 @@ class DeviceMessageService {
           if (mcpResult.success && mcpResult.data) {
             // Map MCP response to DeviceStatus format
             const mcpData = mcpResult.data as Record<string, unknown>;
+            // Parse MCP response according to new API format
+            const deviceStatusData = mcpData.device_status as Record<string, unknown> || {};
             const deviceStatus: DeviceStatus = {
               deviceId: deviceId,
-              deviceName: device.name || (mcpData.deviceName as string) || 'Unknown Device',
-              isOnline: (mcpData.isOnline as boolean) || false,
-              lastSeen: (mcpData.lastSeen as number) || Date.now(),
-              mqttConnected: (mcpData.mqttConnected as boolean) || false,
-              ipAddress: mcpData.ipAddress as string | undefined,
-              signalStrength: mcpData.signalStrength as number | undefined,
-              batteryLevel: mcpData.batteryLevel as number | undefined,
+              deviceName: device.name || (deviceStatusData.device_name as string) || 'Unknown Device',
+              isOnline: (deviceStatusData.online as boolean) || false,
+              lastSeen: (deviceStatusData.last_online_time as number) || Date.now(),
+              mqttConnected: (deviceStatusData.online as boolean) || false,
+              ipAddress: deviceStatusData.client_ip as string | undefined,
+              signalStrength: undefined, // Not available in new API
+              batteryLevel: undefined, // Not available in new API
               productId: productId
             };
             
@@ -252,9 +260,18 @@ class DeviceMessageService {
       const [productId, deviceName] = deviceId.split(':');
       return { productId, deviceName };
     } else {
-      // Use default product ID if not specified
-      return { productId: 'DEFAULT_PRODUCT', deviceName: deviceId };
+      // Use hardcoded product ID and device ID as device name
+      return { productId: 'H3PI4FBTV5', deviceName: deviceId };
     }
+  }
+
+  // Parse device ID from device record with proper product_id and device_name
+  private parseDeviceIdFromRecord(device: DeviceRecord): { productId: string; deviceName: string } {
+    // Use device_name and product_id from device record if available
+    const productId = device.productId || 'H3PI4FBTV5';
+    const deviceName = device.deviceName || device.id;
+    
+    return { productId, deviceName };
   }
 
   // Get Tencent IoT Cloud device statuses
@@ -276,6 +293,58 @@ class DeviceMessageService {
     }));
   }
 
+  // Get real-time device status via MCP using device record
+  async getDeviceStatusViaMcpWithRecord(device: DeviceRecord): Promise<{ success: boolean; data?: DeviceStatus; error?: string }> {
+    try {
+      if (!this.tencentIoTEnabled) {
+        return {
+          success: false,
+          error: 'Tencent IoT Cloud not enabled'
+        };
+      }
+
+      const { productId, deviceName } = this.parseDeviceIdFromRecord(device);
+      
+      console.log('[DeviceMessageService] Getting device status via MCP with record:', { 
+        deviceId: device.id, 
+        productId, 
+        deviceName 
+      });
+      
+      const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceName);
+      
+      if (mcpResult.success && mcpResult.data) {
+        const mcpData = mcpResult.data as Record<string, unknown>;
+        // Parse MCP response according to new API format
+        const deviceStatusData = mcpData.device_status as Record<string, unknown> || {};
+        const deviceStatus: DeviceStatus = {
+          deviceId: device.id,
+          deviceName: (deviceStatusData.device_name as string) || device.deviceName || 'Unknown Device',
+          isOnline: (deviceStatusData.online as boolean) || false,
+          lastSeen: (deviceStatusData.last_online_time as number) || Date.now(),
+          mqttConnected: (deviceStatusData.online as boolean) || false,
+          productId: productId
+        };
+
+        return {
+          success: true,
+          data: deviceStatus
+        };
+      } else {
+        return {
+          success: false,
+          error: mcpResult.error || 'Failed to get device status from MCP'
+        };
+      }
+    } catch (error) {
+      console.error('[DeviceMessageService] Error getting device status via MCP:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
   // Get real-time device status via MCP
   async getDeviceStatusViaMcp(deviceId: string): Promise<{ success: boolean; data?: DeviceStatus; error?: string }> {
     try {
@@ -294,21 +363,23 @@ class DeviceMessageService {
       
       if (mcpResult.success && mcpResult.data) {
         const mcpData = mcpResult.data as Record<string, unknown>;
+        // Parse MCP response according to new API format
+        const deviceStatusData = mcpData.device_status as Record<string, unknown> || {};
         const deviceStatus: DeviceStatus = {
           deviceId: deviceId,
-          deviceName: (mcpData.deviceName as string) || 'Unknown Device',
-          isOnline: (mcpData.isOnline as boolean) || false,
-          lastSeen: (mcpData.lastSeen as number) || Date.now(),
-          mqttConnected: (mcpData.mqttConnected as boolean) || false,
-          ipAddress: mcpData.ipAddress as string | undefined,
-          signalStrength: mcpData.signalStrength as number | undefined,
-          batteryLevel: mcpData.batteryLevel as number | undefined,
+          deviceName: (deviceStatusData.device_name as string) || 'Unknown Device',
+          isOnline: (deviceStatusData.online as boolean) || false,
+          lastSeen: (deviceStatusData.last_online_time as number) || Date.now(),
+          mqttConnected: (deviceStatusData.online as boolean) || false,
+          ipAddress: deviceStatusData.client_ip as string | undefined,
+          signalStrength: undefined, // Not available in new API
+          batteryLevel: undefined, // Not available in new API
           productId: productId
         };
         
         // Update local cache
         this.connectedDevices.set(deviceId, {
-          isConnected: deviceStatus.isOnline && deviceStatus.mqttConnected,
+          isConnected: deviceStatus.isOnline || deviceStatus.mqttConnected,
           deviceName: deviceStatus.deviceName,
           deviceId: deviceStatus.deviceId,
           lastSeen: deviceStatus.lastSeen
@@ -641,7 +712,7 @@ class DeviceMessageService {
           result = await alayaMcpService.sendGifMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
           break;
         case 'text':
-          result = await alayaMcpService.sendTextMessage(productId, deviceName, message.content as string);
+          result = await alayaMcpService.sendDisplayText(productId, deviceName, message.content as string);
           break;
         default:
           throw new Error(`Unsupported message type: ${message.type}`);
@@ -694,16 +765,8 @@ class DeviceMessageService {
           ttl_sec: 900
         });
       } else {
-        // For text messages, send as pixel image
-        result = await alayaMcpService.sendPixelImage({
-          product_id: productId,
-          device_name: deviceName,
-          image_data: JSON.stringify({ text: message.content, type: 'text_message' }),
-          target_width: 16,
-          target_height: 16,
-          use_cos: true,
-          ttl_sec: 900
-        });
+        // For text messages, use send_display_text method
+        result = await alayaMcpService.sendDisplayText(productId, deviceName, message.content as string);
       }
 
       if (!result.success) {

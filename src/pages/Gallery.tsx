@@ -4,14 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { PageLayout } from '../components/PageLayout';
 import { pixelizeEmoji, PixelFormat, PixelProcessingResult } from '../lib/pixelProcessor';
 import { PixelCreationApi, ProjectListItem } from '../services/api/pixelCreationApi';
 import { useAuth } from '../lib/auth';
-import { PixelArtInfo } from '../services/api/chatApi';
+import { PixelArtInfo, GifInfo } from '../services/api/chatApi';
+import { convertPixelResultToGif, convertUserCreationToGif, GifResult } from '../lib/pixelToGifConverter';
 
 interface GalleryItem {
   id: number;
@@ -21,6 +22,7 @@ interface GalleryItem {
   likes: number;
   emoji: string;
   pixelResult?: PixelProcessingResult;
+  gifResult?: GifResult; // 新增GIF结果
 }
 
 interface UserCreationItem {
@@ -41,6 +43,7 @@ interface UserCreationItem {
     palette: string[];
     pixels: number[][];
   };
+  gifResult?: GifResult; // 新增GIF结果
 }
 
 interface GifItem {
@@ -58,6 +61,7 @@ interface GifItem {
 const Gallery = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAuthenticated, loginWithGoogle, loginWithWallet } = useAuth();
   const [activeTab, setActiveTab] = useState('public');
   const [publicSubTab, setPublicSubTab] = useState('pixel'); // 'pixel' or 'gif'
@@ -72,11 +76,39 @@ const Gallery = () => {
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const galleryScrollRef = useRef<HTMLDivElement>(null);
 
-  const handleBackToChat = () => {
+  // 获取来源页面信息
+  const sourcePage = searchParams.get('from') || 'chat'; // 默认为chat页面
+  console.log('[Gallery] Source page:', sourcePage);
+
+  const handleBackToSource = () => {
     // Set sessionStorage flag and use URL parameter as backup
     sessionStorage.setItem('returning_from_gallery', 'true');
-    console.log('[Gallery] Returning to chat with sessionStorage flag set');
-    navigate('/chat?from=gallery');
+    console.log('[Gallery] Returning to source page:', sourcePage);
+    
+    if (sourcePage === 'device-send') {
+      // 从DeviceSend页面来的，返回到DeviceSend页面
+      // 检查是否有保存的设备信息
+      const deviceInfo = sessionStorage.getItem('device_send_info');
+      if (deviceInfo) {
+        try {
+          const device = JSON.parse(deviceInfo);
+          const params = new URLSearchParams();
+          if (device.deviceId) params.set('deviceId', device.deviceId);
+          if (device.deviceName) params.set('deviceName', device.deviceName);
+          if (device.deviceType) params.set('deviceType', device.deviceType);
+          if (device.deviceStatus) params.set('deviceStatus', device.deviceStatus);
+          navigate(`/device-send?${params.toString()}`);
+        } catch (error) {
+          console.error('[Gallery] Error parsing device info:', error);
+          navigate('/my-devices');
+        }
+      } else {
+        navigate('/my-devices');
+      }
+    } else {
+      // 默认返回到Chat页面
+      navigate('/chat?from=gallery');
+    }
   };
 
   const handleCreateClick = () => {
@@ -165,31 +197,41 @@ const Gallery = () => {
   // Handle Use button click for public gallery items
   const handleUsePublicItem = async (item: GalleryItem) => {
     try {
-      if (!item.pixelResult) {
-        console.error('No pixel result available for item:', item.title);
+      if (!item.gifResult) {
+        console.error('No GIF result available for item:', item.title);
         return;
       }
 
-      // Generate chat format (base64 image)
-      const chatFormat = canvasToBase64(item.pixelResult.canvas);
-      
-      // Generate device format
-      const deviceFormat = generateDeviceFormat(item.pixelResult, item.title);
-      
-      // Create PixelArtInfo object
-      const pixelArtData: PixelArtInfo = {
-        chatFormat,
-        deviceFormat,
-        width: item.pixelResult.canvas.width,
-        height: item.pixelResult.canvas.height,
-        palette: item.pixelResult.palette || ['#000000'],
-        sourceType: 'emoji',
-        sourceId: undefined
+      // 使用GIF数据而不是像素图数据
+      const gifData: GifInfo = {
+        gifUrl: item.gifResult.gifUrl,
+        thumbnailUrl: item.gifResult.thumbnailUrl,
+        title: item.gifResult.title,
+        duration: item.gifResult.duration,
+        width: item.gifResult.width,
+        height: item.gifResult.height,
+        sourceType: 'gif',
+        sourceId: item.id.toString()
       };
 
-      // Navigate to chat with pixel art data and contact info
-      const chatUrl = buildChatUrlWithPixelArt(pixelArtData);
-      navigate(chatUrl);
+      // Set sessionStorage flag and include in URL parameters
+      sessionStorage.setItem('returning_from_gallery', 'true');
+      
+      const params = new URLSearchParams();
+      params.set('gifData', JSON.stringify(gifData));
+      params.set('from', 'gallery');
+      
+      if (sourcePage === 'device-send') {
+        // 从DeviceSend页面来的，返回到DeviceSend页面
+        console.log('[Gallery] Sending GIF to device-send page');
+        const deviceUrl = `/device-send?${params.toString()}`;
+        navigate(deviceUrl);
+      } else {
+        // 默认返回到Chat页面
+        console.log('[Gallery] Sending GIF to chat page');
+        const chatUrl = `/chat?${params.toString()}`;
+        navigate(chatUrl);
+      }
     } catch (error) {
       console.error('Error using public gallery item:', error);
     }
@@ -198,51 +240,41 @@ const Gallery = () => {
   // Handle Use button click for user creation items
   const handleUseCreationItem = async (item: UserCreationItem) => {
     try {
-      // Generate chat format from canvas
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx || !item.pixelArt) {
-        console.error('Cannot generate chat format for item:', item.title);
+      if (!item.gifResult) {
+        console.error('No GIF result available for item:', item.title);
         return;
       }
 
-      canvas.width = item.pixelArt.width;
-      canvas.height = item.pixelArt.height;
-      ctx.imageSmoothingEnabled = false;
-
-      // Draw pixel art
-      const cellWidth = canvas.width / item.pixelArt.width;
-      const cellHeight = canvas.height / item.pixelArt.height;
-
-      for (let y = 0; y < item.pixelArt.height; y++) {
-        for (let x = 0; x < item.pixelArt.width; x++) {
-          if (item.pixelArt.pixels[y] && item.pixelArt.pixels[y][x] !== undefined) {
-            const colorIndex = item.pixelArt.pixels[y][x];
-            const color = item.pixelArt.palette[colorIndex] || '#000000';
-            
-            ctx.fillStyle = color;
-            ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-          }
-        }
-      }
-
-      const chatFormat = canvasToBase64(canvas);
-      const deviceFormat = generateCreationDeviceFormat(item);
-
-      // Create PixelArtInfo object
-      const pixelArtData: PixelArtInfo = {
-        chatFormat,
-        deviceFormat,
-        width: item.pixelArt.width,
-        height: item.pixelArt.height,
-        palette: item.pixelArt.palette,
+      // 使用GIF数据而不是像素图数据
+      const gifData: GifInfo = {
+        gifUrl: item.gifResult.gifUrl,
+        thumbnailUrl: item.gifResult.thumbnailUrl,
+        title: item.gifResult.title,
+        duration: item.gifResult.duration,
+        width: item.gifResult.width,
+        height: item.gifResult.height,
         sourceType: 'creation',
         sourceId: item.id
       };
 
-      // Navigate to chat with pixel art data and contact info
-      const chatUrl = buildChatUrlWithPixelArt(pixelArtData);
-      navigate(chatUrl);
+      // Set sessionStorage flag and include in URL parameters
+      sessionStorage.setItem('returning_from_gallery', 'true');
+      
+      const params = new URLSearchParams();
+      params.set('gifData', JSON.stringify(gifData));
+      params.set('from', 'gallery');
+      
+      if (sourcePage === 'device-send') {
+        // 从DeviceSend页面来的，返回到DeviceSend页面
+        console.log('[Gallery] Sending GIF to device-send page');
+        const deviceUrl = `/device-send?${params.toString()}`;
+        navigate(deviceUrl);
+      } else {
+        // 默认返回到Chat页面
+        console.log('[Gallery] Sending GIF to chat page');
+        const chatUrl = `/chat?${params.toString()}`;
+        navigate(chatUrl);
+      }
     } catch (error) {
       console.error('Error using creation item:', error);
     }
@@ -269,10 +301,18 @@ const Gallery = () => {
       const params = new URLSearchParams();
       params.set('gifData', JSON.stringify(gifData));
       params.set('from', 'gallery');
-      console.log('[Gallery] Sending GIF to chat with sessionStorage flag set, contact info will be restored automatically');
       
-      const chatUrl = `/chat?${params.toString()}`;
-      navigate(chatUrl);
+      if (sourcePage === 'device-send') {
+        // 从DeviceSend页面来的，返回到DeviceSend页面
+        console.log('[Gallery] Sending GIF to device-send page');
+        const deviceUrl = `/device-send?${params.toString()}`;
+        navigate(deviceUrl);
+      } else {
+        // 默认返回到Chat页面
+        console.log('[Gallery] Sending GIF to chat page');
+        const chatUrl = `/chat?${params.toString()}`;
+        navigate(chatUrl);
+      }
     } catch (error) {
       console.error('Error using GIF item:', error);
     }
@@ -404,6 +444,15 @@ const Gallery = () => {
                 pixelArt: sourceResult.success ? sourceResult.pixelArt : undefined
               };
               
+              // 如果有像素图数据，生成GIF
+              if (userItem.pixelArt) {
+                try {
+                  userItem.gifResult = await convertUserCreationToGif(userItem);
+                } catch (gifError) {
+                  console.error('Failed to convert pixel art to GIF for project:', project.projectId, gifError);
+                }
+              }
+              
               return userItem;
             } catch (error) {
               console.error('Failed to load pixel art for project:', project.projectId, error);
@@ -462,7 +511,7 @@ const Gallery = () => {
     }
   };
 
-  // Process emoji into pixel art
+  // Process emoji into pixel art and GIF
   const processItemEmoji = async (item: GalleryItem) => {
     try {
       setIsProcessing(true);
@@ -472,7 +521,10 @@ const Gallery = () => {
         smoothing: true
       });
       
-      return { ...item, pixelResult };
+      // 将像素图转换为GIF
+      const gifResult = await convertPixelResultToGif(pixelResult, item.title);
+      
+      return { ...item, pixelResult, gifResult };
     } catch (error) {
       console.error('Failed to process emoji:', error);
       return item;
@@ -524,9 +576,9 @@ const Gallery = () => {
     }
   }, [hasMoreCreations, isLoadingMore, currentPage, isAuthenticated]);
 
-  // Render user creation pixel canvas
+  // Render user creation canvas (now shows GIF)
   const renderUserCreationCanvas = (item: UserCreationItem) => {
-    if (!item.pixelArt) {
+    if (!item.gifResult) {
       return (
         <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg flex items-center justify-center">
           <div className="text-white/60 text-sm text-center p-4">
@@ -538,59 +590,34 @@ const Gallery = () => {
     }
 
     return (
-      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center">
-        <canvas
-          ref={(canvas) => {
-            if (canvas && item.pixelArt) {
-              const ctx = canvas.getContext('2d', { willReadFrequently: true });
-              if (ctx) {
-                const containerElement = canvas.parentElement;
-                if (containerElement) {
-                  const rect = containerElement.getBoundingClientRect();
-                  const maxSize = Math.min(rect.width - 16, rect.height - 16);
-                  
-                  canvas.width = maxSize;
-                  canvas.height = maxSize;
-                  canvas.style.width = `${maxSize}px`;
-                  canvas.style.height = `${maxSize}px`;
-                  
-                  ctx.imageSmoothingEnabled = false;
-                  ctx.clearRect(0, 0, canvas.width, canvas.height);
-                  
-                  // Draw pixel art from data
-                  const { width, height, palette, pixels } = item.pixelArt;
-                  const cellWidth = maxSize / width;
-                  const cellHeight = maxSize / height;
-                  
-                  for (let y = 0; y < height; y++) {
-                    for (let x = 0; x < width; x++) {
-                      if (pixels[y] && pixels[y][x] !== undefined) {
-                        const colorIndex = pixels[y][x];
-                        const color = palette[colorIndex] || '#000000';
-                        
-                        ctx.fillStyle = color;
-                        ctx.fillRect(
-                          x * cellWidth,
-                          y * cellHeight,
-                          cellWidth,
-                          cellHeight
-                        );
-                      }
-                    }
-                  }
-                }
-              }
+      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center overflow-hidden">
+        <img
+          src={item.gifResult.thumbnailUrl}
+          alt={item.gifResult.title}
+          className="max-w-full max-h-full object-contain rounded"
+          style={{ imageRendering: 'pixelated' }}
+          onError={(e) => {
+            // Fallback to placeholder if GIF fails to load
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+            const parent = target.parentElement;
+            if (parent) {
+              parent.innerHTML = `
+                <div class="text-white/60 text-sm text-center p-4">
+                  <div class="text-4xl mb-2">🎨</div>
+                  <div>Pixel Art Preview</div>
+                </div>
+              `;
             }
           }}
-          style={{ imageRendering: 'pixelated' }}
         />
       </div>
     );
   };
 
-  // Render pixel art canvas
+  // Render pixel art canvas (now shows GIF)
   const renderPixelCanvas = (item: GalleryItem) => {
-    if (!item.pixelResult) {
+    if (!item.gifResult) {
       return (
         <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg flex items-center justify-center">
           <div className="text-8xl md:text-9xl">{item.emoji}</div>
@@ -599,37 +626,23 @@ const Gallery = () => {
     }
 
     return (
-      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center">
-        <canvas
-          ref={(canvas) => {
-            if (canvas && item.pixelResult) {
-              const ctx = canvas.getContext('2d', { willReadFrequently: true });
-              if (ctx) {
-                // Set canvas to maximum size within container
-                const containerElement = canvas.parentElement;
-                if (containerElement) {
-                  const rect = containerElement.getBoundingClientRect();
-                  const maxSize = Math.min(rect.width - 16, rect.height - 16); // Account for padding
-                  const pixelRatio = pixelFormat === '32x32' ? 1 : 0.5;
-                  
-                  canvas.width = maxSize;
-                  canvas.height = maxSize * pixelRatio;
-                  canvas.style.width = `${maxSize}px`;
-                  canvas.style.height = `${maxSize * pixelRatio}px`;
-                  
-                  ctx.imageSmoothingEnabled = false;
-                  
-                  // Draw the pixel art scaled to fill the canvas
-                  ctx.drawImage(
-                    item.pixelResult.canvas,
-                    0, 0,
-                    canvas.width, canvas.height
-                  );
-                }
-              }
+      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center overflow-hidden">
+        <img
+          src={item.gifResult.thumbnailUrl}
+          alt={item.gifResult.title}
+          className="max-w-full max-h-full object-contain rounded"
+          style={{ imageRendering: 'pixelated' }}
+          onError={(e) => {
+            // Fallback to emoji if GIF fails to load
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+            const parent = target.parentElement;
+            if (parent) {
+              parent.innerHTML = `
+                <div class="text-8xl md:text-9xl">${item.emoji}</div>
+              `;
             }
           }}
-          style={{ imageRendering: 'pixelated' }}
         />
       </div>
     );
@@ -721,7 +734,7 @@ const Gallery = () => {
                       variant="outline"
                       size="sm"
                       className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2 sm:p-3"
-                      onClick={handleBackToChat}
+                      onClick={handleBackToSource}
                     >
                       <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -965,9 +978,9 @@ const Gallery = () => {
                                       >
                                         Use
                                       </Button>
-                                      {item.pixelArt && (
+                                      {item.gifResult && (
                                         <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
-                                          {item.pixelArt.width}x{item.pixelArt.height}
+                                          {item.gifResult.width}x{item.gifResult.height}
                                         </div>
                                       )}
                                     </div>

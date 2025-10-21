@@ -21,10 +21,8 @@ class DeviceSimulator {
       deviceName: this.deviceName
     });
 
-    // Simulate device disconnection after 30 seconds
-    setTimeout(() => {
-      this.stopSimulation();
-    }, 30000);
+    // Device simulator now runs indefinitely until manually stopped
+    // No automatic disconnection
   }
 
   // Stop simulating
@@ -61,10 +59,5 @@ class DeviceSimulator {
 // Export singleton instance
 export const deviceSimulator = new DeviceSimulator();
 
-// Auto-start simulation in development mode
-if (import.meta.env.DEV) {
-  // Start simulation after a short delay to allow the app to initialize
-  setTimeout(() => {
-    deviceSimulator.startSimulation();
-  }, 2000);
-}
+// Device simulator is now only available for manual testing
+// No automatic startup in any mode

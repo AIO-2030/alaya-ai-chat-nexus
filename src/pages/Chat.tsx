@@ -19,9 +19,7 @@ import {
   startChatWithContact,
   checkForNewMessages,
   NotificationInfo,
-  PixelArtInfo,
   GifInfo,
-  sendPixelArtMessage,
   sendGifMessage
 } from '../services/api/chatApi';
 import { deviceMessageService } from '../services/deviceMessageService';
@@ -136,10 +134,10 @@ const Chat = () => {
           if (contactInfo.contactNickname) restoreParams.set('contactNickname', contactInfo.contactNickname);
           if (contactInfo.contactPrincipalId) restoreParams.set('contactPrincipalId', contactInfo.contactPrincipalId);
           
-          // Preserve current pixelArt parameter (if any)
-          const currentPixelArt = searchParams.get('pixelArt');
-          if (currentPixelArt) {
-            restoreParams.set('pixelArt', currentPixelArt);
+          // Preserve current gifData parameter (if any)
+          const currentGifData = searchParams.get('gifData');
+          if (currentGifData) {
+            restoreParams.set('gifData', currentGifData);
           }
           
           // Clear sessionStorage and update URL
@@ -170,10 +168,10 @@ const Chat = () => {
             if (contactInfo.contactNickname) restoreParams.set('contactNickname', contactInfo.contactNickname);
             if (contactInfo.contactPrincipalId) restoreParams.set('contactPrincipalId', contactInfo.contactPrincipalId);
             
-            // Preserve current pixelArt parameter (if any)
-            const currentPixelArt = searchParams.get('pixelArt');
-            if (currentPixelArt) {
-              restoreParams.set('pixelArt', currentPixelArt);
+            // Preserve current gifData parameter (if any)
+            const currentGifData = searchParams.get('gifData');
+            if (currentGifData) {
+              restoreParams.set('gifData', currentGifData);
             }
             
             // Clear sessionStorage and update URL
@@ -204,7 +202,6 @@ const Chat = () => {
   const [socialPairKey, setSocialPairKey] = useState<string>('');
   const [notifications, setNotifications] = useState<NotificationInfo[]>([]);
   const [isLoadingChat, setIsLoadingChat] = useState(true);
-  const [pendingPixelArt, setPendingPixelArt] = useState<PixelArtInfo | null>(null);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
   // Use device status hook for real-time device management
   const {
@@ -214,7 +211,6 @@ const Chat = () => {
     isLoading: deviceLoading,
     error: deviceError,
     sendMessageToDevices,
-    sendPixelArtToDevices,
     sendGifToDevices,
     refreshDeviceStatus
   } = useDeviceStatus();
@@ -373,24 +369,7 @@ const Chat = () => {
     }
   }, [user?.principalId, contactPrincipalId, authLoading]);
 
-  // Handle pixel art data from URL params
-  useEffect(() => {
-    const pixelArtParam = searchParams.get('pixelArt');
-    if (pixelArtParam) {
-      try {
-        const pixelArtData = JSON.parse(pixelArtParam) as PixelArtInfo;
-        setPendingPixelArt(pixelArtData);
-        console.log('[Chat] Received pixel art data:', pixelArtData);
-        
-        // Clear the URL parameter
-        const newSearchParams = new URLSearchParams(searchParams);
-        newSearchParams.delete('pixelArt');
-        navigate(`/chat?${newSearchParams.toString()}`, { replace: true });
-      } catch (error) {
-        console.error('[Chat] Error parsing pixel art data:', error);
-      }
-    }
-  }, [searchParams, navigate]);
+  // 像素图数据现在通过GIF格式传递，不再需要单独处理
 
   // Handle GIF data from URL params
   useEffect(() => {
@@ -444,14 +423,12 @@ const Chat = () => {
   const handleSendMessage = async () => {
     // Detailed check for missing data
     const hasMessage = newMessage.trim();
-    const hasPixelArt = !!pendingPixelArt;
     const hasGif = !!pendingGif;
     const hasUserPrincipal = !!user?.principalId;
     const hasContactPrincipal = !!contactPrincipalId;
     
     console.log('[Chat] Send message validation:', {
       hasMessage,
-      hasPixelArt,
       hasGif,
       hasUserPrincipal,
       hasContactPrincipal,
@@ -459,8 +436,8 @@ const Chat = () => {
       contactPrincipalId
     });
 
-    if (!hasMessage && !hasPixelArt && !hasGif) {
-      console.warn('[Chat] Cannot send message: no message content, pixel art, or GIF');
+    if (!hasMessage && !hasGif) {
+      console.warn('[Chat] Cannot send message: no message content or GIF');
       toast({
         title: t('chat.error.emptyMessage'),
         description: t('chat.error.emptyMessageDesc'),
@@ -492,12 +469,7 @@ const Chat = () => {
     try {
       setLoading(true);
       
-      if (pendingPixelArt) {
-        // Send pixel art message
-        console.log('[Chat] Sending pixel art message:', pendingPixelArt);
-        await sendPixelArtMessage(user.principalId, contactPrincipalId, pendingPixelArt);
-        setPendingPixelArt(null);
-      } else if (pendingGif) {
+      if (pendingGif) {
         // Send GIF message
         console.log('[Chat] Sending GIF message:', pendingGif);
         await sendGifMessage(user.principalId, contactPrincipalId, pendingGif);
@@ -516,18 +488,7 @@ const Chat = () => {
       console.log('[Chat] Message sent successfully');
     } catch (error) {
       console.error('[Chat] Error sending message:', error);
-      if (pendingPixelArt) {
-        // Add fallback pixel art message if backend fails
-        const fallbackMsg: ChatMessageInfo = {
-          sendBy: user.principalId,
-          content: JSON.stringify(pendingPixelArt),
-          mode: 'PixelArt',
-          timestamp: Date.now(),
-          pixelArt: pendingPixelArt
-        };
-        setMessages(prev => [...prev, fallbackMsg]);
-        setPendingPixelArt(null);
-      } else if (pendingGif) {
+      if (pendingGif) {
         // Add fallback GIF message if backend fails
         const fallbackMsg: ChatMessageInfo = {
           sendBy: user.principalId,
@@ -575,7 +536,7 @@ const Chat = () => {
     
     sessionStorage.setItem('chat_contact_info', JSON.stringify(contactInfo));
     console.log('[Chat] Saved contact info to sessionStorage before navigating to gallery');
-    navigate('/gallery');
+    navigate('/gallery?from=chat');
   };
 
   // Helper function to format timestamp
@@ -817,33 +778,7 @@ const Chat = () => {
 
                 {/* Input Area */}
                 <div className="flex-shrink-0 p-3 sm:p-4 border-t border-white/10 bg-white/5 space-y-3 sm:space-y-4">
-                      {/* Pending Pixel Art Preview */}
-                      {pendingPixelArt && (
-                        <div className="bg-white/10 rounded-lg p-3 border border-white/20">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-white text-sm font-medium">{t('chat.readyToSend')}:</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setPendingPixelArt(null)}
-                              className="text-white/60 hover:text-white hover:bg-white/10 p-1"
-                            >
-                              ✕
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <img 
-                              src={pendingPixelArt.chatFormat} 
-                              alt="Pixel Art Preview"
-                              className="w-12 h-12 rounded pixelated border border-white/20"
-                              style={{ imageRendering: 'pixelated' }}
-                            />
-                            <div className="flex-1 text-white/80 text-xs">
-                              <div>{t('chat.pixelArt')}</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      {/* 像素图现在通过GIF格式处理，不再需要单独的预览 */}
 
                       {/* Pending GIF Preview */}
                       {pendingGif && (
@@ -893,7 +828,7 @@ const Chat = () => {
                         {/* Send to Chat Button */}
                         <Button
                           onClick={handleSendMessage}
-                          disabled={loading || (!newMessage.trim() && !pendingPixelArt && !pendingGif)}
+                          disabled={loading || (!newMessage.trim() && !pendingGif)}
                           className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Send message to chat"
                         >
@@ -920,22 +855,7 @@ const Chat = () => {
                             }
 
                             try {
-                              if (pendingPixelArt) {
-                                // Send pixel art to device
-                                console.log('Sending pixel art to device:', pendingPixelArt);
-                                const result = await sendPixelArtToDevices(pendingPixelArt);
-                                
-                                if (result.success) {
-                                  toast({
-                                    title: t('chat.success.pixelArtSent'),
-                                    description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
-                                    variant: "default"
-                                  });
-                                  setPendingPixelArt(null);
-                                } else {
-                                  throw new Error(result.errors.join('; '));
-                                }
-                              } else if (pendingGif) {
+                              if (pendingGif) {
                                 // Send GIF to device
                                 console.log('Sending GIF to device:', pendingGif);
                                 const result = await sendGifToDevices(pendingGif);
@@ -975,7 +895,7 @@ const Chat = () => {
                               });
                             }
                           }}
-                          disabled={!newMessage.trim() && !pendingPixelArt && !pendingGif}
+                          disabled={!newMessage.trim() && !pendingGif}
                           title={hasConnectedDevices ? "Send message to device" : "No devices connected"}
                         >
                           <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />

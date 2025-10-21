@@ -65,6 +65,8 @@ export interface ApiResponse<T> {
 export interface DeviceRecord {
   id: string;
   name: string;
+  deviceName?: string;  // Device name for MCP calls (extracted from Bluetooth name)
+  productId?: string;   // Product ID for MCP calls
   deviceType: DeviceType;
   owner: string;
   status: DeviceStatus;
@@ -101,6 +103,8 @@ class DeviceApiService {
     return {
       id: deviceInfo.id,
       name: deviceInfo.name,
+      deviceName: deviceInfo.device_name?.[0] || undefined,
+      productId: deviceInfo.product_id?.[0] || undefined,
       deviceType: deviceInfo.device_type,
       owner: deviceInfo.owner.toString(),
       status: deviceInfo.status,
@@ -135,6 +139,8 @@ class DeviceApiService {
       return {
         id: record.id,
         name: record.name,
+        device_name: record.deviceName ? [record.deviceName] : [],
+        product_id: record.productId ? [record.productId] : [],
         device_type: record.deviceType,
         owner: principal,
         status: record.status,

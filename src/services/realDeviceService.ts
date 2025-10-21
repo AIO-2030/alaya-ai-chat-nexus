@@ -58,6 +58,7 @@ export interface BluetoothDevice {
 export interface DeviceRecord {
   id?: string;
   name: string;
+  deviceName?: string;  // Device name for MCP calls (extracted from Bluetooth name)
   type: string;
   macAddress: string;
   wifiNetwork: string;
@@ -3653,6 +3654,8 @@ class RealDeviceService {
       const apiRecord: ApiDeviceRecord = {
         id: deviceId,
         name: deviceName, // Use actual Tencent IoT device name from GATT
+        deviceName: record.deviceName || deviceName, // Use deviceName for MCP calls
+        productId: record.productId || deviceName, // Use productId for MCP calls
         deviceType: this.convertStringToDeviceType(record.type),
         owner: record.principalId, // Use principalId as owner
         status: this.convertStringToDeviceStatus(record.status),
@@ -3662,7 +3665,7 @@ class RealDeviceService {
           wifiNetwork: record.wifiNetwork,
           connectedAt: record.connectedAt,
           // Store Tencent IoT product info from device
-          productId: record.productId || '',
+          productId: record.productId || deviceName,
           userPrincipal: record.principalId, // Store full principal for reference
         },
         createdAt: Date.now(),
@@ -3811,7 +3814,10 @@ class RealDeviceService {
   // Convert ApiDeviceRecord to legacy DeviceRecord format
   private convertApiDeviceToLegacyDevice(apiDevice: ApiDeviceRecord): DeviceRecord {
     return {
+      id: apiDevice.id,
       name: apiDevice.name,
+      deviceName: apiDevice.deviceName, // Include deviceName for MCP calls
+      productId: apiDevice.productId, // Include productId for MCP calls
       type: this.convertDeviceTypeToString(apiDevice.deviceType),
       macAddress: apiDevice.metadata.macAddress || 'Unknown',
       wifiNetwork: apiDevice.metadata.wifiNetwork || 'Unknown',

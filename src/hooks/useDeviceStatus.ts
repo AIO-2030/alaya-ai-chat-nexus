@@ -94,32 +94,42 @@ export function useDeviceStatus() {
               
               if (mcpResult.success && mcpResult.data) {
                 const mcpData = mcpResult.data as Record<string, unknown>;
+                // Parse MCP response according to new API format
+                const deviceStatusData = mcpData.device_status as Record<string, unknown> || {};
                 return {
                   ...extendedDevice,
-                  isOnline: mcpData.is_online as boolean || extendedDevice.isOnline,
-                  mqttConnected: mcpData.mqtt_connected as boolean || extendedDevice.mqttConnected,
-                  lastSeen: mcpData.last_seen as number || extendedDevice.lastSeen,
-                  ipAddress: mcpData.ip_address as string || extendedDevice.ipAddress,
-                  signalStrength: mcpData.signal_strength as number || extendedDevice.signalStrength,
-                  batteryLevel: mcpData.battery_level as number || extendedDevice.batteryLevel,
-                  isConnected: (mcpData.is_online as boolean) || extendedDevice.isConnected
+                  isOnline: (deviceStatusData.online as boolean) || false,
+                  mqttConnected: (deviceStatusData.online as boolean) || false,
+                  lastSeen: (deviceStatusData.last_online_time as number) || extendedDevice.lastSeen,
+                  ipAddress: deviceStatusData.client_ip as string || extendedDevice.ipAddress,
+                  signalStrength: undefined, // Not available in new API
+                  batteryLevel: undefined, // Not available in new API
+                  isConnected: (deviceStatusData.online as boolean) || false
                 };
               }
               
-              // Fallback to extended device data if MCP call fails
-              return extendedDevice;
+              // If MCP call fails, keep device in current state (don't mark as offline)
+              console.warn(`[useDeviceStatus] MCP call failed for device ${device.id}, keeping current state`);
+              return {
+                ...extendedDevice,
+                // Keep existing connection state if MCP fails
+                isOnline: extendedDevice.isOnline,
+                mqttConnected: extendedDevice.mqttConnected,
+                isConnected: extendedDevice.isConnected
+              };
             } catch (mcpError) {
               console.warn(`[useDeviceStatus] MCP status check failed for device ${device.id}:`, mcpError);
-              // Return extended device with original data
+              // Keep device in current state if MCP call fails
               return {
                 ...device,
                 productId: device.id.includes(':') ? device.id.split(':')[0] : 'DEFAULT_PRODUCT',
                 deviceName: device.id.includes(':') ? device.id.split(':')[1] : device.id,
-                isOnline: device.isConnected,
-                mqttConnected: device.isConnected,
+                isOnline: device.isConnected, // Keep current state
+                mqttConnected: device.isConnected, // Keep current state
                 ipAddress: undefined,
                 signalStrength: undefined,
-                batteryLevel: undefined
+                batteryLevel: undefined,
+                isConnected: device.isConnected // Keep current connection state
               };
             }
           })
@@ -158,20 +168,7 @@ export function useDeviceStatus() {
     }
   }, [isInitialized]);
 
-  // Send pixel art to devices
-  const sendPixelArtToDevices = useCallback(async (pixelArt: PixelArtInfo) => {
-    try {
-      if (!isInitialized) {
-        throw new Error('Device service not initialized');
-      }
-      
-      const result = await deviceMessageService.sendPixelArtToDevices(pixelArt);
-      return result;
-    } catch (err) {
-      console.error('[useDeviceStatus] Failed to send pixel art to devices:', err);
-      throw err;
-    }
-  }, [isInitialized]);
+  // 像素图现在统一通过GIF格式发送，不再需要单独的sendPixelArtToDevices函数
 
   // Send pixel art via ALAYA MCP (direct method)
   const sendPixelArtViaAlayaMcp = useCallback(async (deviceId: string, pixelArt: Record<string, unknown>) => {
@@ -293,7 +290,7 @@ export function useDeviceStatus() {
     // Set up interval for periodic updates with MCP status checks
     const interval = setInterval(async () => {
       await updateDeviceStatus();
-    }, 10000); // Update every 10 seconds
+    }, 5 * 60 * 1000); // Update every 5 minutes
 
     return () => {
       clearInterval(interval);
@@ -314,7 +311,6 @@ export function useDeviceStatus() {
     // Actions
     refreshDeviceStatus,
     sendMessageToDevices,
-    sendPixelArtToDevices,
     sendGifToDevices,
     
     // ALAYA MCP direct methods

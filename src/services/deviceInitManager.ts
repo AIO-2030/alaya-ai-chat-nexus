@@ -538,9 +538,22 @@ export class DeviceInitManager {
         throw new Error('User principal ID not found. Please ensure you are authenticated.');
       }
 
+      // Parse device name from Bluetooth name using underscore rule
+      const parseDeviceName = (bluetoothName: string): string => {
+        const lastUnderscoreIndex = bluetoothName.lastIndexOf('_');
+        if (lastUnderscoreIndex !== -1 && lastUnderscoreIndex < bluetoothName.length - 1) {
+          return bluetoothName.substring(lastUnderscoreIndex + 1);
+        }
+        return bluetoothName;
+      };
+
+      const deviceName = parseDeviceName(this.state.selectedBluetoothDevice.name);
+      console.log(`[DeviceInitManager] Parsed device name: ${deviceName} from bluetooth name: ${this.state.selectedBluetoothDevice.name}`);
+
       const record: DeviceRecord = {
         id: `device_${Date.now()}`, // Generate unique ID
-        name: this.state.selectedBluetoothDevice.name, // Use GATT-retrieved device name
+        name: this.state.selectedBluetoothDevice.name, // Use full GATT-retrieved device name
+        deviceName: deviceName, // Use parsed device name for MCP calls
         type: this.state.selectedBluetoothDevice.type,
         macAddress: this.state.selectedBluetoothDevice.mac,
         wifiNetwork: this.state.selectedWifi.name,
@@ -548,7 +561,7 @@ export class DeviceInitManager {
         connectedAt: new Date().toISOString(),
         principalId: principalId,
         // Add Tencent IoT product info from GATT
-        productId: (this.state.selectedBluetoothDevice as any).productId
+        productId: (this.state.selectedBluetoothDevice as any).productId || deviceName
       };
 
       // Submit to backend canister

@@ -297,6 +297,16 @@ const resources = {
         cancel: 'Cancel',
         refresh: 'Refresh',
         edit: 'Edit'
+      },
+      deviceSend: {
+        title: 'Send to Device',
+        subtitle: 'Send messages, emojis, and GIFs to your connected device',
+        placeholder: 'Type your message here...',
+        backToDevices: 'Back to Devices',
+        error: {
+          deviceInfoMissing: 'Device Information Missing',
+          deviceInfoMissingDesc: 'Unable to load device information. Please try again from the devices page.'
+        }
       }
     },
   },
@@ -593,6 +603,16 @@ const resources = {
         cancel: '取消',
         refresh: '刷新',
         edit: '编辑'
+      },
+      deviceSend: {
+        title: '发送到设备',
+        subtitle: '向您的连接设备发送消息、表情和 GIF',
+        placeholder: '在此输入您的消息...',
+        backToDevices: '返回设备列表',
+        error: {
+          deviceInfoMissing: '设备信息缺失',
+          deviceInfoMissingDesc: '无法加载设备信息。请从设备页面重试。'
+        }
       }
     },
   },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Wifi, Settings, Plus, Loader2, Trash2, Edit } from 'lucide-react';
+import { Smartphone, Wifi, Settings, Plus, Loader2, Trash2, Edit, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '../lib/auth';
@@ -44,7 +44,6 @@ const MyDevices = () => {
     error: deviceStatusError,
     refreshDeviceStatus,
     sendMessageToDevices,
-    sendPixelArtToDevices,
     sendGifToDevices
   } = useDeviceStatus();
 
@@ -113,6 +112,17 @@ const MyDevices = () => {
   const handleToggleDeviceStatus = async (device: DeviceRecord) => {
     const newStatus = 'Online' in device.status ? { Offline: null } : { Online: null };
     await updateDeviceStatus(device.id, newStatus);
+  };
+
+  const handleSendToDevice = (device: DeviceRecord) => {
+    // Navigate to device send page with device information
+    const deviceParams = new URLSearchParams({
+      deviceId: device.id.toString(),
+      deviceName: device.name,
+      deviceType: getDeviceTypeName(device.deviceType),
+      deviceStatus: getDeviceStatusName(device.status)
+    });
+    navigate(`/device-send?${deviceParams.toString()}`);
   };
 
 
@@ -276,6 +286,15 @@ const MyDevices = () => {
                               >
                                 <Settings className="h-4 w-4 mr-2" />
                                 {('Online' in device.status) ? 'Disconnect' : 'Connect'}
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleSendToDevice(device)}
+                                className="bg-gradient-to-r from-green-500/20 to-blue-500/20 border-green-400/30 text-green-300 hover:bg-green-500/30 backdrop-blur-sm"
+                                title="Send message to device"
+                              >
+                                <Send className="h-4 w-4" />
                               </Button>
                               <Button 
                                 variant="outline" 
