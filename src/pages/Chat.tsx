@@ -45,58 +45,11 @@ const Chat = () => {
   const contactNickname = searchParams.get('contactNickname');
   const contactPrincipalId = searchParams.get('contactPrincipalId');
 
-  // Debug URL parameters
-  console.log('[Chat] URL parameters:', {
-    contactId,
-    contactName,
-    contactPrincipalId,
-    hasContactPrincipalId: !!contactPrincipalId,
-    allSearchParams: Object.fromEntries(searchParams.entries())
-  });
 
-  // Immediate check for sessionStorage if contactPrincipalId is missing
-  if (!contactPrincipalId) {
-    console.log('[Chat] Contact principal ID missing, checking sessionStorage immediately');
-    const savedContactInfo = sessionStorage.getItem('chat_contact_info');
-    console.log('[Chat] SessionStorage content:', {
-      hasData: !!savedContactInfo,
-      rawData: savedContactInfo,
-      parsedData: savedContactInfo ? (() => {
-        try { return JSON.parse(savedContactInfo); } catch(e) { return 'Parse error: ' + e; }
-      })() : null
-    });
-
-    // Try immediate restoration if data exists
-    if (savedContactInfo) {
-      try {
-        const contactInfo = JSON.parse(savedContactInfo);
-        if (contactInfo.contactPrincipalId) {
-          console.log('[Chat] Found contact info in sessionStorage, attempting immediate restoration');
-          
-          // Build URL with all available contact information
-          const restoreParams = new URLSearchParams(searchParams);
-          if (contactInfo.contactId) restoreParams.set('contactId', contactInfo.contactId);
-          if (contactInfo.contactName) restoreParams.set('contactName', contactInfo.contactName);
-          if (contactInfo.contactAvatar) restoreParams.set('contactAvatar', contactInfo.contactAvatar);
-          if (contactInfo.contactType) restoreParams.set('contactType', contactInfo.contactType);
-          if (contactInfo.contactStatus) restoreParams.set('contactStatus', contactInfo.contactStatus);
-          if (contactInfo.contactDevices?.length > 0) restoreParams.set('contactDevices', contactInfo.contactDevices.join(','));
-          if (contactInfo.contactIsOnline !== undefined) restoreParams.set('contactIsOnline', contactInfo.contactIsOnline.toString());
-          if (contactInfo.contactNickname) restoreParams.set('contactNickname', contactInfo.contactNickname);
-          restoreParams.set('contactPrincipalId', contactInfo.contactPrincipalId);
-          
-          console.log('[Chat] Restoring contact info immediately with params:', Object.fromEntries(restoreParams.entries()));
-          
-          // Clear sessionStorage and redirect
-          sessionStorage.removeItem('chat_contact_info');
-          window.location.replace(`/chat?${restoreParams.toString()}`);
-          return; // Stop further execution
-        }
-      } catch (error) {
-        console.error('[Chat] Error parsing sessionStorage contact info:', error);
-      }
-    }
-  }
+  // Check for immediate restoration needs
+  const hasGifData = searchParams.get('gifData');
+  const needsImmediateRestoration = !contactPrincipalId && !hasGifData;
+  const needsGifRestoration = hasGifData && !contactPrincipalId;
 
   // Attempt to restore contact info from sessionStorage (when returning from Gallery)
   const restoreContactInfoFromStorage = () => {
@@ -124,7 +77,9 @@ const Chat = () => {
           
           // Build restored URL parameters
           const restoreParams = new URLSearchParams();
-          if (contactInfo.contactId) restoreParams.set('contactId', contactInfo.contactId);
+          if (contactInfo.contactId !== null && contactInfo.contactId !== undefined) {
+            restoreParams.set('contactId', contactInfo.contactId.toString());
+          }
           if (contactInfo.contactName) restoreParams.set('contactName', contactInfo.contactName);
           if (contactInfo.contactAvatar) restoreParams.set('contactAvatar', contactInfo.contactAvatar);
           if (contactInfo.contactType) restoreParams.set('contactType', contactInfo.contactType);
@@ -140,9 +95,12 @@ const Chat = () => {
             restoreParams.set('gifData', currentGifData);
           }
           
-          // Clear sessionStorage and update URL
-          sessionStorage.removeItem('chat_contact_info');
+          // Navigate first, then clear sessionStorage after navigation completes
           navigate(`/chat?${restoreParams.toString()}`, { replace: true });
+          // Clear sessionStorage after navigation to prevent re-restoration
+          setTimeout(() => {
+            sessionStorage.removeItem('chat_contact_info');
+          }, 100);
           return true; // Indicates restoring, need to re-render
         } else if (contactInfo.contactPrincipalId) {
           // Data exists but is expired, offer to restore anyway
@@ -174,9 +132,12 @@ const Chat = () => {
               restoreParams.set('gifData', currentGifData);
             }
             
-            // Clear sessionStorage and update URL
-            sessionStorage.removeItem('chat_contact_info');
+            // Navigate first, then clear sessionStorage after navigation completes
             navigate(`/chat?${restoreParams.toString()}`, { replace: true });
+            // Clear sessionStorage after navigation to prevent re-restoration
+            setTimeout(() => {
+              sessionStorage.removeItem('chat_contact_info');
+            }, 100);
             return true; // Indicates restoring, need to re-render
           } else {
             // Clear very old data
@@ -203,6 +164,113 @@ const Chat = () => {
   const [notifications, setNotifications] = useState<NotificationInfo[]>([]);
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
+  
+
+  // Handle immediate restoration in useEffect to avoid React error #310
+  useEffect(() => {
+    if (needsImmediateRestoration) {
+      console.log('[Chat] Contact principal ID missing, checking sessionStorage immediately');
+      const savedContactInfo = sessionStorage.getItem('chat_contact_info');
+      console.log('[Chat] SessionStorage content:', {
+        hasData: !!savedContactInfo,
+        rawData: savedContactInfo,
+        parsedData: savedContactInfo ? (() => {
+          try { return JSON.parse(savedContactInfo); } catch(e) { return 'Parse error: ' + e; }
+        })() : null
+      });
+
+      // Try immediate restoration if data exists
+      if (savedContactInfo) {
+        try {
+          const contactInfo = JSON.parse(savedContactInfo);
+          if (contactInfo.contactPrincipalId) {
+            console.log('[Chat] Found contact info in sessionStorage, attempting immediate restoration');
+            
+            // Build URL with all available contact information
+            const restoreParams = new URLSearchParams(searchParams);
+            if (contactInfo.contactId !== null && contactInfo.contactId !== undefined) {
+              restoreParams.set('contactId', contactInfo.contactId.toString());
+            }
+            if (contactInfo.contactName) restoreParams.set('contactName', contactInfo.contactName);
+            if (contactInfo.contactAvatar) restoreParams.set('contactAvatar', contactInfo.contactAvatar);
+            if (contactInfo.contactType) restoreParams.set('contactType', contactInfo.contactType);
+            if (contactInfo.contactStatus) restoreParams.set('contactStatus', contactInfo.contactStatus);
+            if (contactInfo.contactDevices?.length > 0) restoreParams.set('contactDevices', contactInfo.contactDevices.join(','));
+            if (contactInfo.contactIsOnline !== undefined) restoreParams.set('contactIsOnline', contactInfo.contactIsOnline.toString());
+            if (contactInfo.contactNickname) restoreParams.set('contactNickname', contactInfo.contactNickname);
+            restoreParams.set('contactPrincipalId', contactInfo.contactPrincipalId);
+            
+            console.log('[Chat] Restoring contact info immediately with params:', Object.fromEntries(restoreParams.entries()));
+            console.log('[Chat] Contact info details:', {
+              contactId: contactInfo.contactId,
+              contactName: contactInfo.contactName,
+              contactPrincipalId: contactInfo.contactPrincipalId,
+              contactAvatar: contactInfo.contactAvatar
+            });
+            
+            // Navigate first, then clear sessionStorage after navigation completes
+            navigate(`/chat?${restoreParams.toString()}`, { replace: true });
+            // Clear sessionStorage after navigation to prevent re-restoration
+            setTimeout(() => {
+              sessionStorage.removeItem('chat_contact_info');
+            }, 100);
+          }
+        } catch (error) {
+          console.error('[Chat] Error parsing sessionStorage contact info:', error);
+        }
+      }
+    } else if (needsGifRestoration) {
+      // We have GIF data but missing contact info - try to restore from sessionStorage
+      console.log('[Chat] GIF data present but contact info missing, attempting restoration');
+      const savedContactInfo = sessionStorage.getItem('chat_contact_info');
+      console.log('[Chat] SessionStorage check for GIF restoration:', {
+        hasData: !!savedContactInfo,
+        rawData: savedContactInfo,
+        parsedData: savedContactInfo ? (() => {
+          try { return JSON.parse(savedContactInfo); } catch(e) { return 'Parse error: ' + e; }
+        })() : null
+      });
+      if (savedContactInfo) {
+        try {
+          const contactInfo = JSON.parse(savedContactInfo);
+          if (contactInfo.contactPrincipalId) {
+            console.log('[Chat] Found contact info for GIF restoration');
+            
+            // Build URL with contact info and preserve GIF data
+            const restoreParams = new URLSearchParams(searchParams);
+            if (contactInfo.contactId !== null && contactInfo.contactId !== undefined) {
+              restoreParams.set('contactId', contactInfo.contactId.toString());
+            }
+            if (contactInfo.contactName) restoreParams.set('contactName', contactInfo.contactName);
+            if (contactInfo.contactAvatar) restoreParams.set('contactAvatar', contactInfo.contactAvatar);
+            if (contactInfo.contactType) restoreParams.set('contactType', contactInfo.contactType);
+            if (contactInfo.contactStatus) restoreParams.set('contactStatus', contactInfo.contactStatus);
+            if (contactInfo.contactDevices?.length > 0) restoreParams.set('contactDevices', contactInfo.contactDevices.join(','));
+            if (contactInfo.contactIsOnline !== undefined) restoreParams.set('contactIsOnline', contactInfo.contactIsOnline.toString());
+            if (contactInfo.contactNickname) restoreParams.set('contactNickname', contactInfo.contactNickname);
+            restoreParams.set('contactPrincipalId', contactInfo.contactPrincipalId);
+            
+            console.log('[Chat] Restoring contact info with GIF data:', Object.fromEntries(restoreParams.entries()));
+            console.log('[Chat] Contact info details:', {
+              contactId: contactInfo.contactId,
+              contactName: contactInfo.contactName,
+              contactPrincipalId: contactInfo.contactPrincipalId,
+              contactAvatar: contactInfo.contactAvatar
+            });
+            
+            // Navigate first, then clear sessionStorage after navigation completes
+            navigate(`/chat?${restoreParams.toString()}`, { replace: true });
+            // Clear sessionStorage after navigation to prevent re-restoration
+            setTimeout(() => {
+              sessionStorage.removeItem('chat_contact_info');
+            }, 100);
+          }
+        } catch (error) {
+          console.error('[Chat] Error parsing sessionStorage contact info for GIF:', error);
+        }
+      }
+    }
+  }, [needsImmediateRestoration, needsGifRestoration, searchParams, navigate]);
   // Use device status hook for real-time device management
   const {
     deviceStatus,
@@ -222,19 +290,22 @@ const Chat = () => {
     const returningFlag = sessionStorage.getItem('returning_from_gallery');
     const fromGalleryParam = searchParams.get('from') === 'gallery';
     const hasContactInfo = sessionStorage.getItem('chat_contact_info');
+    const hasGifData = searchParams.get('gifData');
     const cameFromGallery = document.referrer.includes('/gallery') || 
                            returningFlag === 'true' ||
                            fromGalleryParam ||
                            !!hasContactInfo; // If there's contact info, assume came from Gallery
     
     // Only attempt to restore when auth is complete and contact info is missing
-    if (!authLoading && !contactPrincipalId) {
+    // Skip restoration if we already have GIF data (handled by immediate restoration)
+    if (!authLoading && !contactPrincipalId && !hasGifData) {
       console.log('[Chat] Auth complete, checking if contact restoration needed:', {
         cameFromGallery,
         referrer: document.referrer,
         returningFlag,
         fromGalleryParam,
         hasContactInfo: !!hasContactInfo,
+        hasGifData: !!hasGifData,
         forceRestore: true // Always try to restore if contact info is missing
       });
       
@@ -252,6 +323,15 @@ const Chat = () => {
           toast({
             title: t('chat.error.contactRestoreFailed'),
             description: t('chat.error.contactRestoreFailedDesc'),
+            variant: "destructive"
+          });
+        } else if (cameFromGallery) {
+          // User came from Gallery but no contact info was saved
+          // This happens when navigating directly to Gallery from Creation or other pages
+          console.warn('[Chat] User came from Gallery but no contact info was saved');
+          toast({
+            title: t('chat.error.noContactFromGallery'),
+            description: t('chat.error.noContactFromGalleryDesc'),
             variant: "destructive"
           });
         }
@@ -374,18 +454,22 @@ const Chat = () => {
   // Handle GIF data from URL params
   useEffect(() => {
     const gifDataParam = searchParams.get('gifData');
+    
     if (gifDataParam) {
       try {
         const gifData = JSON.parse(gifDataParam) as GifInfo;
         setPendingGif(gifData);
-        console.log('[Chat] Received GIF data:', gifData);
         
-        // Clear the URL parameter
-        const newSearchParams = new URLSearchParams(searchParams);
-        newSearchParams.delete('gifData');
-        navigate(`/chat?${newSearchParams.toString()}`, { replace: true });
+        // Clear the URL parameter after a short delay to ensure the component has rendered
+        setTimeout(() => {
+          const newSearchParams = new URLSearchParams(searchParams);
+          newSearchParams.delete('gifData');
+          const newUrl = newSearchParams.toString() ? `/chat?${newSearchParams.toString()}` : '/chat';
+          navigate(newUrl, { replace: true });
+        }, 100);
       } catch (error) {
         console.error('[Chat] Error parsing GIF data:', error);
+        console.error('[Chat] Raw GIF data:', gifDataParam);
       }
     }
   }, [searchParams, navigate]);
@@ -520,6 +604,17 @@ const Chat = () => {
   };
 
   const handleEmojiClick = () => {
+    // Check if we have valid contact info before saving
+    if (!contactPrincipalId) {
+      console.error('[Chat] Cannot navigate to Gallery: No contact selected');
+      toast({
+        title: t('chat.error.noContactSelected'),
+        description: t('chat.error.noContactSelectedDesc'),
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Save current contact info to sessionStorage for restoration when returning from Gallery
     const contactInfo = {
       contactId,
@@ -535,7 +630,8 @@ const Chat = () => {
     };
     
     sessionStorage.setItem('chat_contact_info', JSON.stringify(contactInfo));
-    console.log('[Chat] Saved contact info to sessionStorage before navigating to gallery');
+    console.log('[Chat] Saved contact info to sessionStorage before navigating to gallery:', contactInfo);
+    console.log('[Chat] SessionStorage after saving:', sessionStorage.getItem('chat_contact_info'));
     navigate('/gallery?from=chat');
   };
 
@@ -565,8 +661,8 @@ const Chat = () => {
     );
   }
 
-  // Check if critical chat information is missing
-  if (!contactPrincipalId) {
+  // Check if critical chat information is missing - only show error if we're not in the process of restoring
+  if (!contactPrincipalId && !needsImmediateRestoration && !needsGifRestoration) {
     return (
       <PageLayout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -576,12 +672,6 @@ const Chat = () => {
             <p className="text-white/70 mb-6">
               {t('chat.error.contactInfoMissingDesc')}
             </p>
-            <div className="space-y-2 text-sm text-white/50 mb-6">
-              <p>{t('chat.debug.info')}:</p>
-              <p>contactId: {contactId || t('common.none')}</p>
-              <p>contactName: {contactName}</p>
-              <p>contactPrincipalId: {contactPrincipalId || t('common.none')}</p>
-            </div>
             <Button
               onClick={handleBackToContracts}
               className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white"
@@ -799,6 +889,9 @@ const Chat = () => {
                               src={pendingGif.thumbnailUrl} 
                               alt="GIF Preview"
                               className="w-12 h-12 rounded border border-white/20 object-cover"
+                              onError={(e) => {
+                                console.error('[Chat] GIF preview image failed to load:', e);
+                              }}
                             />
                             <div className="flex-1 text-white/80 text-xs">
                               <div className="font-medium">{pendingGif.title}</div>
@@ -807,6 +900,7 @@ const Chat = () => {
                           </div>
                         </div>
                       )}
+                      
 
                       {/* Message Input Row */}
                       <div className="flex items-center gap-2">

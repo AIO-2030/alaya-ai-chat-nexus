@@ -10,7 +10,6 @@ import { PageLayout } from '../components/PageLayout';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
-import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 import { GifInfo, sendGifMessage } from '../services/api/chatApi';
 import { deviceSimulator } from '../services/deviceSimulator';
 
@@ -27,20 +26,88 @@ const DeviceSend = () => {
   const deviceType = searchParams.get('deviceType') || 'Unknown';
   const deviceStatus = searchParams.get('deviceStatus') || 'Unknown';
 
+  // Check for immediate restoration needs
+  const hasGifData = searchParams.get('gifData');
+  const needsImmediateRestoration = !deviceId && !hasGifData;
+  const needsGifRestoration = hasGifData && !deviceId;
+  
+
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
 
-  // Use device status hook for real-time device management
+  // Handle immediate restoration in useEffect to avoid React error #310
+  useEffect(() => {
+    if (needsImmediateRestoration) {
+      console.log('[DeviceSend] Device ID missing, checking sessionStorage immediately');
+      const savedDeviceInfo = sessionStorage.getItem('device_send_info');
+      console.log('[DeviceSend] SessionStorage content:', {
+        hasData: !!savedDeviceInfo,
+        rawData: savedDeviceInfo,
+        parsedData: savedDeviceInfo ? (() => {
+          try { return JSON.parse(savedDeviceInfo); } catch(e) { return 'Parse error: ' + e; }
+        })() : null
+      });
+
+      // Try immediate restoration if data exists
+      if (savedDeviceInfo) {
+        try {
+          const deviceInfo = JSON.parse(savedDeviceInfo);
+          if (deviceInfo.deviceId) {
+            console.log('[DeviceSend] Found device info in sessionStorage, attempting immediate restoration');
+            
+            // Build URL with all available device information
+            const restoreParams = new URLSearchParams(searchParams);
+            if (deviceInfo.deviceId) restoreParams.set('deviceId', deviceInfo.deviceId);
+            if (deviceInfo.deviceName) restoreParams.set('deviceName', deviceInfo.deviceName);
+            if (deviceInfo.deviceType) restoreParams.set('deviceType', deviceInfo.deviceType);
+            if (deviceInfo.deviceStatus) restoreParams.set('deviceStatus', deviceInfo.deviceStatus);
+            
+            console.log('[DeviceSend] Restoring device info immediately with params:', Object.fromEntries(restoreParams.entries()));
+            
+            // Clear sessionStorage and redirect
+            sessionStorage.removeItem('device_send_info');
+            navigate(`/device-send?${restoreParams.toString()}`, { replace: true });
+          }
+        } catch (error) {
+          console.error('[DeviceSend] Error parsing sessionStorage device info:', error);
+        }
+      }
+    } else if (needsGifRestoration) {
+      // We have GIF data but missing device info - try to restore from sessionStorage
+      console.log('[DeviceSend] GIF data present but device info missing, attempting restoration');
+      const savedDeviceInfo = sessionStorage.getItem('device_send_info');
+      if (savedDeviceInfo) {
+        try {
+          const deviceInfo = JSON.parse(savedDeviceInfo);
+          if (deviceInfo.deviceId) {
+            console.log('[DeviceSend] Found device info for GIF restoration');
+            
+            // Build URL with device info and preserve GIF data
+            const restoreParams = new URLSearchParams(searchParams);
+            if (deviceInfo.deviceId) restoreParams.set('deviceId', deviceInfo.deviceId);
+            if (deviceInfo.deviceName) restoreParams.set('deviceName', deviceInfo.deviceName);
+            if (deviceInfo.deviceType) restoreParams.set('deviceType', deviceInfo.deviceType);
+            if (deviceInfo.deviceStatus) restoreParams.set('deviceStatus', deviceInfo.deviceStatus);
+            
+            console.log('[DeviceSend] Restoring device info with GIF data:', Object.fromEntries(restoreParams.entries()));
+            
+            // Clear sessionStorage and redirect
+            sessionStorage.removeItem('device_send_info');
+            navigate(`/device-send?${restoreParams.toString()}`, { replace: true });
+          }
+        } catch (error) {
+          console.error('[DeviceSend] Error parsing sessionStorage device info for GIF:', error);
+        }
+      }
+    }
+  }, [needsImmediateRestoration, needsGifRestoration, searchParams, navigate]);
+
+  // Use device status hook for sending messages only
   const {
-    deviceStatus: deviceStatusData,
-    hasConnectedDevices,
-    isTencentIoTEnabled,
-    isLoading: deviceLoading,
-    error: deviceError,
     sendMessageToDevices,
     sendGifToDevices,
-    refreshDeviceStatus
+    isLoading: deviceServiceLoading
   } = useDeviceStatus();
 
   // Handle GIF data from URL params (when returning from Gallery)
@@ -50,7 +117,6 @@ const DeviceSend = () => {
       try {
         const gifData = JSON.parse(gifDataParam) as GifInfo;
         setPendingGif(gifData);
-        console.log('[DeviceSend] Received GIF data:', gifData);
         
         // Clear the URL parameter
         const newSearchParams = new URLSearchParams(searchParams);
@@ -66,12 +132,15 @@ const DeviceSend = () => {
     const hasMessage = newMessage.trim();
     const hasGif = !!pendingGif;
     
-    console.log('[DeviceSend] Send message validation:', {
-      hasMessage,
-      hasGif,
-      deviceId,
-      deviceName
-    });
+    // Check if device service is still initializing
+    if (deviceServiceLoading) {
+      toast({
+        title: t('deviceSend.error.serviceInitializing'),
+        description: t('deviceSend.error.serviceInitializingDesc'),
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (!hasMessage && !hasGif) {
       console.warn('[DeviceSend] Cannot send message: no message content or GIF');
@@ -83,14 +152,6 @@ const DeviceSend = () => {
       return;
     }
 
-    if (!hasConnectedDevices) {
-      toast({
-        title: t('chat.error.noDeviceConnected'),
-        description: t('chat.error.noDeviceConnectedDesc'),
-        variant: "destructive"
-      });
-      return;
-    }
 
     try {
       setLoading(true);
@@ -153,7 +214,6 @@ const DeviceSend = () => {
     };
     
     sessionStorage.setItem('device_send_info', JSON.stringify(deviceInfo));
-    console.log('[DeviceSend] Saved device info to sessionStorage before navigating to gallery');
     navigate('/gallery?from=device-send');
   };
 
@@ -161,7 +221,10 @@ const DeviceSend = () => {
   useEffect(() => {
     try {
       const savedDeviceInfo = sessionStorage.getItem('device_send_info');
-      if (savedDeviceInfo) {
+      const hasGifData = searchParams.get('gifData');
+      
+      // Skip restoration if we already have GIF data (handled by immediate restoration)
+      if (savedDeviceInfo && !hasGifData) {
         const deviceInfo = JSON.parse(savedDeviceInfo);
         const timeDiff = Date.now() - deviceInfo.timestamp;
         const isRecent = timeDiff < 5 * 60 * 1000; // Valid within 5 minutes
@@ -176,12 +239,6 @@ const DeviceSend = () => {
           if (deviceInfo.deviceType) restoreParams.set('deviceType', deviceInfo.deviceType);
           if (deviceInfo.deviceStatus) restoreParams.set('deviceStatus', deviceInfo.deviceStatus);
           
-          // Preserve current gifData parameter (if any)
-          const currentGifData = searchParams.get('gifData');
-          if (currentGifData) {
-            restoreParams.set('gifData', currentGifData);
-          }
-          
           // Clear sessionStorage and update URL
           sessionStorage.removeItem('device_send_info');
           navigate(`/device-send?${restoreParams.toString()}`, { replace: true });
@@ -190,6 +247,8 @@ const DeviceSend = () => {
           console.log('[DeviceSend] Device info too old, clearing sessionStorage');
           sessionStorage.removeItem('device_send_info');
         }
+      } else if (hasGifData) {
+        console.log('[DeviceSend] GIF data present, skipping device restoration to avoid conflicts');
       }
     } catch (error) {
       console.error('[DeviceSend] Error restoring device info from sessionStorage:', error);
@@ -213,8 +272,8 @@ const DeviceSend = () => {
     );
   }
 
-  // Check if device information is missing
-  if (!deviceId) {
+  // Check if device information is missing - only show error if we're not in the process of restoring
+  if (!deviceId && !needsImmediateRestoration && !needsGifRestoration) {
     return (
       <PageLayout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -304,9 +363,6 @@ const DeviceSend = () => {
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center">
                           <Smartphone className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                         </div>
-                        {hasConnectedDevices && (
-                          <div className="absolute -bottom-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full border-2 border-slate-900 animate-pulse"></div>
-                        )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-1 sm:gap-2">
@@ -341,6 +397,12 @@ const DeviceSend = () => {
                       <div className="text-6xl mb-4">📱</div>
                       <h2 className="text-2xl font-bold text-white mb-2">{t('deviceSend.title')}</h2>
                       <p className="text-white/60">{t('deviceSend.subtitle')}</p>
+                      {deviceServiceLoading && (
+                        <div className="mt-4 text-white/60 text-sm flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
+                          Initializing device service...
+                        </div>
+                      )}
                     </div>
 
                     {/* Pending GIF Preview */}
@@ -391,7 +453,7 @@ const DeviceSend = () => {
                       {/* Send Button */}
                       <Button
                         onClick={handleSendMessage}
-                        disabled={loading || (!newMessage.trim() && !pendingGif)}
+                        disabled={loading || deviceServiceLoading || (!newMessage.trim() && !pendingGif)}
                         className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Send message to device"
                       >
@@ -415,11 +477,6 @@ const DeviceSend = () => {
                         {t('common.emoji')}
                       </Button>
                       
-                      {/* Device Status Indicator */}
-                      <DeviceStatusIndicator 
-                        showDetails={false}
-                        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border bg-white/5 border-white/10"
-                      />
 
                       {/* Device Simulator Controls (Development Only) */}
                       {import.meta.env.DEV && (

@@ -72,6 +72,7 @@ const Gallery = () => {
   const [hasMoreCreations, setHasMoreCreations] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isUsingItem, setIsUsingItem] = useState(false);
 
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const galleryScrollRef = useRef<HTMLDivElement>(null);
@@ -79,6 +80,25 @@ const Gallery = () => {
   // 获取来源页面信息
   const sourcePage = searchParams.get('from') || 'chat'; // 默认为chat页面
   console.log('[Gallery] Source page:', sourcePage);
+
+  // Helper function to add device info to URL parameters
+  const addDeviceInfoToParams = (params: URLSearchParams) => {
+    const savedDeviceInfo = sessionStorage.getItem('device_send_info');
+    if (savedDeviceInfo) {
+      try {
+        const deviceInfo = JSON.parse(savedDeviceInfo);
+        if (deviceInfo.deviceId) {
+          params.set('deviceId', deviceInfo.deviceId);
+          if (deviceInfo.deviceName) params.set('deviceName', deviceInfo.deviceName);
+          if (deviceInfo.deviceType) params.set('deviceType', deviceInfo.deviceType);
+          if (deviceInfo.deviceStatus) params.set('deviceStatus', deviceInfo.deviceStatus);
+          console.log('[Gallery] Added device info to URL parameters:', Object.fromEntries(params.entries()));
+        }
+      } catch (error) {
+        console.error('[Gallery] Error parsing device info from sessionStorage:', error);
+      }
+    }
+  };
 
   const handleBackToSource = () => {
     // Set sessionStorage flag and use URL parameter as backup
@@ -107,7 +127,16 @@ const Gallery = () => {
       }
     } else {
       // 默认返回到Chat页面
-      navigate('/chat?from=gallery');
+      // 检查是否有保存的联系人信息
+      const contactInfo = sessionStorage.getItem('chat_contact_info');
+      if (contactInfo) {
+        console.log('[Gallery] Found contact info, navigating to chat');
+        navigate('/chat?from=gallery');
+      } else {
+        console.log('[Gallery] No contact info found, navigating to contracts to select contact');
+        // 如果没有联系人信息，返回到联系人页面让用户选择联系人
+        navigate('/contracts?from=gallery');
+      }
     }
   };
 
@@ -196,10 +225,31 @@ const Gallery = () => {
 
   // Handle Use button click for public gallery items
   const handleUsePublicItem = async (item: GalleryItem) => {
+    if (isUsingItem) return; // Prevent multiple clicks
+    
     try {
+      setIsUsingItem(true);
+      console.log('[Gallery] Using public item:', item.title, 'gifResult:', !!item.gifResult);
+      
+      // If no GIF result, try to process the emoji first
       if (!item.gifResult) {
-        console.error('No GIF result available for item:', item.title);
-        return;
+        console.log('[Gallery] No GIF result, processing emoji first...');
+        try {
+          const processedItem = await processItemEmoji(item);
+          if (!processedItem.gifResult) {
+            console.error('[Gallery] Failed to process emoji into GIF:', item.title);
+            // Show user-friendly error message
+            alert(`Failed to process "${item.title}" emoji. Please try again.`);
+            return;
+          }
+          
+          // Update the item with processed result
+          item.gifResult = processedItem.gifResult;
+        } catch (processError) {
+          console.error('[Gallery] Error processing emoji:', processError);
+          alert(`Error processing "${item.title}" emoji. Please try again.`);
+          return;
+        }
       }
 
       // 使用GIF数据而不是像素图数据
@@ -214,6 +264,8 @@ const Gallery = () => {
         sourceId: item.id.toString()
       };
 
+      console.log('[Gallery] Created GIF data:', gifData);
+
       // Set sessionStorage flag and include in URL parameters
       sessionStorage.setItem('returning_from_gallery', 'true');
       
@@ -224,24 +276,45 @@ const Gallery = () => {
       if (sourcePage === 'device-send') {
         // 从DeviceSend页面来的，返回到DeviceSend页面
         console.log('[Gallery] Sending GIF to device-send page');
+        console.log('[Gallery] Device info in sessionStorage:', sessionStorage.getItem('device_send_info'));
+        // Add device info to URL parameters
+        addDeviceInfoToParams(params);
+        
         const deviceUrl = `/device-send?${params.toString()}`;
         navigate(deviceUrl);
       } else {
         // 默认返回到Chat页面
-        console.log('[Gallery] Sending GIF to chat page');
-        const chatUrl = `/chat?${params.toString()}`;
-        navigate(chatUrl);
+        // 检查是否有保存的联系人信息
+        const contactInfo = sessionStorage.getItem('chat_contact_info');
+        if (contactInfo) {
+          console.log('[Gallery] Found contact info, sending GIF to chat page');
+          const chatUrl = `/chat?${params.toString()}`;
+          navigate(chatUrl);
+        } else {
+          console.log('[Gallery] No contact info found, redirecting to contracts to select contact');
+          // 如果没有联系人信息，返回到联系人页面让用户选择联系人
+          navigate('/contracts?from=gallery');
+        }
       }
     } catch (error) {
-      console.error('Error using public gallery item:', error);
+      console.error('[Gallery] Error using public gallery item:', error);
+      alert(`Error using "${item.title}". Please try again.`);
+    } finally {
+      setIsUsingItem(false);
     }
   };
 
   // Handle Use button click for user creation items
   const handleUseCreationItem = async (item: UserCreationItem) => {
+    if (isUsingItem) return; // Prevent multiple clicks
+    
     try {
+      setIsUsingItem(true);
+      console.log('[Gallery] Using creation item:', item.title, 'gifResult:', !!item.gifResult);
+      
       if (!item.gifResult) {
-        console.error('No GIF result available for item:', item.title);
+        console.error('[Gallery] No GIF result available for creation item:', item.title);
+        alert(`No preview available for "${item.title}". Please try again.`);
         return;
       }
 
@@ -257,6 +330,8 @@ const Gallery = () => {
         sourceId: item.id
       };
 
+      console.log('[Gallery] Created GIF data for creation:', gifData);
+
       // Set sessionStorage flag and include in URL parameters
       sessionStorage.setItem('returning_from_gallery', 'true');
       
@@ -267,22 +342,42 @@ const Gallery = () => {
       if (sourcePage === 'device-send') {
         // 从DeviceSend页面来的，返回到DeviceSend页面
         console.log('[Gallery] Sending GIF to device-send page');
+        console.log('[Gallery] Device info in sessionStorage:', sessionStorage.getItem('device_send_info'));
+        // Add device info to URL parameters
+        addDeviceInfoToParams(params);
+        
         const deviceUrl = `/device-send?${params.toString()}`;
         navigate(deviceUrl);
       } else {
         // 默认返回到Chat页面
-        console.log('[Gallery] Sending GIF to chat page');
-        const chatUrl = `/chat?${params.toString()}`;
-        navigate(chatUrl);
+        // 检查是否有保存的联系人信息
+        const contactInfo = sessionStorage.getItem('chat_contact_info');
+        if (contactInfo) {
+          console.log('[Gallery] Found contact info, sending GIF to chat page');
+          const chatUrl = `/chat?${params.toString()}`;
+          navigate(chatUrl);
+        } else {
+          console.log('[Gallery] No contact info found, redirecting to contracts to select contact');
+          // 如果没有联系人信息，返回到联系人页面让用户选择联系人
+          navigate('/contracts?from=gallery');
+        }
       }
     } catch (error) {
-      console.error('Error using creation item:', error);
+      console.error('[Gallery] Error using creation item:', error);
+      alert(`Error using "${item.title}". Please try again.`);
+    } finally {
+      setIsUsingItem(false);
     }
   };
 
   // Handle Use button click for GIF items
   const handleUseGifItem = async (item: GifItem) => {
+    if (isUsingItem) return; // Prevent multiple clicks
+    
     try {
+      setIsUsingItem(true);
+      console.log('[Gallery] Using GIF item:', item.title);
+      
       // Create GIF info object for chat
       const gifData = {
         gifUrl: item.gifUrl,
@@ -295,6 +390,8 @@ const Gallery = () => {
         sourceId: item.id.toString()
       };
 
+      console.log('[Gallery] Created GIF data for GIF item:', gifData);
+
       // Set sessionStorage flag and include in URL parameters
       sessionStorage.setItem('returning_from_gallery', 'true');
       
@@ -305,16 +402,31 @@ const Gallery = () => {
       if (sourcePage === 'device-send') {
         // 从DeviceSend页面来的，返回到DeviceSend页面
         console.log('[Gallery] Sending GIF to device-send page');
+        console.log('[Gallery] Device info in sessionStorage:', sessionStorage.getItem('device_send_info'));
+        // Add device info to URL parameters
+        addDeviceInfoToParams(params);
+        
         const deviceUrl = `/device-send?${params.toString()}`;
         navigate(deviceUrl);
       } else {
         // 默认返回到Chat页面
-        console.log('[Gallery] Sending GIF to chat page');
-        const chatUrl = `/chat?${params.toString()}`;
-        navigate(chatUrl);
+        // 检查是否有保存的联系人信息
+        const contactInfo = sessionStorage.getItem('chat_contact_info');
+        if (contactInfo) {
+          console.log('[Gallery] Found contact info, sending GIF to chat page');
+          const chatUrl = `/chat?${params.toString()}`;
+          navigate(chatUrl);
+        } else {
+          console.log('[Gallery] No contact info found, redirecting to contracts to select contact');
+          // 如果没有联系人信息，返回到联系人页面让用户选择联系人
+          navigate('/contracts?from=gallery');
+        }
       }
     } catch (error) {
-      console.error('Error using GIF item:', error);
+      console.error('[Gallery] Error using GIF item:', error);
+      alert(`Error using "${item.title}". Please try again.`);
+    } finally {
+      setIsUsingItem(false);
     }
   };
 
@@ -590,11 +702,11 @@ const Gallery = () => {
     }
 
     return (
-      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center overflow-hidden">
+      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-1 flex items-center justify-center overflow-hidden">
         <img
           src={item.gifResult.thumbnailUrl}
           alt={item.gifResult.title}
-          className="max-w-full max-h-full object-contain rounded"
+          className="w-full h-full object-cover rounded"
           style={{ imageRendering: 'pixelated' }}
           onError={(e) => {
             // Fallback to placeholder if GIF fails to load
@@ -620,17 +732,17 @@ const Gallery = () => {
     if (!item.gifResult) {
       return (
         <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg flex items-center justify-center">
-          <div className="text-8xl md:text-9xl">{item.emoji}</div>
+          <div className="text-6xl sm:text-7xl md:text-8xl">{item.emoji}</div>
         </div>
       );
     }
 
     return (
-      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center overflow-hidden">
+      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-1 flex items-center justify-center overflow-hidden">
         <img
           src={item.gifResult.thumbnailUrl}
           alt={item.gifResult.title}
-          className="max-w-full max-h-full object-contain rounded"
+          className="w-full h-full object-cover rounded"
           style={{ imageRendering: 'pixelated' }}
           onError={(e) => {
             // Fallback to emoji if GIF fails to load
@@ -639,7 +751,7 @@ const Gallery = () => {
             const parent = target.parentElement;
             if (parent) {
               parent.innerHTML = `
-                <div class="text-8xl md:text-9xl">${item.emoji}</div>
+                <div class="text-6xl sm:text-7xl md:text-8xl">${item.emoji}</div>
               `;
             }
           }}
@@ -651,11 +763,11 @@ const Gallery = () => {
   // Render GIF canvas
   const renderGifCanvas = (item: GifItem) => {
     return (
-      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-2 flex items-center justify-center overflow-hidden">
+      <div className="aspect-square bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-lg p-1 flex items-center justify-center overflow-hidden">
         <img
           src={item.thumbnailUrl}
           alt={item.title}
-          className="max-w-full max-h-full object-contain rounded"
+          className="w-full h-full object-cover rounded"
           style={{ imageRendering: 'auto' }}
           onError={(e) => {
             // Fallback to a placeholder if image fails to load

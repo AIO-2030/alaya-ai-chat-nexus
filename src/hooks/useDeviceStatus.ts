@@ -50,6 +50,18 @@ export function useDeviceStatus() {
       if (success) {
         setIsInitialized(true);
         console.log('[useDeviceStatus] Device message service initialized successfully via MCP');
+        
+        // After initialization, check if we have any devices from canister
+        const summary = getDeviceConnectionSummary();
+        console.log('[useDeviceStatus] Initial device check from canister:', {
+          totalDevices: summary.totalDevices,
+          deviceListLength: summary.deviceList.length,
+          tencentIoTEnabled: summary.tencentIoTEnabled
+        });
+        
+        if (summary.deviceList.length === 0) {
+          console.log('[useDeviceStatus] No devices found in canister, skipping MCP status checks');
+        }
       } else {
         console.warn('[useDeviceStatus] Device message service initialization failed, using MCP-only mode');
         setIsInitialized(true); // Still mark as initialized for MCP-only mode
@@ -69,8 +81,17 @@ export function useDeviceStatus() {
       // First get the basic device summary from the existing service
       const summary = getDeviceConnectionSummary();
       
+      console.log('[useDeviceStatus] Device summary from canister:', {
+        totalDevices: summary.totalDevices,
+        connectedDevices: summary.connectedDevices,
+        tencentIoTEnabled: summary.tencentIoTEnabled,
+        deviceListLength: summary.deviceList.length
+      });
+      
       // If we have devices, try to get their online status via MCP
       if (summary.deviceList.length > 0) {
+        console.log('[useDeviceStatus] Found devices from canister, checking status via MCP...');
+        
         const updatedDevices = await Promise.all(
           summary.deviceList.map(async (device) => {
             try {
@@ -86,6 +107,8 @@ export function useDeviceStatus() {
                 batteryLevel: undefined
               };
               
+              console.log(`[useDeviceStatus] Checking MCP status for device: ${device.id} (${device.name})`);
+              
               // Use MCP to get device status
               const mcpResult = await alayaMcpService.getDeviceStatus(
                 extendedDevice.productId!, 
@@ -96,6 +119,8 @@ export function useDeviceStatus() {
                 const mcpData = mcpResult.data as Record<string, unknown>;
                 // Parse MCP response according to new API format
                 const deviceStatusData = mcpData.device_status as Record<string, unknown> || {};
+                console.log(`[useDeviceStatus] MCP status for ${device.id}:`, deviceStatusData);
+                
                 return {
                   ...extendedDevice,
                   isOnline: (deviceStatusData.online as boolean) || false,
@@ -142,9 +167,16 @@ export function useDeviceStatus() {
           connectedDevices: updatedDevices.filter(device => device.isConnected).length
         };
         
+        console.log('[useDeviceStatus] Updated device status with MCP data:', {
+          totalDevices: updatedSummary.totalDevices,
+          connectedDevices: updatedSummary.connectedDevices,
+          deviceListLength: updatedSummary.deviceList.length
+        });
+        
         setDeviceStatus(updatedSummary);
       } else {
         // No devices to check, just use the original summary
+        console.log('[useDeviceStatus] No devices found from canister, using basic summary');
         setDeviceStatus(summary);
       }
     } catch (err) {
@@ -288,8 +320,15 @@ export function useDeviceStatus() {
     updateDeviceStatus();
 
     // Set up interval for periodic updates with MCP status checks
+    // Only run periodic updates if we have devices to check
     const interval = setInterval(async () => {
-      await updateDeviceStatus();
+      const summary = getDeviceConnectionSummary();
+      if (summary.deviceList.length > 0) {
+        console.log('[useDeviceStatus] Running periodic device status update...');
+        await updateDeviceStatus();
+      } else {
+        console.log('[useDeviceStatus] Skipping periodic update - no devices to check');
+      }
     }, 5 * 60 * 1000); // Update every 5 minutes
 
     return () => {
