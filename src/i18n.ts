@@ -257,7 +257,9 @@ const resources = {
           contactInfoMissing: 'Contact Information Missing',
           contactInfoMissingDesc: 'Unable to retrieve contact\'s Principal ID, which is required for chat communication.',
           contactRestoreFailed: 'Contact Restoration Failed',
-          contactRestoreFailedDesc: 'Unable to restore contact information. Please return to contacts list and select the contact again.'
+          contactRestoreFailedDesc: 'Unable to restore contact information. Please return to contacts list and select the contact again.',
+          noContactFromGallery: 'No Contact Information',
+          noContactFromGalleryDesc: 'Unable to find contact information when returning from Gallery. Please select a contact first.'
         }
       },
       userManagement: {
@@ -307,6 +309,36 @@ const resources = {
           deviceInfoMissing: 'Device Information Missing',
           deviceInfoMissingDesc: 'Unable to load device information. Please try again from the devices page.'
         }
+      },
+      deviceStatus: {
+        noDevices: 'No Devices',
+        devicesConnected: 'devices connected',
+        deviceError: 'Device Error',
+        loadingDevices: 'Loading devices...',
+        iotCloudConnected: 'IoT Cloud Connected',
+        lastSeen: 'Last seen',
+        signalStrength: 'Signal',
+        batteryLevel: 'Battery',
+        online: 'Online',
+        offline: 'Offline',
+        connected: 'Connected',
+        disconnected: 'Disconnected'
+      },
+      pwa: {
+        installTitle: 'Install Univoice',
+        installDescription: 'Add to your home screen for quick access and better experience',
+        installButton: 'Install',
+        iosInstallTitle: 'Install on iOS',
+        iosInstallDescription: 'Tap the Share button and select "Add to Home Screen"',
+        iosStep1: 'Tap the Share button',
+        iosStep2: 'Scroll down and tap "Add to Home Screen"',
+        iosStep3: 'Tap "Add" to confirm',
+        updateAvailable: 'Update Available',
+        updateDescription: 'A new version of the app is available',
+        updateButton: 'Update',
+        dismiss: 'Dismiss',
+        installed: 'App Installed',
+        installedDescription: 'Univoice has been installed successfully'
       }
     },
   },
@@ -563,7 +595,9 @@ const resources = {
           contactInfoMissing: '联系人信息缺失',
           contactInfoMissingDesc: '无法获取到联系人的Principal ID，这是进行聊天所必需的信息。',
           contactRestoreFailed: '联系人信息恢复失败',
-          contactRestoreFailedDesc: '无法恢复联系人信息，请返回联系人列表重新选择联系人。'
+          contactRestoreFailedDesc: '无法恢复联系人信息，请返回联系人列表重新选择联系人。',
+          noContactFromGallery: '无联系人信息',
+          noContactFromGalleryDesc: '从画廊返回时无法找到联系人信息，请先选择联系人。'
         }
       },
       userManagement: {
@@ -613,6 +647,36 @@ const resources = {
           deviceInfoMissing: '设备信息缺失',
           deviceInfoMissingDesc: '无法加载设备信息。请从设备页面重试。'
         }
+      },
+      deviceStatus: {
+        noDevices: '暂无设备',
+        devicesConnected: '设备已连接',
+        deviceError: '设备错误',
+        loadingDevices: '正在加载设备...',
+        iotCloudConnected: '物联网云已连接',
+        lastSeen: '最后在线',
+        signalStrength: '信号强度',
+        batteryLevel: '电量',
+        online: '在线',
+        offline: '离线',
+        connected: '已连接',
+        disconnected: '已断开'
+      },
+      pwa: {
+        installTitle: '安装 Univoice',
+        installDescription: '添加到主屏幕以获得快速访问和更好的体验',
+        installButton: '安装',
+        iosInstallTitle: '在 iOS 上安装',
+        iosInstallDescription: '点击分享按钮并选择"添加到主屏幕"',
+        iosStep1: '点击分享按钮',
+        iosStep2: '向下滚动并点击"添加到主屏幕"',
+        iosStep3: '点击"添加"确认',
+        updateAvailable: '有更新可用',
+        updateDescription: '应用有新版本可用',
+        updateButton: '更新',
+        dismiss: '忽略',
+        installed: '应用已安装',
+        installedDescription: 'Univoice 已成功安装'
       }
     },
   },

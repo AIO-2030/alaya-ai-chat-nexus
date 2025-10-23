@@ -11,6 +11,17 @@ dotenv.config({ path: '../../.env' });
 export default defineConfig(({ mode }) => ({
   build: {
     emptyOutDir: true,
+    // PWA build optimizations
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs'],
+          dfinity: ['@dfinity/agent', '@dfinity/auth-client', '@dfinity/principal']
+        }
+      }
+    }
   },
   optimizeDeps: {
     esbuildOptions: {

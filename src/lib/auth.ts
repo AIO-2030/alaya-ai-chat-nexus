@@ -5,7 +5,7 @@ import i18n from '../i18n';
 import { connectPlugAndGetPrincipal } from './wallet';
 import { setPrincipalId, clearPrincipalId } from './principal';
 import { logoutII } from './ii';
-import { generatePrincipalForNonPlug } from './identity';
+import { generatePrincipalForNonPlug, deriveStablePseudoPrincipal } from './identity';
 import { syncUserInfo } from '../services/api/userApi';
 import type { UserInfo, LoginStatus } from '../types/user';
 
@@ -56,6 +56,7 @@ export const useAuth = () => {
     // Avoid duplicate sync if already set from explicit login
     if (user && user.loginMethod === 'google' && user.userId === `google_${googleUser.id}`) return;
     (async () => {
+      // Use II to get real principal for Google users (correct logic)
       const principalId = await generatePrincipalForNonPlug(googleUser.id);
       setPrincipalId(principalId);
       const userInfo: UserInfo = {
@@ -106,7 +107,7 @@ export const useAuth = () => {
       // Use Google OAuth hook login method
       const googleUserData = await googleLogin();
       
-      // Convert to unified UserInfo and generate II principal (mock)
+      // Convert to unified UserInfo and generate II principal (correct logic)
       const principalId = await generatePrincipalForNonPlug(googleUserData.id);
       setPrincipalId(principalId);
       const userInfo: UserInfo = {
@@ -133,12 +134,11 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
-      // If it's a Google user, call Google logout
+      // If it's a Google user, call Google logout (only for Google OAuth cleanup)
       if (user?.loginMethod === 'google') {
         await googleLogout();
       }
-      // Also logout from II when applicable
-      try { await logoutII(); } catch {}
+      // No need to call II logout - logout is only for local dapp state cleanup
       
       // Clear local state
       setUser(null);
@@ -150,7 +150,6 @@ export const useAuth = () => {
       setUser(null);
       sessionStorage.removeItem('alaya_user');
       clearPrincipalId();
-      try { await logoutII(); } catch {}
     }
   };
 

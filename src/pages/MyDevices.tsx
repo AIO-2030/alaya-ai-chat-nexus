@@ -207,7 +207,7 @@ const MyDevices = () => {
                           {isTencentIoTEnabled && (
                             <div className="text-[10px] sm:text-xs text-blue-400 flex items-center gap-1 mt-0.5">
                               <div className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0"></div>
-                              <span className="whitespace-nowrap">IoT Cloud Connected</span>
+                              <span className="whitespace-nowrap">{t('deviceStatus.iotCloudConnected')}</span>
                             </div>
                           )}
                         </div>

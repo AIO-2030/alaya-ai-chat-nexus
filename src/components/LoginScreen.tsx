@@ -51,7 +51,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             Welcome to Univoice
           </CardTitle>
           <CardDescription className="text-gray-300">
-            Connect your wallet or sign in with Google to access enhanced features
+            Choose your preferred login method
           </CardDescription>
         </CardHeader>
         

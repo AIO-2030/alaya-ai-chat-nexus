@@ -214,7 +214,7 @@ const Profile = () => {
                 {isTencentIoTEnabled && (
                   <div className="text-xs text-blue-400 flex items-center gap-1">
                     <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    IoT Cloud Connected
+                    {t('deviceStatus.iotCloudConnected')}
                   </div>
                 )}
               </div>
@@ -241,7 +241,7 @@ const Profile = () => {
           {/* Device List */}
           {deviceLoading ? (
             <div className="text-center py-4">
-              <div className="text-white/60 text-sm">Loading devices...</div>
+              <div className="text-white/60 text-sm">{t('deviceStatus.loadingDevices')}</div>
             </div>
           ) : deviceError ? (
             <div className="text-center py-4">

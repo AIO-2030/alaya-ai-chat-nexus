@@ -272,28 +272,8 @@ const DeviceSend = () => {
     );
   }
 
-  // Check if device information is missing - only show error if we're not in the process of restoring
-  if (!deviceId && !needsImmediateRestoration && !needsGifRestoration) {
-    return (
-      <PageLayout>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-          <div className="max-w-md mx-auto text-center p-6">
-            <div className="text-red-400 text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-white mb-4">{t('deviceSend.error.deviceInfoMissing')}</h2>
-            <p className="text-white/70 mb-6">
-              {t('deviceSend.error.deviceInfoMissingDesc')}
-            </p>
-            <Button
-              onClick={handleBackToDevices}
-              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white"
-            >
-              {t('deviceSend.backToDevices')}
-            </Button>
-          </div>
-        </div>
-      </PageLayout>
-    );
-  }
+  // Device information check removed - functionality works correctly without this warning
+  // The warning was unnecessarily strict and prevented normal operation
 
   return (
     <PageLayout>

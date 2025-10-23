@@ -28,7 +28,7 @@ export const DeviceStatusIndicator: React.FC<DeviceStatusIndicatorProps> = ({
     return (
       <div className={`flex items-center space-x-2 ${className}`}>
         <div className="w-3 h-3 bg-gray-400 rounded-full animate-pulse" />
-        <span className="text-sm text-gray-400">Loading devices...</span>
+        <span className="text-sm text-gray-400">{t('deviceStatus.loadingDevices')}</span>
       </div>
     );
   }
@@ -37,7 +37,7 @@ export const DeviceStatusIndicator: React.FC<DeviceStatusIndicatorProps> = ({
     return (
       <div className={`flex items-center space-x-2 ${className}`}>
         <WifiOff className="w-4 h-4 text-red-400" />
-        <span className="text-sm text-red-400">Device error</span>
+        <span className="text-sm text-red-400">{t('deviceStatus.deviceError')}</span>
       </div>
     );
   }
@@ -67,7 +67,7 @@ export const DeviceStatusIndicator: React.FC<DeviceStatusIndicatorProps> = ({
         {isTencentIoTEnabled && (
           <div className="flex items-center space-x-1">
             <Wifi className="w-3 h-3 text-blue-400" />
-            <span className="text-xs text-blue-400">IoT Cloud</span>
+            <span className="text-xs text-blue-400">{t('deviceStatus.iotCloudConnected')}</span>
           </div>
         )}
       </div>
