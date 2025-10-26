@@ -1006,7 +1006,7 @@ const Gallery = () => {
                     {/* My Creator Gallery */}
                     <TabsContent value="mycreator" className="h-full">
                       {!isAuthenticated() ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                        <div className="flex flex-col items-start justify-center h-full text-left p-8">
                           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 max-w-md">
                             <Palette className="h-12 w-12 mx-auto mb-4 text-cyan-400" />
                             <h3 className="text-white font-semibold text-lg mb-2">

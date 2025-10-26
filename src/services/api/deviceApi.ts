@@ -179,9 +179,33 @@ class DeviceApiService {
   }
 
   // Get all devices with pagination
-  async getDevices(offset: number = 0, limit: number = 20): Promise<ApiResponse<DeviceListResponse>> {
+  async getDevices(offset: number = 0, limit: number = 20, ownerPrincipal?: string): Promise<ApiResponse<DeviceListResponse>> {
     try {
       const actor = getActor();
+      
+      // If owner principal is provided, fetch devices by owner
+      if (ownerPrincipal) {
+        console.log('[DeviceApi] Fetching devices for owner:', ownerPrincipal);
+        const result = await actor.get_devices_by_owner(ownerPrincipal);
+        const devices = result.map(device => this.convertDeviceInfoToRecord(device));
+        
+        // Apply pagination manually since the backend method doesn't support it
+        const paginatedDevices = devices.slice(offset, offset + limit);
+        
+        const response: DeviceListResponse = {
+          devices: paginatedDevices,
+          total: devices.length,
+          offset,
+          limit,
+        };
+        
+        return {
+          success: true,
+          data: response,
+        };
+      }
+      
+      // Fallback to get all devices if no owner is specified
       const result: BackendDeviceListResponse = await actor.get_all_devices(BigInt(offset), BigInt(limit));
       
       const response: DeviceListResponse = {
@@ -232,15 +256,24 @@ class DeviceApiService {
   }
 
   // Get devices by owner
-  async getDevicesByOwner(owner: string): Promise<ApiResponse<DeviceRecord[]>> {
+  async getDevicesByOwner(owner: string, offset: number = 0, limit: number = 20): Promise<ApiResponse<DeviceListResponse>> {
     try {
       const actor = getActor();
       const result = await actor.get_devices_by_owner(owner);
       
       const devices = result.map(device => this.convertDeviceInfoToRecord(device));
+      
+      // Apply pagination
+      const paginatedDevices = devices.slice(offset, offset + limit);
+      
       return {
         success: true,
-        data: devices,
+        data: {
+          devices: paginatedDevices,
+          total: devices.length,
+          offset,
+          limit,
+        },
       };
     } catch (error) {
       console.error('Failed to get devices by owner:', error);

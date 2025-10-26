@@ -4,6 +4,7 @@ import { deviceMessageService } from '../services/deviceMessageService';
 import { initializeDeviceMessageService, getDeviceConnectionSummary } from '../services/deviceMessageServiceInit';
 import { alayaMcpService } from '../services/alayaMcpService';
 import { PixelArtInfo, GifInfo } from '../services/api/chatApi';
+import { getPrincipalId } from '../lib/principal';
 
 export interface DeviceStatus {
   id: string;
@@ -27,7 +28,11 @@ export interface DeviceStatusSummary {
 }
 
 export function useDeviceStatus() {
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Initialize from localStorage to persist across page refreshes
+  const [isInitialized, setIsInitialized] = useState(() => {
+    const stored = localStorage.getItem('deviceServiceInitialized');
+    return stored === 'true';
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatusSummary>({
@@ -37,6 +42,13 @@ export function useDeviceStatus() {
     deviceList: []
   });
 
+  // Helper function to persist initialization state
+  const persistInitializedState = useCallback((value: boolean) => {
+    setIsInitialized(value);
+    localStorage.setItem('deviceServiceInitialized', value.toString());
+    console.log('[useDeviceStatus] Device service initialized state updated:', value);
+  }, []);
+
   // Initialize device message service using MCP
   const initializeService = useCallback(async () => {
     try {
@@ -45,11 +57,19 @@ export function useDeviceStatus() {
       
       console.log('[useDeviceStatus] Initializing device service via MCP...');
       
+      // Get current user's principal ID to filter devices
+      const ownerPrincipal = getPrincipalId();
+      console.log('[useDeviceStatus] Initializing with user principal:', ownerPrincipal);
+      
       // Initialize device message service (this will test MCP availability and sync devices from canister)
       const success = await initializeDeviceMessageService();
       if (success) {
-        setIsInitialized(true);
         console.log('[useDeviceStatus] Device message service initialized successfully via MCP');
+        
+        // Sync devices for the current user
+        if (ownerPrincipal) {
+          await deviceMessageService.syncDevicesFromCanister(ownerPrincipal);
+        }
         
         // After initialization, check if we have any devices from canister
         const summary = getDeviceConnectionSummary();
@@ -59,25 +79,39 @@ export function useDeviceStatus() {
           tencentIoTEnabled: summary.tencentIoTEnabled
         });
         
-        if (summary.deviceList.length === 0) {
-          console.log('[useDeviceStatus] No devices found in canister, skipping MCP status checks');
+        // If we have devices, mark as initialized and persist the state
+        if (summary.deviceList.length > 0) {
+          persistInitializedState(true);
+          console.log('[useDeviceStatus] Found devices from canister, marking service as initialized');
+        } else {
+          console.log('[useDeviceStatus] No devices found in canister, will initialize on first device connection');
+          // Don't mark as initialized yet - wait for first device to be added
         }
       } else {
         console.warn('[useDeviceStatus] Device message service initialization failed, using MCP-only mode');
-        setIsInitialized(true); // Still mark as initialized for MCP-only mode
+        // Don't mark as initialized if service failed to initialize
       }
     } catch (err) {
       console.error('[useDeviceStatus] Failed to initialize device service via MCP:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize device service');
-      setIsInitialized(true); // Mark as initialized even on error to prevent infinite loading
+      // Don't mark as initialized on error
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [persistInitializedState]);
 
   // Update device status using MCP service
   const updateDeviceStatus = useCallback(async () => {
     try {
+      // Get current user's principal ID to filter devices
+      const ownerPrincipal = getPrincipalId();
+      console.log('[useDeviceStatus] Current user principal:', ownerPrincipal);
+      
+      // Sync devices from canister for the current user
+      if (ownerPrincipal) {
+        await deviceMessageService.syncDevicesFromCanister(ownerPrincipal);
+      }
+      
       // First get the basic device summary from the existing service
       const summary = getDeviceConnectionSummary();
       
@@ -173,6 +207,31 @@ export function useDeviceStatus() {
           deviceListLength: updatedSummary.deviceList.length
         });
         
+        // If we have at least one connected device and service is not initialized yet,
+        // mark it as initialized now (this handles the case of first device connection after pairing)
+        if (updatedSummary.connectedDevices > 0 && !isInitialized) {
+          persistInitializedState(true);
+          console.log('[useDeviceStatus] First device connected and online, marking service as initialized');
+        }
+        
+        // Only mark as uninitialized if ALL devices are offline and we had devices before
+        // This prevents false negatives from temporary network issues
+        if (updatedSummary.totalDevices > 0 && updatedSummary.connectedDevices === 0 && isInitialized) {
+          // Check if all devices have been offline for a significant time (e.g., > 1 hour)
+          const allDevicesLongOffline = updatedDevices.every(device => {
+            if (!device.lastSeen) return false;
+            const hoursSinceLastSeen = (Date.now() - device.lastSeen) / (1000 * 60 * 60);
+            return hoursSinceLastSeen > 1;
+          });
+          
+          if (allDevicesLongOffline) {
+            console.warn('[useDeviceStatus] All devices have been offline for over 1 hour, marking service as uninitialized');
+            persistInitializedState(false);
+          } else {
+            console.log('[useDeviceStatus] All devices currently offline but recently seen, keeping initialized state');
+          }
+        }
+        
         setDeviceStatus(updatedSummary);
       } else {
         // No devices to check, just use the original summary
@@ -183,7 +242,7 @@ export function useDeviceStatus() {
       console.error('[useDeviceStatus] Failed to update device status:', err);
       setError(err instanceof Error ? err.message : 'Failed to update device status');
     }
-  }, []);
+  }, [isInitialized, persistInitializedState]);
 
   // Send message to devices
   const sendMessageToDevices = useCallback(async (message: string) => {
@@ -228,6 +287,21 @@ export function useDeviceStatus() {
       return result;
     } catch (err) {
       console.error('[useDeviceStatus] Failed to send GIF to devices:', err);
+      throw err;
+    }
+  }, [isInitialized]);
+
+  // Send GIF to specific device
+  const sendGifToDevice = useCallback(async (deviceId: string, gifInfo: GifInfo) => {
+    try {
+      if (!isInitialized) {
+        throw new Error('Device service not initialized');
+      }
+      
+      const result = await deviceMessageService.sendGifToDevice(deviceId, gifInfo);
+      return result;
+    } catch (err) {
+      console.error('[useDeviceStatus] Failed to send GIF to device:', err);
       throw err;
     }
   }, [isInitialized]);
@@ -336,6 +410,12 @@ export function useDeviceStatus() {
     };
   }, [isInitialized, updateDeviceStatus]);
 
+  // Manual reset of initialization state (for debugging or special cases)
+  const resetInitializationState = useCallback(() => {
+    console.log('[useDeviceStatus] Manually resetting initialization state');
+    persistInitializedState(false);
+  }, [persistInitializedState]);
+
   return {
     // State
     isInitialized,
@@ -349,8 +429,10 @@ export function useDeviceStatus() {
     
     // Actions
     refreshDeviceStatus,
+    resetInitializationState,
     sendMessageToDevices,
     sendGifToDevices,
+    sendGifToDevice,
     
     // ALAYA MCP direct methods
     sendPixelArtViaAlayaMcp,

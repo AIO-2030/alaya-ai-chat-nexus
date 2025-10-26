@@ -5,7 +5,7 @@ import { alayaMcpService } from './alayaMcpService';
 
 export interface DeviceMessage {
   type: 'text' | 'pixel_art' | 'gif' | 'pixel_animation';
-  content: string;
+  content: string | Record<string, unknown>; // Allow both string and object content
   metadata?: {
     width?: number;
     height?: number;
@@ -115,11 +115,11 @@ class DeviceMessageService {
   }
 
   // Sync device list from canister
-  async syncDevicesFromCanister(): Promise<void> {
+  async syncDevicesFromCanister(ownerPrincipal?: string): Promise<void> {
     try {
       // Dynamically import realDeviceService to avoid circular dependency
       const { realDeviceService } = await import('./realDeviceService');
-      const devices = await realDeviceService.getDeviceList();
+      const devices = await realDeviceService.getDeviceList(ownerPrincipal);
       
       if (this.tencentIoTEnabled) {
         // Sync devices via MCP service - get real device status for each device
@@ -256,13 +256,24 @@ class DeviceMessageService {
 
   // Parse device ID to extract product_id and device_name
   private parseDeviceId(deviceId: string): { productId: string; deviceName: string } {
-    if (deviceId.includes(':')) {
-      const [productId, deviceName] = deviceId.split(':');
-      return { productId, deviceName };
-    } else {
-      // Use hardcoded product ID and device ID as device name
-      return { productId: 'H3PI4FBTV5', deviceName: deviceId };
-    }
+    console.log('[DeviceMessageService] parseDeviceId called with:', deviceId);
+    
+    // Simple rule: split by '_' and take the suffix as device name
+    // Examples:
+    // "device_142B2F6AF8B4" -> "142B2F6AF8B4"
+    // "BLUFI_142B2F6AF8B4" -> "142B2F6AF8B4"
+    // "device_1761407113938" -> "1761407113938"
+    const parts = deviceId.split('_');
+    const deviceName = parts.length > 1 ? parts[parts.length - 1] : deviceId;
+    
+    console.log('[DeviceMessageService] Parsed device ID:', { 
+      originalDeviceId: deviceId, 
+      parts, 
+      deviceName,
+      productId: 'H3PI4FBTV5'
+    });
+    
+    return { productId: 'H3PI4FBTV5', deviceName };
   }
 
   // Parse device ID from device record with proper product_id and device_name
@@ -443,17 +454,76 @@ class DeviceMessageService {
 
   // Convert GIF to device message format
   private convertGifToDeviceMessage(gifInfo: GifInfo): DeviceMessage {
+    console.log('[DeviceMessageService] convertGifToDeviceMessage called with:', gifInfo);
+    
+    // For GIF messages, we need to pass the GIF data in a format that ALAYA MCP can understand
+    // The ALAYA MCP service expects either:
+    // 1. A string (raw GIF data)
+    // 2. An object with frames and palette properties
+    // 3. An array of frame data
+    
+    // Since we have GIF info with URL, we'll create a simple frame-based format
+    // that the MCP service can process
+    const gifData = {
+      // Create a simple single-frame animation from the GIF
+      frames: [{
+        frame_index: 0,
+        pixels: this.createSimplePixelMatrix(gifInfo.width || 32, gifInfo.height || 32), // Use 'pixels' to match sendGifAnimationMessage expectations
+        duration: gifInfo.duration || 100
+      }],
+      palette: this.createSimplePalette(),
+      frame_delay: gifInfo.duration || 100,
+      loop_count: 0, // Infinite loop
+      width: gifInfo.width || 32,
+      height: gifInfo.height || 32,
+      title: gifInfo.title,
+      // Include original GIF info for reference
+      gif_url: gifInfo.gifUrl,
+      thumbnail_url: gifInfo.thumbnailUrl,
+      source_type: gifInfo.sourceType,
+      source_id: gifInfo.sourceId
+    };
+
     return {
       type: 'gif',
-      content: gifInfo.gifUrl, // Use full GIF URL for device
+      content: gifData, // Keep as object for proper MCP processing
       metadata: {
-        width: gifInfo.width,
-        height: gifInfo.height,
+        width: gifInfo.width || 32,
+        height: gifInfo.height || 32,
         duration: gifInfo.duration,
         title: gifInfo.title
       },
       timestamp: Date.now()
     };
+  }
+
+  // Create a simple pixel matrix for demonstration
+  private createSimplePixelMatrix(width: number, height: number): number[][] {
+    const matrix: number[][] = [];
+    for (let y = 0; y < height; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < width; x++) {
+        // Create a simple pattern - alternating colors
+        const colorIndex = (x + y) % 2;
+        row.push(colorIndex);
+      }
+      matrix.push(row);
+    }
+    return matrix;
+  }
+
+  // Create a simple palette with basic colors
+  private createSimplePalette(): string[] {
+    return [
+      '#000000', // Black
+      '#FFFFFF', // White
+      '#FF0000', // Red
+      '#00FF00', // Green
+      '#0000FF', // Blue
+      '#FFFF00', // Yellow
+      '#FF00FF', // Magenta
+      '#00FFFF'  // Cyan
+    ];
   }
 
   // Convert pixel animation to device message format
@@ -474,15 +544,53 @@ class DeviceMessageService {
     };
   }
 
-  // Convert pixel art to device message format
+  // Convert pixel art to device message format (as single-frame GIF)
   private convertPixelArtToDeviceMessage(pixelArt: PixelArtInfo): DeviceMessage {
+    // Convert pixel art to GIF format with a single frame
+    // This ensures consistency with the GIF format requirement
+    
+    // Parse the device format JSON to extract pixel data
+    let pixelData;
+    try {
+      pixelData = JSON.parse(pixelArt.deviceFormat);
+    } catch (error) {
+      console.error('[DeviceMessageService] Error parsing pixel art device format:', error);
+      // Fallback to simple format
+      pixelData = {
+        pixels: this.createSimplePixelMatrix(pixelArt.width || 32, pixelArt.height || 32),
+        palette: pixelArt.palette || this.createSimplePalette(),
+        width: pixelArt.width || 32,
+        height: pixelArt.height || 32,
+        title: 'Pixel Art'
+      };
+    }
+
+    // Create GIF data with single frame
+    const gifData = {
+      frames: [{
+        frame_index: 0,
+        pixels: pixelData.pixels || this.createSimplePixelMatrix(pixelArt.width || 32, pixelArt.height || 32), // Use 'pixels' to match sendGifAnimationMessage expectations
+        duration: 100 // Static image, so duration doesn't matter much
+      }],
+      palette: pixelData.palette || pixelArt.palette || this.createSimplePalette(),
+      frame_delay: 100,
+      loop_count: 0, // Infinite loop for static image
+      width: pixelData.width || pixelArt.width || 32,
+      height: pixelData.height || pixelArt.height || 32,
+      title: pixelData.title || 'Pixel Art',
+      // Mark as pixel art source
+      source_type: 'pixel_art',
+      source_id: pixelArt.sourceId
+    };
+
     return {
-      type: 'pixel_art',
-      content: pixelArt.deviceFormat, // Use device format JSON
+      type: 'gif', // Treat as GIF with single frame
+      content: gifData, // Keep as object for proper MCP processing
       metadata: {
-        width: pixelArt.width,
-        height: pixelArt.height,
-        palette: pixelArt.palette
+        width: pixelData.width || pixelArt.width || 32,
+        height: pixelData.height || pixelArt.height || 32,
+        title: pixelData.title || 'Pixel Art',
+        palette: pixelData.palette || pixelArt.palette
       },
       timestamp: Date.now()
     };
@@ -499,8 +607,26 @@ class DeviceMessageService {
 
   // Send GIF to all connected devices
   async sendGifToDevices(gifInfo: GifInfo): Promise<{ success: boolean; sentTo: string[]; errors: string[] }> {
+    console.log('[DeviceMessageService] sendGifToDevices called with:', gifInfo);
     const message = this.convertGifToDeviceMessage(gifInfo);
+    console.log('[DeviceMessageService] converted message:', message);
     return this.sendMessageToAllDevices(message);
+  }
+
+  // Send GIF to specific device
+  async sendGifToDevice(deviceId: string, gifInfo: GifInfo): Promise<{ success: boolean; error?: string }> {
+    console.log('[DeviceMessageService] sendGifToDevice called with:', { deviceId, gifInfo });
+    const message = this.convertGifToDeviceMessage(gifInfo);
+    console.log('[DeviceMessageService] converted message for specific device:', message);
+    
+    try {
+      await this.sendMessageToDevice(deviceId, message);
+      return { success: true };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('[DeviceMessageService] Failed to send GIF to device:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
   }
 
   // Send pixel art to all connected devices
@@ -655,13 +781,12 @@ class DeviceMessageService {
   // Send message to specific device
   private async sendMessageToDevice(deviceId: string, message: DeviceMessage): Promise<void> {
     const device = this.connectedDevices.get(deviceId);
-    if (!device || !device.isConnected) {
-      throw new Error(`Device ${deviceId} is not connected`);
-    }
-
+    
     console.log('[DeviceMessageService] Sending to device:', {
       deviceId,
-      deviceName: device.deviceName,
+      deviceInConnectedList: !!device,
+      deviceConnected: device?.isConnected,
+      deviceName: device?.deviceName,
       messageType: message.type
     });
 
@@ -701,15 +826,14 @@ class DeviceMessageService {
       let result: { success: boolean; error?: string };
 
       // Route to appropriate MCP method based on message type
+      console.log('[DeviceMessageService] sendMessageViaAlayaMcp - message type:', message.type, 'content:', message.content);
       switch (message.type) {
         case 'pixel_art':
-          result = await alayaMcpService.sendPixelArtMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
-          break;
         case 'pixel_animation':
-          result = await alayaMcpService.sendPixelAnimationMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
-          break;
         case 'gif':
-          result = await alayaMcpService.sendGifMessage(productId, deviceName, message.content as unknown as Record<string, unknown>);
+          // All image types are now treated as GIF format (single or multi-frame)
+          console.log('[DeviceMessageService] Calling sendGifAnimationMessage with:', message.content);
+          result = await alayaMcpService.sendGifAnimationMessage(productId, deviceName, message.content as Record<string, unknown>);
           break;
         case 'text':
           result = await alayaMcpService.sendDisplayText(productId, deviceName, message.content as string);
@@ -742,28 +866,9 @@ class DeviceMessageService {
 
       // Send message via MCP service based on message type
       let result;
-      if (message.type === 'pixel_art') {
-        result = await alayaMcpService.sendPixelImage({
-          product_id: productId,
-          device_name: deviceName,
-          image_data: message.content,
-          target_width: message.metadata?.width || 16,
-          target_height: message.metadata?.height || 16,
-          use_cos: true,
-          ttl_sec: 900
-        });
-      } else if (message.type === 'gif' || message.type === 'pixel_animation') {
-        result = await alayaMcpService.sendGifAnimation({
-          product_id: productId,
-          device_name: deviceName,
-          gif_data: message.content,
-          frame_delay: message.metadata?.frame_delay || 100,
-          loop_count: message.metadata?.loop_count || 0,
-          target_width: message.metadata?.width || 16,
-          target_height: message.metadata?.height || 16,
-          use_cos: true,
-          ttl_sec: 900
-        });
+      if (message.type === 'pixel_art' || message.type === 'pixel_animation' || message.type === 'gif') {
+        // All image types are now treated as GIF format (single or multi-frame)
+        result = await alayaMcpService.sendGifAnimationMessage(productId, deviceName, message.content as Record<string, unknown>);
       } else {
         // For text messages, use send_display_text method
         result = await alayaMcpService.sendDisplayText(productId, deviceName, message.content as string);

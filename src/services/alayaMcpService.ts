@@ -850,12 +850,22 @@ class AlayaMcpService {
 
   async sendGifAnimationMessage(productId: string, deviceName: string, gifData: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log('[AlayaMcpService] sendGifAnimationMessage called with:', {
+        productId,
+        deviceName,
+        gifDataType: typeof gifData,
+        gifDataKeys: Object.keys(gifData),
+        gifData
+      });
+      
       // Convert animation data to proper GIF format for send_gif_animation
       let gifDataFormatted: string | unknown[];
       
       if (typeof gifData === 'string') {
+        console.log('[AlayaMcpService] gifData is string, using directly:', gifData);
         gifDataFormatted = gifData;
       } else if (gifData.frames && gifData.palette) {
+        console.log('[AlayaMcpService] gifData has frames and palette, converting to frame array');
         // Convert palette-based animation to frame array format
         const frames = gifData.frames as Record<string, unknown>[];
         const palette = gifData.palette as string[];
@@ -867,6 +877,7 @@ class AlayaMcpService {
           duration: frame.duration || gifData.frame_delay || 100
         }));
         gifDataFormatted = frameArray; // Use array format, not JSON string
+        console.log('[AlayaMcpService] converted frame array:', frameArray);
       } else if (Array.isArray(gifData)) {
         // Already in frame array format
         gifDataFormatted = gifData;

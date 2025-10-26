@@ -107,7 +107,7 @@ const DeviceSend = () => {
   const {
     sendMessageToDevices,
     sendGifToDevices,
-    isLoading: deviceServiceLoading
+    sendGifToDevice
   } = useDeviceStatus();
 
   // Handle GIF data from URL params (when returning from Gallery)
@@ -131,16 +131,6 @@ const DeviceSend = () => {
   const handleSendMessage = async () => {
     const hasMessage = newMessage.trim();
     const hasGif = !!pendingGif;
-    
-    // Check if device service is still initializing
-    if (deviceServiceLoading) {
-      toast({
-        title: t('deviceSend.error.serviceInitializing'),
-        description: t('deviceSend.error.serviceInitializingDesc'),
-        variant: "destructive"
-      });
-      return;
-    }
 
     if (!hasMessage && !hasGif) {
       console.warn('[DeviceSend] Cannot send message: no message content or GIF');
@@ -157,19 +147,25 @@ const DeviceSend = () => {
       setLoading(true);
       
       if (pendingGif) {
-        // Send GIF to device
-        console.log('[DeviceSend] Sending GIF to device:', pendingGif);
-        const result = await sendGifToDevices(pendingGif);
+        // Send GIF to specific device
+        console.log('[DeviceSend] Sending GIF to device:', { deviceId, deviceName, pendingGif });
+        
+        if (!deviceName) {
+          throw new Error('Device name is required to send GIF');
+        }
+        
+        // Use deviceName (bluetooth name) instead of deviceId (system ID) for MCP calls
+        const result = await sendGifToDevice(deviceName, pendingGif);
         
         if (result.success) {
           toast({
             title: t('chat.success.gifSent'),
-            description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
+            description: t('chat.success.sentToDevice', { device: deviceName }),
             variant: "default"
           });
           setPendingGif(null);
         } else {
-          throw new Error(result.errors.join('; '));
+          throw new Error(result.error || 'Failed to send GIF');
         }
       } else if (newMessage.trim()) {
         // Send text message to device
@@ -377,12 +373,6 @@ const DeviceSend = () => {
                       <div className="text-6xl mb-4">📱</div>
                       <h2 className="text-2xl font-bold text-white mb-2">{t('deviceSend.title')}</h2>
                       <p className="text-white/60">{t('deviceSend.subtitle')}</p>
-                      {deviceServiceLoading && (
-                        <div className="mt-4 text-white/60 text-sm flex items-center justify-center gap-2">
-                          <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
-                          Initializing device service...
-                        </div>
-                      )}
                     </div>
 
                     {/* Pending GIF Preview */}
@@ -433,7 +423,7 @@ const DeviceSend = () => {
                       {/* Send Button */}
                       <Button
                         onClick={handleSendMessage}
-                        disabled={loading || deviceServiceLoading || (!newMessage.trim() && !pendingGif)}
+                        disabled={loading || (!newMessage.trim() && !pendingGif)}
                         className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Send message to device"
                       >

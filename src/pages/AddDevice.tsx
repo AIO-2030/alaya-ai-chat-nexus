@@ -220,15 +220,9 @@ const AddDevice = () => {
           </Button>
         </div>
 
-        <div className="flex h-[calc(100vh-65px-80px)] lg:h-[calc(100vh-65px)] w-full">
-          {/* Sidebar for desktop only */}
-          <div className="hidden lg:block">
-            <AppSidebar />
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="h-full flex flex-col max-h-[calc(100vh-145px)] lg:max-h-[calc(100vh-65px)]">
+        {/* Main Content with Scroll */}
+        <div className="flex-1 min-w-0 overflow-y-auto pb-20">
+          <div className="h-full flex flex-col">
               {/* Page Header */}
               <div className="m-2 md:m-4 mb-2 p-4 md:p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
                 <div className="flex items-center gap-3 md:gap-4 mb-4">
@@ -409,8 +403,8 @@ const AddDevice = () => {
 
                     {/* WiFi Selection */}
                     {currentStep === DeviceInitStep.WIFI_SELECT && (
-                      <div className="flex flex-col h-full">
-                        <div className="text-center mb-4 flex-shrink-0">
+                      <div className="space-y-4">
+                        <div className="text-center flex-shrink-0">
                           <Wifi className="h-16 w-16 text-cyan-400 mx-auto mb-4" />
                           <h3 className="text-2xl font-semibold text-white mb-2">{t('common.selectWifiNetworkTitle')}</h3>
                           <p className="text-white/60 text-lg">{t('common.selectWifiNetworkDesc')}</p>
@@ -428,12 +422,8 @@ const AddDevice = () => {
                           </div>
                         </div>
                         
-                        <div className="flex-1 min-h-0 bg-white/5 rounded-lg border border-white/10 overflow-hidden">
-                          <div className="h-full overflow-y-auto custom-scrollbar" style={{
-                            scrollbarWidth: 'thin',
-                            scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent'
-                          }}>
-                            <div className="p-3 space-y-2">
+                        <div className="bg-white/5 rounded-lg border border-white/10">
+                          <div className="p-3 space-y-2">
                               {deviceInitState.wifiNetworks && deviceInitState.wifiNetworks.length > 0 ? (
                                 deviceInitState.wifiNetworks.map((network) => (
                                   <div 
@@ -522,7 +512,6 @@ const AddDevice = () => {
                                   </div>
                                 </div>
                               )}
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -541,16 +530,15 @@ const AddDevice = () => {
 
                     {/* Bluetooth Device Selection */}
                     {currentStep === DeviceInitStep.BLUETOOTH_SELECT && (
-                      <div className="flex-1 flex flex-col">
-                        <div className="text-center mb-6 flex-shrink-0">
+                      <div className="space-y-4">
+                        <div className="text-center flex-shrink-0">
                           <Bluetooth className="h-16 w-16 text-purple-400 mx-auto mb-4" />
                           <h3 className="text-2xl font-semibold text-white mb-2">Select Bluetooth Device</h3>
                           <p className="text-white/60 text-lg">Choose the device to configure</p>
                         </div>
                         
-                        <div className="flex-1 min-h-0 bg-white/5 rounded-lg border border-white/10 p-2">
-                          <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-                            <div className="space-y-3">
+                        <div className="bg-white/5 rounded-lg border border-white/10 p-2">
+                          <div className="space-y-3">
                           {deviceInitState.bluetoothDevices && deviceInitState.bluetoothDevices.length > 0 ? (
                             deviceInitState.bluetoothDevices.map((device) => (
                               <div 
@@ -581,7 +569,6 @@ const AddDevice = () => {
                               </div>
                             </div>
                           )}
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -710,8 +697,6 @@ const AddDevice = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
         </div>
 
         {/* Bottom Navigation - Mobile only */}
@@ -864,6 +849,7 @@ const AddDevice = () => {
           </DialogContent>
         </Dialog>
 
+      </div>
       </div>
     </PageLayout>
   );

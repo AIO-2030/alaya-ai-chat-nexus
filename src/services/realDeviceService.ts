@@ -3696,12 +3696,12 @@ class RealDeviceService {
   }
 
   // Get device list using deviceApiService
-  async getDeviceList(): Promise<DeviceRecord[]> {
+  async getDeviceList(ownerPrincipal?: string): Promise<DeviceRecord[]> {
     try {
-      console.log('Getting device list from backend canister...');
+      console.log('Getting device list from backend canister...', ownerPrincipal ? `for owner: ${ownerPrincipal}` : 'for all devices');
       
       // Use deviceApiService to get devices from backend canister
-      const response = await deviceApiService.getDevices(0, 100); // Get first 100 devices
+      const response = await deviceApiService.getDevices(0, 100, ownerPrincipal); // Get first 100 devices
       
       if (response.success && response.data) {
         // Convert ApiDeviceRecord[] to legacy DeviceRecord[] format
