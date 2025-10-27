@@ -262,56 +262,66 @@ const MyDevices = () => {
                         </div>
                       ) : (
                         devices.map((device) => (
-                          <div key={device.id} className="p-6 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-200 backdrop-blur-sm hover:shadow-lg">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
-                                <Smartphone className="h-8 w-8 text-cyan-400" />
-                                <div>
-                                  <h3 className="text-white font-medium">{device.name}</h3>
-                                  <p className="text-sm text-white/60">{getDeviceTypeName(device.deviceType)}</p>
-                                  <p className="text-xs text-white/40">ID: {device.id}</p>
+                          <div key={device.id} className="group relative overflow-hidden bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-blue-500/10 rounded-2xl border border-white/20 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/20 backdrop-blur-xl">
+                            {/* Animated background glow effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            
+                            <div className="relative p-6">
+                              {/* Header Section */}
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                  {/* Device Icon with Glow Effect */}
+                                  <div className="relative">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity duration-300" />
+                                    <div className="relative bg-gradient-to-br from-cyan-500/20 to-purple-500/20 backdrop-blur-sm rounded-xl p-3 border border-cyan-400/30">
+                                      <Smartphone className="h-6 w-6 text-cyan-300" />
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <h3 className="text-white font-semibold text-lg mb-1">{device.name}</h3>
+                                    <p className="text-xs text-white/40 font-mono">ID: {device.id.substring(0, 20)}...</p>
+                                  </div>
+                                </div>
+                                
+                                {/* Status Badge */}
+                                <div className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusColor(device.status)} backdrop-blur-md border border-white/10 shadow-lg`}>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={`w-2 h-2 rounded-full ${'Online' in device.status ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+                                    {getDeviceStatusName(device.status)}
+                                  </div>
                                 </div>
                               </div>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(device.status)} backdrop-blur-sm`}>
-                                {getDeviceStatusName(device.status)}
-                              </span>
-                            </div>
 
-                            <div className="flex gap-2 mt-4">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleToggleDeviceStatus(device)}
-                                className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
-                              >
-                                <Settings className="h-4 w-4 mr-2" />
-                                {('Online' in device.status) ? 'Disconnect' : 'Connect'}
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleSendToDevice(device)}
-                                className="bg-gradient-to-r from-green-500/20 to-blue-500/20 border-green-400/30 text-green-300 hover:bg-green-500/30 backdrop-blur-sm"
-                                title="Send message to device"
-                              >
-                                <Send className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleLinkToWifi(device)}
-                                className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
-                              >
-                                <Wifi className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleDeleteDevice(device)}
-                                className="bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30 backdrop-blur-sm"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {/* Action Buttons Grid */}
+                              <div className="flex gap-3 mt-6">
+                                {/* Main Action - Send */}
+                                <Button 
+                                  onClick={() => handleSendToDevice(device)}
+                                  className="group/btn flex-1 h-16 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 hover:from-cyan-300 hover:via-blue-400 hover:to-purple-500 text-white font-bold text-lg shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 border-0 backdrop-blur-sm"
+                                  title="Send message to device"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                      <div className="absolute inset-0 bg-white/20 rounded-full blur-md" />
+                                      <Send className="h-6 w-6 relative group-hover/btn:translate-x-1 transition-transform duration-300" />
+                                    </div>
+                                    <span className="font-bold">Send Message</span>
+                                  </div>
+                                </Button>
+                                
+                                {/* Delete Button */}
+                                <Button 
+                                  onClick={() => handleDeleteDevice(device)}
+                                  className="group/btn h-16 w-16 bg-gradient-to-br from-red-500/20 via-pink-500/20 to-orange-500/20 border-2 border-red-400/50 hover:border-red-400 hover:from-red-500/30 hover:via-pink-500/30 hover:to-orange-500/30 backdrop-blur-sm transition-all duration-300 hover:scale-105 shadow-lg shadow-red-500/20 hover:shadow-red-500/30"
+                                  title="Delete device"
+                                >
+                                  <Trash2 className="h-6 w-6 text-red-400 group-hover/btn:text-red-300 transition-colors duration-300" />
+                                </Button>
+                              </div>
+                              
+                              {/* Bottom Accent Line */}
+                              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             </div>
                           </div>
                         ))

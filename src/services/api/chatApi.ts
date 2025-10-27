@@ -78,6 +78,8 @@ export interface GifInfo {
   height: number;           // Original height
   sourceType: string;       // "gif"
   sourceId?: string;        // GIF ID
+  palette?: string[];       // Color palette for restoration
+  pixels?: number[][];      // Pixel data for restoration
 }
 
 // Pixel animation frame data
@@ -103,11 +105,10 @@ export interface PixelAnimationData {
 // Frontend types for chat functionality
 export interface ChatMessageInfo {
   sendBy: string;           // Sender's principal ID
-  content: string;          // Message content (base64 for non-text modes, JSON for PixelArt/GIF)
-  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif';  // Content type
+  content: string;          // Message content (base64 for non-text modes, JSON for GIF)
+  mode: 'Text' | 'Voice' | 'Image' | 'Gif';  // Content type (Emoji, PixelArt, and Gif are all treated as Gif)
   timestamp: number;        // Message timestamp (in milliseconds)
-  pixelArt?: PixelArtInfo;  // Parsed pixel art data when mode is PixelArt
-  gifInfo?: GifInfo;        // Parsed GIF data when mode is Gif
+  gifInfo?: GifInfo;        // Parsed GIF data when mode is Gif (includes emoji, pixel art, and GIF as single-frame GIF)
 }
 
 export interface NotificationInfo {
@@ -119,8 +120,7 @@ export interface NotificationInfo {
 
 // Convert backend ChatMessage to frontend ChatMessageInfo
 const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
-  let mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif' = 'Text';
-  let pixelArt: PixelArtInfo | undefined;
+  let mode: 'Text' | 'Voice' | 'Image' | 'Gif' = 'Text';
   let gifInfo: GifInfo | undefined;
   
   if (message.mode && typeof message.mode === 'object') {
@@ -128,42 +128,65 @@ const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
       mode = 'Voice';
     } else if ('Image' in message.mode) {
       mode = 'Image';
-    } else if ('Emoji' in message.mode) {
-      mode = 'Emoji';
-    } else if ('PixelArt' in message.mode) {
-      mode = 'PixelArt';
-      // Parse pixel art data from content
-      try {
-        const pixelData = JSON.parse(message.content);
-        pixelArt = {
-          chatFormat: pixelData.chat_format || pixelData.chatFormat,
-          deviceFormat: pixelData.device_format || pixelData.deviceFormat,
-          width: pixelData.width,
-          height: pixelData.height,
-          palette: pixelData.palette || [],
-          sourceType: pixelData.source_type || pixelData.sourceType || 'emoji',
-          sourceId: pixelData.source_id || pixelData.sourceId
-        };
-      } catch (error) {
-        console.error('[ChatApi] Failed to parse pixel art data:', error);
-      }
-    } else if ('Gif' in message.mode) {
+    } else if ('Emoji' in message.mode || 'Gif' in message.mode || 'PixelArt' in message.mode) {
+      // Treat Emoji, PixelArt, and Gif as Gif (single-frame GIF)
       mode = 'Gif';
       // Parse GIF data from content
       try {
         const gifData = JSON.parse(message.content);
+        
+        // Verify restoration data exists
+        const hasPalette = !!(gifData.palette && gifData.palette.length > 0);
+        const hasPixels = !!(gifData.pixels && gifData.pixels.length > 0);
+        
+        console.log('[ChatApi] Converting GIF message from backend:', {
+          title: gifData.title || gifData.source_type,
+          width: gifData.width,
+          height: gifData.height,
+          hasPalette,
+          hasPixels,
+          paletteLength: gifData.palette?.length,
+          pixelsLength: gifData.pixels?.length,
+          contentLength: message.content.length
+        });
+        
+        if (!hasPalette || !hasPixels) {
+          console.warn('[ChatApi] ⚠️ Received GIF message without restoration data:', {
+            title: gifData.title,
+            hasPalette,
+            hasPixels
+          });
+        }
+        
         gifInfo = {
-          gifUrl: gifData.gif_url || gifData.gifUrl,
-          thumbnailUrl: gifData.thumbnail_url || gifData.thumbnailUrl,
-          title: gifData.title,
-          duration: gifData.duration,
+          gifUrl: gifData.gif_url || gifData.gifUrl || gifData.chat_format || gifData.chatFormat,
+          thumbnailUrl: gifData.thumbnail_url || gifData.thumbnailUrl || gifData.chat_format || gifData.chatFormat,
+          title: gifData.title || gifData.source_type || 'Pixel Art',
+          duration: gifData.duration || 100,
           width: gifData.width,
           height: gifData.height,
           sourceType: gifData.source_type || gifData.sourceType || 'gif',
-          sourceId: gifData.source_id || gifData.sourceId
+          sourceId: gifData.source_id || gifData.sourceId,
+          palette: gifData.palette || undefined,  // Include palette for restoration
+          pixels: gifData.pixels || undefined     // Include pixels for restoration
         };
+        
+        // Log the full content to debug missing data issues
+        if (!gifInfo.palette || !gifInfo.pixels) {
+          console.log('[ChatApi] Parsed gifData object structure:', {
+            has_gif_url: !!gifData.gif_url,
+            has_thumbnail_url: !!gifData.thumbnail_url,
+            has_title: !!gifData.title,
+            has_palette: !!gifData.palette,
+            has_pixels: !!gifData.pixels,
+            keys: Object.keys(gifData),
+            preview: Object.fromEntries(Object.entries(gifData).map(([k, v]) => [k, typeof v === 'object' ? (Array.isArray(v) ? `${k}[${v.length}]` : Object.keys(v || {}).length) : String(v).substring(0, 50)]))
+          });
+        }
       } catch (error) {
-        console.error('[ChatApi] Failed to parse GIF data:', error);
+        console.error('[ChatApi] Failed to parse GIF data:', error, {
+          contentPreview: message.content.substring(0, 200)
+        });
       }
     }
   }
@@ -173,24 +196,19 @@ const convertFromChatMessage = (message: ChatMessage): ChatMessageInfo => {
     content: message.content,
     mode,
     timestamp: Number(message.timestamp) / 1000000, // Convert nanoseconds to milliseconds
-    pixelArt,
     gifInfo
   };
 };
 
 // Convert frontend ChatMessageInfo to backend MessageMode
-const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif'): MessageMode => {
+const convertToMessageMode = (mode: 'Text' | 'Voice' | 'Image' | 'Gif'): MessageMode => {
   switch (mode) {
     case 'Voice':
       return { Voice: null };
     case 'Image':
       return { Image: null };
-    case 'Emoji':
-      return { Emoji: null };
-    case 'PixelArt':
-      return { PixelArt: null };
     case 'Gif':
-      return { Gif: null };
+      return { Gif: null }; // Emoji, PixelArt, and Gif all use Gif mode
     default:
       return { Text: null };
   }
@@ -336,15 +354,15 @@ export const generateSocialPairKey = async (principal1: string, principal2: stri
  * Send a chat message between two users
  * @param senderPrincipal Sender's principal ID
  * @param receiverPrincipal Receiver's principal ID
- * @param content Message content (base64 for non-text modes, JSON for PixelArt/GIF)
- * @param mode Message mode: 'Text', 'Voice', 'Image', 'Emoji', 'PixelArt', or 'Gif'
+ * @param content Message content (base64 for non-text modes, JSON for GIF)
+ * @param mode Message mode: 'Text', 'Voice', 'Image', or 'Gif' (Emoji and PixelArt are treated as Gif)
  * @returns Message index if successful
  */
 export const sendChatMessage = async (
   senderPrincipal: string,
   receiverPrincipal: string,
   content: string,
-  mode: 'Text' | 'Voice' | 'Image' | 'Emoji' | 'PixelArt' | 'Gif' = 'Text'
+  mode: 'Text' | 'Voice' | 'Image' | 'Gif' = 'Text'
 ): Promise<number> => {
   try {
     console.log('[ChatApi] Sending chat message:', { senderPrincipal, receiverPrincipal, mode });
@@ -555,23 +573,38 @@ export const sendPixelArtMessage = async (
   pixelArtData: PixelArtInfo
 ): Promise<number> => {
   try {
-    console.log('[ChatApi] Sending pixel art message:', { senderPrincipal, receiverPrincipal, pixelArtData });
+    console.log('[ChatApi] Sending pixel art message as GIF:', { senderPrincipal, receiverPrincipal, pixelArtData });
     
-    // Serialize pixel art data as JSON content
-    const content = JSON.stringify({
-      chat_format: pixelArtData.chatFormat,
-      device_format: pixelArtData.deviceFormat,
+    // Convert PixelArt to GifInfo format for unified handling
+    const gifData: GifInfo = {
+      gifUrl: pixelArtData.chatFormat,  // Use chat format as GIF URL
+      thumbnailUrl: pixelArtData.chatFormat,  // Use chat format as thumbnail
+      title: pixelArtData.sourceId || 'Pixel Art',
+      duration: 100,  // Default duration for single-frame GIF
       width: pixelArtData.width,
       height: pixelArtData.height,
-      palette: pixelArtData.palette,
-      source_type: pixelArtData.sourceType,
-      source_id: pixelArtData.sourceId
-    });
+      sourceType: pixelArtData.sourceType || 'pixel_art',
+      sourceId: pixelArtData.sourceId,
+      palette: pixelArtData.palette,  // Include palette for restoration
+      pixels: extractPixelsFromDeviceFormat(pixelArtData.deviceFormat)  // Extract pixels from device format
+    };
     
-    return await sendChatMessage(senderPrincipal, receiverPrincipal, content, 'PixelArt');
+    // Convert to GIF message
+    return await sendGifMessage(senderPrincipal, receiverPrincipal, gifData);
   } catch (error) {
     console.error('[ChatApi] Error sending pixel art message:', error);
     throw error;
+  }
+};
+
+// Helper function to extract pixels from device format JSON string
+const extractPixelsFromDeviceFormat = (deviceFormat: string): number[][] => {
+  try {
+    const data = JSON.parse(deviceFormat);
+    return data.pixels || [];
+  } catch (error) {
+    console.error('[ChatApi] Failed to extract pixels from device format:', error);
+    return [];
   }
 };
 
@@ -590,8 +623,32 @@ export const sendGifMessage = async (
   try {
     console.log('[ChatApi] Sending GIF message:', { senderPrincipal, receiverPrincipal, gifData });
     
-    // Serialize GIF data as JSON content
-    const content = JSON.stringify({
+    // Verify that pixel data exists before sending
+    const hasPalette = !!(gifData.palette && gifData.palette.length > 0);
+    const hasPixels = !!(gifData.pixels && gifData.pixels.length > 0);
+    
+    console.log('[ChatApi] GIF data verification:', {
+      title: gifData.title,
+      width: gifData.width,
+      height: gifData.height,
+      hasPalette,
+      hasPixels,
+      paletteLength: gifData.palette?.length,
+      pixelsLength: gifData.pixels?.length,
+      gifUrl: gifData.gifUrl?.substring(0, 100) + '...'
+    });
+    
+    if (!hasPalette || !hasPixels) {
+      console.warn('[ChatApi] ⚠️ GIF message is missing restoration data:', {
+        hasPalette,
+        hasPixels,
+        title: gifData.title,
+        fullGifData: JSON.stringify(gifData, null, 2).substring(0, 500)
+      });
+    }
+    
+    // Serialize GIF data as JSON content, including pixel data for restoration
+    const serializedData = {
       gif_url: gifData.gifUrl,
       thumbnail_url: gifData.thumbnailUrl,
       title: gifData.title,
@@ -599,7 +656,42 @@ export const sendGifMessage = async (
       width: gifData.width,
       height: gifData.height,
       source_type: gifData.sourceType,
-      source_id: gifData.sourceId
+      source_id: gifData.sourceId,
+      palette: gifData.palette,  // Include palette for restoration
+      pixels: gifData.pixels     // Include pixels for restoration
+    };
+    
+    // Log serializedData to verify it contains all fields
+    console.log('[ChatApi] About to serialize GIF data:', {
+      hasGifUrl: !!serializedData.gif_url,
+      hasThumbnailUrl: !!serializedData.thumbnail_url,
+      hasTitle: !!serializedData.title,
+      hasPalette: !!serializedData.palette,
+      hasPixels: !!serializedData.pixels,
+      paletteLength: serializedData.palette?.length,
+      pixelsLength: serializedData.pixels?.length,
+      serializedKeys: Object.keys(serializedData)
+    });
+    
+    const content = JSON.stringify(serializedData);
+    const contentSize = new Blob([content]).size;
+    
+    console.log('[ChatApi] Serialized GIF data size:', {
+      contentLength: content.length,
+      contentSizeBytes: contentSize,
+      contentSizeKB: (contentSize / 1024).toFixed(2)
+    });
+    
+    // Log the actual serialized content (first 500 chars)
+    console.log('[ChatApi] Serialized content preview:', content.substring(0, 500));
+    
+    // Log a sample of the serialized data
+    console.log('[ChatApi] Serialized GIF data preview:', {
+      gif_url: serializedData.gif_url?.substring(0, 100),
+      thumbnail_url: serializedData.thumbnail_url?.substring(0, 100),
+      title: serializedData.title,
+      palette_size: serializedData.palette?.length || 0,
+      pixels_size: serializedData.pixels?.length || 0
     });
     
     return await sendChatMessage(senderPrincipal, receiverPrincipal, content, 'Gif');

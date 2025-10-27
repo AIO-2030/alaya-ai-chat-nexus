@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Send, Smile, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ import { deviceMessageService } from '../services/deviceMessageService';
 import { deviceSimulator } from '../services/deviceSimulator';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
+import { deviceApiService } from '../services/api/deviceApi';
+import { convertPixelToGif, GifResult } from '../lib/pixelToGifConverter';
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -164,6 +166,12 @@ const Chat = () => {
   const [notifications, setNotifications] = useState<NotificationInfo[]>([]);
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
+  const [contactDeviceList, setContactDeviceList] = useState<Array<{ id: string; name: string; deviceName?: string }>>([]);
+  const [hasContactDevices, setHasContactDevices] = useState(false);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [unrecoverableGifs, setUnrecoverableGifs] = useState<Set<string>>(new Set());
+  const [recoveredImages, setRecoveredImages] = useState<Set<string>>(new Set());
+  const imageErrorHandlers = useRef<Map<string, boolean>>(new Map());
   
 
   // Handle immediate restoration in useEffect to avoid React error #310
@@ -280,6 +288,7 @@ const Chat = () => {
     error: deviceError,
     sendMessageToDevices,
     sendGifToDevices,
+    sendGifToDevice,
     refreshDeviceStatus
   } = useDeviceStatus();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -346,6 +355,9 @@ const Chat = () => {
     }
   }, [authLoading, contactPrincipalId, toast, t]); // Execute when auth status or contact ID changes
 
+  // Determine contact online status based on actual device presence
+  const actualContactIsOnline = hasContactDevices;
+  
   // Build current contact object
   const currentContact: ContactInfo = {
     id: contactId ? parseInt(contactId) : 0,
@@ -355,7 +367,7 @@ const Chat = () => {
     date: new Date().toISOString().split('T')[0],
     avatar: contactAvatar,
     devices: contactDevices,
-    isOnline: contactIsOnline,
+    isOnline: actualContactIsOnline, // Use actual device presence instead of URL parameter
     nickname: contactNickname || undefined,
     contactPrincipalId: contactPrincipalId || undefined,
   };
@@ -457,7 +469,191 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Check for unrecoverable blob URLs on message load (page refresh scenario)
+  useEffect(() => {
+    const checkUnrecoverableBlobUrls = () => {
+      if (messages.length === 0) return;
+
+      const newUnrecoverableGifs = new Set<string>();
+
+      messages.forEach((message) => {
+        if (message.mode === 'Gif' && message.gifInfo && message.gifInfo.gifUrl?.startsWith('blob:')) {
+          // Check if we have restoration data
+          const hasRestorationData = message.gifInfo.palette && message.gifInfo.pixels && 
+                                     message.gifInfo.palette.length > 0 && message.gifInfo.pixels.length > 0;
+          
+          if (!hasRestorationData) {
+            const key = `${message.sendBy}-${message.timestamp}`;
+            console.warn('[Chat] Detected unrecoverable blob URL (page was refreshed):', {
+              title: message.gifInfo.title,
+              key
+            });
+            newUnrecoverableGifs.add(key);
+          }
+        }
+      });
+
+      if (newUnrecoverableGifs.size > 0) {
+        setUnrecoverableGifs(prev => new Set([...prev, ...newUnrecoverableGifs]));
+      }
+    };
+
+    checkUnrecoverableBlobUrls();
+  }, [messages]);
+
+  // Track if restoration is in progress to avoid duplicate attempts
+  const restorationInProgress = useRef<Set<string>>(new Set());
+  
+  // Restore broken blob URLs from pixel data in messages
+  useEffect(() => {
+    const restoreBrokenBlobUrls = async () => {
+      if (messages.length === 0 || failedImages.size === 0) return;
+
+      let needsUpdate = false;
+      const updatedMessages = [...messages];
+      const newRecovered = new Set<string>();
+      const newUnrecoverable = new Set<string>();
+
+      for (let i = 0; i < updatedMessages.length; i++) {
+        const message = updatedMessages[i];
+        
+        if (message.mode === 'Gif' && message.gifInfo) {
+          const gifInfo = message.gifInfo;
+          const messageKey = `${message.sendBy}-${message.timestamp}`;
+          
+          // Skip if already recovered, not in failedImages, or currently being processed
+          if (recoveredImages.has(messageKey) || !failedImages.has(messageKey) || restorationInProgress.current.has(messageKey)) {
+            continue;
+          }
+          
+          // Check if we need to restore (blob URL is present but failed)
+          if (gifInfo.gifUrl && gifInfo.gifUrl.startsWith('blob:')) {
+            // Mark as in progress
+            restorationInProgress.current.add(messageKey);
+            
+            console.log('[Chat] Attempting to restore blob URL. Checking pixel data:', {
+              hasPalette: !!gifInfo.palette,
+              hasPixels: !!gifInfo.pixels,
+              title: gifInfo.title,
+              width: gifInfo.width,
+              height: gifInfo.height
+            });
+            
+            // Try to restore from pixel data
+            if (gifInfo.palette && gifInfo.pixels && gifInfo.palette.length > 0 && gifInfo.pixels.length > 0) {
+              try {
+                console.log('[Chat] Restoring blob URL from pixel data for:', gifInfo.title, {
+                  paletteSize: gifInfo.palette.length,
+                  pixelsSize: gifInfo.pixels.length
+                });
+                const recreatedGif = await convertPixelToGif({
+                  width: gifInfo.width,
+                  height: gifInfo.height,
+                  palette: gifInfo.palette,
+                  pixels: gifInfo.pixels,
+                  title: gifInfo.title,
+                  duration: gifInfo.duration
+                });
+                
+                // Update the message with new blob URL
+                updatedMessages[i] = {
+                  ...message,
+                  gifInfo: {
+                    ...gifInfo,
+                    gifUrl: recreatedGif.gifUrl,
+                    thumbnailUrl: recreatedGif.thumbnailUrl
+                  }
+                };
+                
+                // Mark as recovered and remove from in-progress
+                newRecovered.add(messageKey);
+                restorationInProgress.current.delete(messageKey);
+                needsUpdate = true;
+                console.log('[Chat] Successfully restored blob URL from pixel data');
+              } catch (error) {
+                console.error('[Chat] Failed to restore blob URL from pixel data:', error);
+                newUnrecoverable.add(messageKey);
+                restorationInProgress.current.delete(messageKey);
+              }
+            } else {
+              console.warn('[Chat] Cannot restore blob URL - missing pixel data', {
+                hasPalette: !!gifInfo.palette,
+                hasPixels: !!gifInfo.pixels,
+                gifUrl: gifInfo.gifUrl
+              });
+              
+              // Mark as unrecoverable if it's a blob URL without restoration data
+              if (gifInfo.gifUrl.startsWith('blob:')) {
+                newUnrecoverable.add(messageKey);
+              }
+              restorationInProgress.current.delete(messageKey);
+            }
+          }
+        }
+      }
+
+      // Update states
+      if (newRecovered.size > 0) {
+        setRecoveredImages(prev => new Set([...prev, ...newRecovered]));
+        // Remove from failed images
+        setFailedImages(prev => {
+          const newSet = new Set(prev);
+          newRecovered.forEach(key => newSet.delete(key));
+          return newSet;
+        });
+      }
+      
+      if (newUnrecoverable.size > 0) {
+        setUnrecoverableGifs(prev => new Set([...prev, ...newUnrecoverable]));
+        // Remove from failed images
+        setFailedImages(prev => {
+          const newSet = new Set(prev);
+          newUnrecoverable.forEach(key => newSet.delete(key));
+          return newSet;
+        });
+      }
+
+      if (needsUpdate) {
+        console.log('[Chat] Updating messages with restored blob URLs');
+        setMessages(updatedMessages);
+      }
+    };
+
+    restoreBrokenBlobUrls();
+  }, [failedImages.size, messages.length]);
+
   // Device status is now managed by useDeviceStatus hook
+
+  // Fetch contact's devices from backend
+  useEffect(() => {
+    const fetchContactDevices = async () => {
+      if (!contactPrincipalId) {
+        console.log('[Chat] No contact principal ID, skipping device fetch');
+        return;
+      }
+
+      try {
+        console.log('[Chat] Fetching contact devices for principal:', contactPrincipalId);
+        const response = await deviceApiService.getDevicesByOwner(contactPrincipalId, 0, 100);
+        
+        if (response.success && response.data && response.data.devices.length > 0) {
+          console.log('[Chat] Contact has devices:', response.data.devices);
+          setContactDeviceList(response.data.devices);
+          setHasContactDevices(true);
+        } else {
+          console.log('[Chat] No devices found for contact');
+          setContactDeviceList([]);
+          setHasContactDevices(false);
+        }
+      } catch (error) {
+        console.error('[Chat] Error fetching contact devices:', error);
+        setContactDeviceList([]);
+        setHasContactDevices(false);
+      }
+    };
+
+    fetchContactDevices();
+  }, [contactPrincipalId]);
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -734,7 +930,7 @@ const Chat = () => {
                 <div className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-white/3">
                   <div className="p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
                     <div className="text-xs sm:text-sm text-white/80 space-y-1">
-                      <p><span className="text-cyan-400">Devices:</span> {currentContact.devices.length > 0 ? currentContact.devices.join(', ') : 'None'}</p>
+                      <p><span className="text-cyan-400">Devices:</span> {contactDeviceList.length > 0 ? `${contactDeviceList.length} device(s)` : 'None'}</p>
                       <p><span className="text-cyan-400">Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
                       {currentContact.contactPrincipalId && (
                         <p><span className="text-cyan-400">Principal ID:</span> <code className="text-cyan-300 text-xs">{currentContact.contactPrincipalId}</code></p>
@@ -757,7 +953,21 @@ const Chat = () => {
                       </div>
                     </div>
                   ) : (
-                    messages.map((message, index) => (
+                    messages
+                      .filter(message => {
+                        // Skip messages without proper content (e.g., GIF messages without gifInfo)
+                        if (message.mode === 'Gif' && !message.gifInfo) {
+                          console.warn('[Chat] Skipping message without gifInfo:', message);
+                          return false;
+                        }
+                        // Skip unrecoverable GIF messages to avoid showing empty content
+                        if (message.mode === 'Gif' && unrecoverableGifs.has(`${message.sendBy}-${message.timestamp}`)) {
+                          console.warn('[Chat] Skipping unrecoverable GIF message:', message);
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map((message, index) => (
                       <div 
                         key={`${message.sendBy}-${message.timestamp}-${index}`}
                         className={`flex mb-3 ${isMyMessage(message) ? 'justify-end' : 'justify-start'}`}
@@ -767,30 +977,68 @@ const Chat = () => {
                             ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white' 
                             : 'bg-white/10 text-white backdrop-blur-sm'
                         }`}>
-                          {message.mode === 'PixelArt' && message.pixelArt ? (
+                          {message.mode === 'Gif' && message.gifInfo ? (
                             <div className="space-y-2">
-                              <img 
-                                src={message.pixelArt.chatFormat} 
-                                alt="Pixel Art"
-                                className="max-w-full h-auto rounded pixelated"
-                                style={{ imageRendering: 'pixelated', maxHeight: '200px' }}
-                              />
-                            </div>
-                          ) : message.mode === 'Gif' && message.gifInfo ? (
-                            <div className="space-y-2">
-                              <img 
-                                src={message.gifInfo.gifUrl} 
-                                alt={message.gifInfo.title}
-                                className="max-w-full h-auto rounded"
-                                style={{ maxHeight: '200px' }}
-                                onError={(e) => {
-                                  // Fallback to thumbnail if GIF fails to load
-                                  const target = e.target as HTMLImageElement;
-                                  if (message.gifInfo?.thumbnailUrl) {
-                                    target.src = message.gifInfo.thumbnailUrl;
-                                  }
-                                }}
-                              />
+                              {failedImages.has(`${message.sendBy}-${message.timestamp}`) ? (
+                                <div className="flex flex-col items-center justify-center bg-white/5 rounded p-4 text-center border border-white/10" style={{ minHeight: '100px' }}>
+                                  <div className="text-white/40 text-xs">
+                                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <p className="font-medium">{message.gifInfo.title}</p>
+                                    {unrecoverableGifs.has(`${message.sendBy}-${message.timestamp}`) && (
+                                      <p className="text-white/30 text-xs mt-1">⚠️ 此GIF无法恢复</p>
+                                    )}
+                                    <p className="text-white/30 text-xs mt-1">
+                                      {message.gifInfo.width}x{message.gifInfo.height}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center p-2">
+                                  <img 
+                                    src={message.gifInfo.gifUrl} 
+                                    alt={message.gifInfo.title}
+                                    className="rounded"
+                                    style={{ 
+                                      width: `${message.gifInfo.width * 4}px`,
+                                      height: `${message.gifInfo.height * 4}px`,
+                                      minWidth: '160px',
+                                      minHeight: '160px',
+                                      maxWidth: '320px',
+                                      maxHeight: '320px',
+                                      imageRendering: 'pixelated',
+                                      objectFit: 'contain'
+                                    }}
+                                    onError={(e) => {
+                                    if (!message.gifInfo) return;
+                                    
+                                    const key = `${message.sendBy}-${message.timestamp}`;
+                                    // Prevent multiple error triggers
+                                    if (!imageErrorHandlers.current.get(key)) {
+                                      imageErrorHandlers.current.set(key, true);
+                                      console.error('[Chat] GIF image failed to load:', message.gifInfo.gifUrl);
+                                      
+                                      // Check if it's a blob URL (likely page reload issue)
+                                      if (message.gifInfo.gifUrl?.startsWith('blob:')) {
+                                        console.warn('[Chat] Blob URL failed - this likely means page was refreshed');
+                                        // Check if we have restoration data
+                                        const hasRestorationData = message.gifInfo.palette && message.gifInfo.pixels && 
+                                                                   message.gifInfo.palette.length > 0 && 
+                                                                   message.gifInfo.pixels.length > 0;
+                                        if (!hasRestorationData) {
+                                          console.error('[Chat] Blob URL failed and no restoration data available');
+                                          setUnrecoverableGifs(prev => new Set([...prev, key]));
+                                        }
+                                      }
+                                      
+                                      setFailedImages(prev => new Set([...prev, key]));
+                                    }
+                                    e.preventDefault(); // Prevent further error events
+                                  }}
+                                />
+                                </div>
+                              )}
                               <p className="text-xs opacity-70">{message.gifInfo.title}</p>
                             </div>
                           ) : (
@@ -879,67 +1127,80 @@ const Chat = () => {
                           )}
                         </Button>
                         
-                        {/* Send to Device Button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm text-xs px-3 py-2 min-w-[44px] transition-all duration-200"
-                          onClick={async () => {
-                            if (!hasConnectedDevices) {
-                              toast({
-                                title: t('chat.error.noDeviceConnected'),
-                                description: t('chat.error.noDeviceConnectedDesc'),
-                                variant: "destructive"
-                              });
-                              return;
-                            }
+                        {/* Send to Contact's Devices Button - Send to CONTACT's devices (not yours) */}
+                        {hasContactDevices && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm text-xs px-3 py-2 min-w-[44px] transition-all duration-200"
+                            onClick={async () => {
+                              if (!hasContactDevices) {
+                                toast({
+                                  title: t('chat.error.noDeviceConnected'),
+                                  description: 'Contact has no registered devices',
+                                  variant: "destructive"
+                                });
+                                return;
+                              }
 
-                            try {
-                              if (pendingGif) {
-                                // Send GIF to device
-                                console.log('Sending GIF to device:', pendingGif);
-                                const result = await sendGifToDevices(pendingGif);
+                              try {
+                                const sentTo: string[] = [];
+                                const errors: string[] = [];
                                 
-                                if (result.success) {
+                                for (const device of contactDeviceList) {
+                                  const deviceName = device.name; // Contact's device name
+                                  
+                                  try {
+                                    if (pendingGif) {
+                                      // Send GIF to contact's device using MCP
+                                      console.log('[Chat] Sending GIF to contact device:', { deviceName, pendingGif });
+                                      const result = await sendGifToDevice(deviceName, pendingGif);
+                                      if (result.success) {
+                                        sentTo.push(deviceName);
+                                      } else {
+                                        errors.push(`${deviceName}: ${result.error || 'Failed'}`);
+                                      }
+                                    } else if (newMessage.trim()) {
+                                      // Send text to contact's device
+                                      console.log('[Chat] Sending text to contact device:', { deviceName, message: newMessage });
+                                      const result = await sendMessageToDevices(newMessage, deviceName);
+                                      if (result.success) {
+                                        sentTo.push(deviceName);
+                                      } else {
+                                        errors.push(`${deviceName}: ${result.errors?.join('; ') || 'Failed'}`);
+                                      }
+                                    }
+                                  } catch (error) {
+                                    errors.push(`${deviceName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                  }
+                                }
+                                
+                                if (sentTo.length > 0) {
                                   toast({
-                                    title: t('chat.success.gifSent'),
-                                    description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
+                                    title: pendingGif ? t('chat.success.gifSent') : t('chat.success.textSent'),
+                                    description: `Sent to ${sentTo.length} of ${contactDeviceList.length} device(s)`,
                                     variant: "default"
                                   });
                                   setPendingGif(null);
-                                } else {
-                                  throw new Error(result.errors.join('; '));
-                                }
-                              } else if (newMessage.trim()) {
-                                // Send text message to device
-                                console.log('Sending text to device:', newMessage);
-                                const result = await sendMessageToDevices(newMessage);
-                                
-                                if (result.success) {
-                                  toast({
-                                    title: t('chat.success.textSent'),
-                                    description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
-                                    variant: "default"
-                                  });
                                   setNewMessage('');
                                 } else {
-                                  throw new Error(result.errors.join('; '));
+                                  throw new Error(errors.join('; '));
                                 }
+                              } catch (error) {
+                                console.error('[Chat] Failed to send to contact devices:', error);
+                                toast({
+                                  title: t('chat.error.deviceSendFailed'),
+                                  description: error instanceof Error ? error.message : t('chat.error.unknownError'),
+                                  variant: "destructive"
+                                });
                               }
-                            } catch (error) {
-                              console.error('Failed to send to device:', error);
-                              toast({
-                                title: t('chat.error.deviceSendFailed'),
-                                description: error instanceof Error ? error.message : t('chat.error.unknownError'),
-                                variant: "destructive"
-                              });
-                            }
-                          }}
-                          disabled={!newMessage.trim() && !pendingGif}
-                          title={hasConnectedDevices ? "Send message to device" : "No devices connected"}
-                        >
-                          <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
+                            }}
+                            disabled={!newMessage.trim() && !pendingGif}
+                            title={hasContactDevices ? `Send to ${contactName}'s ${contactDeviceList.length} device(s)` : "Contact has no devices"}
+                          >
+                            <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                        )}
                       </div>
                       
                       {/* Function Buttons Row */}

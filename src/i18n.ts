@@ -180,6 +180,8 @@ const resources = {
           confirm: 'Confirm',
           recording: 'Recording... Click again to stop',
           processing: 'Processing your voice...',
+          generating: 'Generating...',
+          generatingImage: '🎨 Generating your pixel art masterpiece...',
           tips: {
             voice: 'Click the microphone button to start/stop recording',
             keyboard: 'Press Ctrl+Enter (or Cmd+Enter) to submit',
@@ -520,6 +522,8 @@ const resources = {
           confirm: '确认',
           recording: '录音中... 再次点击停止',
           processing: '正在处理您的语音...',
+          generating: '生成中...',
+          generatingImage: '🎨 正在生成您的像素艺术作品...',
           tips: {
             voice: '点击麦克风按钮开始/停止录音',
             keyboard: '按 Ctrl+Enter（或 Cmd+Enter）提交',

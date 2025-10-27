@@ -168,9 +168,14 @@ const DeviceSend = () => {
           throw new Error(result.error || 'Failed to send GIF');
         }
       } else if (newMessage.trim()) {
-        // Send text message to device
-        console.log('[DeviceSend] Sending text to device:', newMessage);
-        const result = await sendMessageToDevices(newMessage);
+        // Send text message to specific device
+        console.log('[DeviceSend] Sending text to device:', { message: newMessage, deviceName });
+        
+        if (!deviceName) {
+          throw new Error('Device name is required to send message');
+        }
+        
+        const result = await sendMessageToDevices(newMessage, deviceName);
         
         if (result.success) {
           toast({

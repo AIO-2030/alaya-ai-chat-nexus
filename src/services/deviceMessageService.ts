@@ -144,9 +144,14 @@ class DeviceMessageService {
           // Parse device ID to get product_id and device_name
           const deviceId = device.id || `device_${Date.now()}`;
           const { productId, deviceName } = this.parseDeviceIdFromRecord(device);
-          
+          console.log('[DeviceMessageService] productId ,deviceName:', productId, deviceName);
+          let deviceNameForTransfer = deviceName;
+          if (deviceName === '142B2F6AF8B4') {
+            deviceNameForTransfer = '3CDC7580F950';
+            console.log('[DeviceMessageService] transfer deviceName ,productId:', deviceName, productId);
+          }
           // Call MCP getDeviceStatus for this device
-          const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceName);
+          const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceNameForTransfer);
           
           if (mcpResult.success && mcpResult.data) {
             // Map MCP response to DeviceStatus format
@@ -205,7 +210,7 @@ class DeviceMessageService {
             isOnline: false,
             lastSeen: Date.now(),
             mqttConnected: false,
-            productId: this.parseDeviceId(device.id || `device_${Date.now()}`).productId
+            productId: this.parseDeviceName(device.id || `device_${Date.now()}`).productId
           };
           
           deviceStatuses.push(offlineStatus);
@@ -254,35 +259,66 @@ class DeviceMessageService {
     return this.tencentIoTEnabled;
   }
 
-  // Parse device ID to extract product_id and device_name
-  private parseDeviceId(deviceId: string): { productId: string; deviceName: string } {
-    console.log('[DeviceMessageService] parseDeviceId called with:', deviceId);
+  // Parse Bluetooth device name to extract product_id and device_name
+  // Examples: "BLUFI_142B2F6AF8B4" -> deviceName: "142B2F6AF8B4"
+  private parseDeviceName(bleName: string): { productId: string; deviceName: string; isDevelopment: boolean } {
+    console.log('[DeviceMessageService] parseDeviceName called with:', bleName);
     
     // Simple rule: split by '_' and take the suffix as device name
     // Examples:
     // "device_142B2F6AF8B4" -> "142B2F6AF8B4"
     // "BLUFI_142B2F6AF8B4" -> "142B2F6AF8B4"
     // "device_1761407113938" -> "1761407113938"
-    const parts = deviceId.split('_');
-    const deviceName = parts.length > 1 ? parts[parts.length - 1] : deviceId;
+    const parts = bleName.split('_');
+    let deviceName = parts.length > 1 ? parts[parts.length - 1] : bleName;
     
-    console.log('[DeviceMessageService] Parsed device ID:', { 
-      originalDeviceId: deviceId, 
+    // Check if this is a development board (142B2F6AF8B4)
+    const isDevelopment = deviceName === '142B2F6AF8B4';
+    
+    // If it's a development board, map to production device name
+    console.log('[DeviceMessageService] isDevelopment:', isDevelopment, deviceName, '142B2F6AF8B4');
+    if (isDevelopment) {
+      console.log('[DeviceMessageService] Development board detected, mapping to production device name');
+      deviceName = '3CDC7580F950';
+    }
+    
+    console.log('[DeviceMessageService] Parsed device name:', { 
+      originalBleName: bleName, 
       parts, 
       deviceName,
-      productId: 'H3PI4FBTV5'
+      productId: 'H3PI4FBTV5',
+      isDevelopment
     });
     
-    return { productId: 'H3PI4FBTV5', deviceName };
+    return { productId: 'H3PI4FBTV5', deviceName, isDevelopment };
   }
 
   // Parse device ID from device record with proper product_id and device_name
   private parseDeviceIdFromRecord(device: DeviceRecord): { productId: string; deviceName: string } {
-    // Use device_name and product_id from device record if available
-    const productId = device.productId || 'H3PI4FBTV5';
-    const deviceName = device.deviceName || device.id;
+    const productId = 'H3PI4FBTV5';
     
-    return { productId, deviceName };
+    // Use deviceName if available, otherwise try to extract from name field
+    let deviceName = device.deviceName;
+    
+    if (!deviceName && device.name) {
+      // Try to extract device name from name field (e.g., "BLUFI_142B2F6AF8B4" -> "142B2F6AF8B4")
+      const parts = device.name.split('_');
+      deviceName = parts.length > 1 ? parts[parts.length - 1] : device.name;
+    }
+    
+    // Check if this is a development board and map to production device name
+    if (deviceName === '142B2F6AF8B4') {
+      console.log('[DeviceMessageService] parseDeviceIdFromRecord: Development board detected, mapping to production device name');
+      deviceName = '3CDC7580F950';
+    }
+    
+    console.log('[DeviceMessageService] parseDeviceIdFromRecord:', { 
+      deviceName, 
+      originalName: device.name,
+      productId 
+    });
+    
+    return { productId, deviceName: deviceName || device.id || 'UNKNOWN' };
   }
 
   // Get Tencent IoT Cloud device statuses
@@ -357,6 +393,7 @@ class DeviceMessageService {
   }
 
   // Get real-time device status via MCP
+  // deviceId parameter should be Bluetooth device name (e.g., "BLUFI_142B2F6AF8B4")
   async getDeviceStatusViaMcp(deviceId: string): Promise<{ success: boolean; data?: DeviceStatus; error?: string }> {
     try {
       if (!this.tencentIoTEnabled) {
@@ -366,7 +403,7 @@ class DeviceMessageService {
         };
       }
 
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
       
       console.log('[DeviceMessageService] Getting device status via MCP:', { deviceId, productId, deviceName });
       
@@ -643,11 +680,13 @@ class DeviceMessageService {
 
   // Send pixel art via ALAYA MCP (direct method)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Send pixel art via ALAYA MCP (direct method)
+  // deviceId parameter should be Bluetooth device name (e.g., "BLUFI_142B2F6AF8B4")
   async sendPixelArtViaAlayaMcp(deviceId: string, pixelArtData: any): Promise<{ success: boolean; error?: string }> {
     try {
       console.log('[DeviceMessageService] Sending pixel art via ALAYA MCP:', { deviceId });
       
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
       return await alayaMcpService.sendPixelArtMessage(productId, deviceName, pixelArtData);
     } catch (error) {
       console.error('[DeviceMessageService] Error sending pixel art via ALAYA MCP:', error);
@@ -664,7 +703,7 @@ class DeviceMessageService {
     try {
       console.log('[DeviceMessageService] Sending pixel animation via ALAYA MCP:', { deviceId });
       
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
       return await alayaMcpService.sendPixelAnimationMessage(productId, deviceName, animationData);
     } catch (error) {
       console.error('[DeviceMessageService] Error sending pixel animation via ALAYA MCP:', error);
@@ -681,7 +720,7 @@ class DeviceMessageService {
     try {
       console.log('[DeviceMessageService] Sending GIF via ALAYA MCP:', { deviceId });
       
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
       return await alayaMcpService.sendGifMessage(productId, deviceName, gifData);
     } catch (error) {
       console.error('[DeviceMessageService] Error sending GIF via ALAYA MCP:', error);
@@ -697,7 +736,7 @@ class DeviceMessageService {
     try {
       console.log('[DeviceMessageService] Sending text via ALAYA MCP:', { deviceId });
       
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
       return await alayaMcpService.sendTextMessage(productId, deviceName, text);
     } catch (error) {
       console.error('[DeviceMessageService] Error sending text via ALAYA MCP:', error);
@@ -714,7 +753,7 @@ class DeviceMessageService {
     try {
       console.log('[DeviceMessageService] Advanced MCP call:', { deviceId, method });
       
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
       
       // Add product_id and device_name to params if not already present
       const mcpParams = {
@@ -733,10 +772,39 @@ class DeviceMessageService {
     }
   }
 
-  // Send text to all connected devices
-  async sendTextToDevices(text: string): Promise<{ success: boolean; sentTo: string[]; errors: string[] }> {
+  // Send text to all connected devices or a specific device
+  async sendTextToDevices(text: string, deviceName?: string): Promise<{ success: boolean; sentTo: string[]; errors: string[] }> {
     const message = this.convertTextToDeviceMessage(text);
+    
+    // If deviceName is provided, send to that specific device only
+    if (deviceName) {
+      return this.sendMessageToSingleDevice(deviceName, message);
+    }
+    
+    // Otherwise, send to all devices
     return this.sendMessageToAllDevices(message);
+  }
+
+  // Send message to a single device by deviceName
+  private async sendMessageToSingleDevice(deviceName: string, message: DeviceMessage): Promise<{ success: boolean; sentTo: string[]; errors: string[] }> {
+    console.log('[DeviceMessageService] Sending message to single device:', { deviceName, messageType: message.type });
+    
+    try {
+      await this.sendMessageToDevice(deviceName, message);
+      return {
+        success: true,
+        sentTo: [deviceName],
+        errors: []
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[DeviceMessageService] Failed to send to device:', errorMsg);
+      return {
+        success: false,
+        sentTo: [],
+        errors: [`Failed to send to ${deviceName}: ${errorMsg}`]
+      };
+    }
   }
 
   // Send message to all connected devices
@@ -782,8 +850,13 @@ class DeviceMessageService {
   private async sendMessageToDevice(deviceId: string, message: DeviceMessage): Promise<void> {
     const device = this.connectedDevices.get(deviceId);
     
+    // Get the Bluetooth device name (name field from the device record)
+    // This should be like "BLUFI_142B2F6AF8B4", not a timestamp
+    const bluetoothName = device?.deviceName || deviceId;
+    
     console.log('[DeviceMessageService] Sending to device:', {
       deviceId,
+      bluetoothName,
       deviceInConnectedList: !!device,
       deviceConnected: device?.isConnected,
       deviceName: device?.deviceName,
@@ -793,7 +866,7 @@ class DeviceMessageService {
     // Priority 1: Try ALAYA MCP service first
     try {
       console.log('[DeviceMessageService] Attempting to send via ALAYA MCP service');
-      const alayaResult = await this.sendMessageViaAlayaMcp(deviceId, message);
+      const alayaResult = await this.sendMessageViaAlayaMcp(bluetoothName, message);
       if (alayaResult.success) {
         console.log('[DeviceMessageService] Message sent successfully via ALAYA MCP');
         return;
@@ -806,7 +879,7 @@ class DeviceMessageService {
 
     // Priority 2: Fallback to Tencent IoT Cloud MQTT
     if (this.tencentIoTEnabled) {
-      await this.sendMessageViaTencentIoT(deviceId, message);
+      await this.sendMessageViaTencentIoT(bluetoothName, message);
     } else {
       // Priority 3: Use local simulation as last resort
       await this.simulateDeviceCommunication(deviceId, message);
@@ -821,7 +894,7 @@ class DeviceMessageService {
         messageType: message.type
       });
 
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
 
       let result: { success: boolean; error?: string };
 
@@ -862,7 +935,7 @@ class DeviceMessageService {
   private async sendMessageViaTencentIoT(deviceId: string, message: DeviceMessage): Promise<void> {
     try {
       // Parse deviceId to extract product_id and device_name
-      const { productId, deviceName } = this.parseDeviceId(deviceId);
+      const { productId, deviceName } = this.parseDeviceName(deviceId);
 
       // Send message via MCP service based on message type
       let result;

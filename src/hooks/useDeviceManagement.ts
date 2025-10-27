@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { deviceInitManager, DeviceInitStep, DeviceInitState } from '../services/deviceInitManager';
 import { deviceApiService, DeviceRecord, DeviceListResponse, ApiResponse } from '../services/api/deviceApi';
+import { getPrincipalId } from '../lib/principal';
 
 export interface UseDeviceManagementReturn {
   // State
@@ -54,12 +55,27 @@ export const useDeviceManagement = (): UseDeviceManagementReturn => {
     loadDevices();
   }, []);
 
-  // Load devices from backend
+  // Load devices from backend filtered by current user's principal ID
   const loadDevices = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await deviceApiService.getDevices(0, 100); // Load first 100 devices
+      
+      // Get current user's principal ID to filter devices
+      const ownerPrincipal = getPrincipalId();
+      console.log('[useDeviceManagement] Loading devices for owner:', ownerPrincipal);
+      
+      if (!ownerPrincipal) {
+        console.warn('[useDeviceManagement] No principal ID found, cannot load devices');
+        setDevices([]);
+        setError('User not authenticated. Please log in.');
+        return;
+      }
+      
+      // Use getDevicesByOwner to filter devices by owner
+      const response = await deviceApiService.getDevicesByOwner(ownerPrincipal, 0, 100);
+      console.log('[useDeviceManagement] Loaded devices for owner:', response.data?.devices.length || 0);
+      
       if (response.success && response.data) {
         setDevices(response.data.devices);
       } else {

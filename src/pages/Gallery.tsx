@@ -161,6 +161,52 @@ const Gallery = () => {
     return canvas.toDataURL('image/png');
   };
 
+  // Extract pixel data from pixel result for restoration
+  const extractPixelDataFromPixelResult = (pixelResult?: PixelProcessingResult): { palette: string[]; pixels: number[][] } => {
+    if (!pixelResult) {
+      return { palette: [], pixels: [] };
+    }
+
+    const canvas = pixelResult.canvas;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return { palette: pixelResult.palette || [], pixels: [] };
+    }
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels: number[][] = [];
+    
+    // Convert RGBA data to color indices
+    for (let y = 0; y < canvas.height; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < canvas.width; x++) {
+        const i = (y * canvas.width + x) * 4;
+        const r = imageData.data[i];
+        const g = imageData.data[i + 1];
+        const b = imageData.data[i + 2];
+        const a = imageData.data[i + 3];
+        
+        // Convert to hex color
+        const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        
+        // Find color index in palette
+        let colorIndex = 0;
+        if (pixelResult.palette) {
+          colorIndex = pixelResult.palette.findIndex(color => color === hex);
+          if (colorIndex === -1) colorIndex = 0;
+        }
+        
+        row.push(a === 0 ? -1 : colorIndex); // -1 for transparent pixels
+      }
+      pixels.push(row);
+    }
+
+    return {
+      palette: pixelResult.palette || [],
+      pixels
+    };
+  };
+
   // Generate device format JSON from pixel result
   const generateDeviceFormat = (pixelResult: PixelProcessingResult, title: string): string => {
     // Extract pixel data from canvas
@@ -252,7 +298,7 @@ const Gallery = () => {
         }
       }
 
-      // 使用GIF数据而不是像素图数据
+      // 使用GIF数据，包含像素数据以便恢复
       const gifData: GifInfo = {
         gifUrl: item.gifResult.gifUrl,
         thumbnailUrl: item.gifResult.thumbnailUrl,
@@ -261,10 +307,18 @@ const Gallery = () => {
         width: item.gifResult.width,
         height: item.gifResult.height,
         sourceType: 'gif',
-        sourceId: item.id.toString()
+        sourceId: item.id.toString(),
+        palette: item.gifResult.palette,  // Use palette from gifResult
+        pixels: item.gifResult.pixels     // Use pixels from gifResult
       };
 
       console.log('[Gallery] Created GIF data:', gifData);
+      console.log('[Gallery] Public GIF data includes:', {
+        hasPalette: !!gifData.palette,
+        hasPixels: !!gifData.pixels,
+        paletteLength: gifData.palette?.length,
+        pixelsLength: gifData.pixels?.length
+      });
 
       // Set sessionStorage flag and include in URL parameters
       sessionStorage.setItem('returning_from_gallery', 'true');
@@ -327,10 +381,18 @@ const Gallery = () => {
         width: item.gifResult.width,
         height: item.gifResult.height,
         sourceType: 'creation',
-        sourceId: item.id
+        sourceId: item.id,
+        palette: item.gifResult.palette,  // Include palette for restoration
+        pixels: item.gifResult.pixels     // Include pixels for restoration
       };
 
       console.log('[Gallery] Created GIF data for creation:', gifData);
+      console.log('[Gallery] Creation GIF data includes:', {
+        hasPalette: !!gifData.palette,
+        hasPixels: !!gifData.pixels,
+        paletteLength: gifData.palette?.length,
+        pixelsLength: gifData.pixels?.length
+      });
 
       // Set sessionStorage flag and include in URL parameters
       sessionStorage.setItem('returning_from_gallery', 'true');

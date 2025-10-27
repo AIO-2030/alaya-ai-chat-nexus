@@ -129,11 +129,20 @@ export function useDeviceStatus() {
         const updatedDevices = await Promise.all(
           summary.deviceList.map(async (device) => {
             try {
+              // Parse device ID to get product_id and device_name
+              let deviceName = device.name.includes('_') ? device.name.split('_')[1] : device.name;
+              
+              // Check if this is a development board (142B2F6AF8B4) and map to production device name
+              if (deviceName === '142B2F6AF8B4') {
+                console.log('[useDeviceStatus] Development board detected, mapping to production device name');
+                deviceName = '3CDC7580F950';
+              }
+              
               // Convert basic device to extended device type
               const extendedDevice: DeviceStatus = {
                 ...device,
-                productId: device.id.includes(':') ? device.id.split(':')[0] : 'DEFAULT_PRODUCT',
-                deviceName: device.id.includes(':') ? device.id.split(':')[1] : device.id,
+                productId: 'H3PI4FBTV5',
+                deviceName,
                 isOnline: device.isConnected,
                 mqttConnected: device.isConnected,
                 ipAddress: undefined,
@@ -141,7 +150,7 @@ export function useDeviceStatus() {
                 batteryLevel: undefined
               };
               
-              console.log(`[useDeviceStatus] Checking MCP status for device: ${device.id} (${device.name})`);
+              console.log(`[useDeviceStatus] Checking MCP status for device: ${device.id} (${device.name}) -> productId: ${extendedDevice.productId}, deviceName: ${extendedDevice.deviceName}`);
               
               // Use MCP to get device status
               const mcpResult = await alayaMcpService.getDeviceStatus(
@@ -178,11 +187,18 @@ export function useDeviceStatus() {
               };
             } catch (mcpError) {
               console.warn(`[useDeviceStatus] MCP status check failed for device ${device.id}:`, mcpError);
+              
+              // Parse device name with development board mapping
+              let deviceName = device.id.includes(':') ? device.id.split(':')[1] : device.id;
+              if (deviceName === '142B2F6AF8B4') {
+                deviceName = '3CDC7580F950';
+              }
+              
               // Keep device in current state if MCP call fails
               return {
                 ...device,
-                productId: device.id.includes(':') ? device.id.split(':')[0] : 'DEFAULT_PRODUCT',
-                deviceName: device.id.includes(':') ? device.id.split(':')[1] : device.id,
+                productId: 'H3PI4FBTV5',
+                deviceName,
                 isOnline: device.isConnected, // Keep current state
                 mqttConnected: device.isConnected, // Keep current state
                 ipAddress: undefined,
@@ -245,13 +261,13 @@ export function useDeviceStatus() {
   }, [isInitialized, persistInitializedState]);
 
   // Send message to devices
-  const sendMessageToDevices = useCallback(async (message: string) => {
+  const sendMessageToDevices = useCallback(async (message: string, deviceName?: string) => {
     try {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
       }
       
-      const result = await deviceMessageService.sendTextToDevices(message);
+      const result = await deviceMessageService.sendTextToDevices(message, deviceName);
       return result;
     } catch (err) {
       console.error('[useDeviceStatus] Failed to send message to devices:', err);
@@ -357,7 +373,7 @@ export function useDeviceStatus() {
       if (!isInitialized) {
         throw new Error('Device service not initialized');
       }
-      
+      console.log('[useDeviceStatus] Getting device status via MCP:', productId, deviceName);
       const result = await alayaMcpService.getDeviceStatus(productId, deviceName);
       return result;
     } catch (err) {

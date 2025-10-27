@@ -21,6 +21,8 @@ export interface GifResult {
   height: number;
   sourceType: 'pixel';
   sourceId?: string;
+  palette?: string[];  // Color palette for restoration
+  pixels?: number[][]; // Pixel data for restoration
 }
 
 /**
@@ -81,7 +83,9 @@ export async function convertPixelToGif(options: PixelToGifOptions): Promise<Gif
       duration,
       width,
       height,
-      sourceType: 'pixel' as const
+      sourceType: 'pixel' as const,
+      palette,  // Include palette for restoration
+      pixels    // Include pixels for restoration
     };
   } catch (error) {
     console.error('转换像素图为GIF失败:', error);
@@ -133,13 +137,20 @@ export async function convertPixelResultToGif(
     pixels.push(row);
   }
 
-  return convertPixelToGif({
+  const result = await convertPixelToGif({
     width: canvas.width,
     height: canvas.height,
     palette: pixelResult.palette || ['#000000'],
     pixels,
     title
   });
+  
+  // Include pixels data in the result
+  return {
+    ...result,
+    palette: pixelResult.palette || ['#000000'],
+    pixels
+  };
 }
 
 /**
