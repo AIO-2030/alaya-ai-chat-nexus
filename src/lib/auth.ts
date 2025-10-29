@@ -50,28 +50,45 @@ export const useAuth = () => {
     setLoading(false);
   }, []);
 
-  // Sync Google user status
+  // Sync Google user status - 只在自动登录时调用，手动登录时不调用
   useEffect(() => {
     if (!googleUser) return;
-    // Avoid duplicate sync if already set from explicit login
-    if (user && user.loginMethod === 'google' && user.userId === `google_${googleUser.id}`) return;
+    
+    // 避免在手动登录时重复同步
+    // 如果用户已经登录且是 Google 登录，可能是手动登录完成的
+    if (user && user.loginMethod === 'google' && user.userId === `google_${googleUser.id}`) {
+      console.log('[Auth] Skipping auto-sync, user already logged in via manual login');
+      return;
+    }
+    
+    // 只在页面加载时自动登录时才触发 II
     (async () => {
-      // Use II to get real principal for Google users (correct logic)
-      const principalId = await generatePrincipalForNonPlug(googleUser.id);
-      setPrincipalId(principalId);
-      const userInfo: UserInfo = {
-        userId: `google_${googleUser.id}`,
-        principalId,
-        name: googleUser.name,
-        nickname: googleUser.name,
-        loginMethod: 'google',
-        loginStatus: 'authenticated',
-        email: googleUser.email,
-        picture: googleUser.picture,
-      };
-      const synced = await syncUserInfo(userInfo);
-      setUser(synced);
-      sessionStorage.setItem('alaya_user', JSON.stringify(synced));
+      try {
+        console.log('[Auth] Auto-syncing Google user with II...');
+        
+        // Use II to get real principal for Google users (correct logic)
+        const principalId = await generatePrincipalForNonPlug(googleUser.id);
+        console.log('[Auth] Auto-sync obtained principal:', principalId);
+        
+        setPrincipalId(principalId);
+        const userInfo: UserInfo = {
+          userId: `google_${googleUser.id}`,
+          principalId,
+          name: googleUser.name,
+          nickname: googleUser.name,
+          loginMethod: 'google',
+          loginStatus: 'authenticated',
+          email: googleUser.email,
+          picture: googleUser.picture,
+        };
+        const synced = await syncUserInfo(userInfo);
+        console.log('[Auth] Auto-sync completed:', synced);
+        setUser(synced);
+        sessionStorage.setItem('alaya_user', JSON.stringify(synced));
+      } catch (error) {
+        console.error('[Auth] Auto-sync failed:', error);
+        // 不抛出错误，避免阻止页面加载
+      }
     })();
   }, [googleUser, user]);
 
@@ -104,11 +121,17 @@ export const useAuth = () => {
 
   const loginWithGoogle = async () => {
     try {
+      console.log('[Auth] Starting Google login...');
+      
       // Use Google OAuth hook login method
       const googleUserData = await googleLogin();
+      console.log('[Auth] Google OAuth completed');
       
       // Convert to unified UserInfo and generate II principal (correct logic)
+      console.log('[Auth] Starting II principal generation...');
       const principalId = await generatePrincipalForNonPlug(googleUserData.id);
+      console.log('[Auth] II principal obtained:', principalId);
+      
       setPrincipalId(principalId);
       const userInfo: UserInfo = {
         userId: `google_${googleUserData.id}`,
@@ -120,14 +143,17 @@ export const useAuth = () => {
         email: googleUserData.email,
         picture: googleUserData.picture,
       };
+      
+      console.log('[Auth] Syncing user info to backend...');
       const synced = await syncUserInfo(userInfo);
       console.log('[Auth] Google login synced user info:', synced);
+      
       setUser(synced);
       sessionStorage.setItem('alaya_user', JSON.stringify(synced));
       
       return synced;
     } catch (error) {
-      console.error('Google login failed:', error);
+      console.error('[Auth] Google login failed:', error);
       throw error;
     }
   };

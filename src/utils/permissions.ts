@@ -1,6 +1,6 @@
 /**
- * 权限管理工具
- * 处理 Clipboard API 和其他浏览器权限
+ * Permission management utility
+ * Handles Clipboard API and other browser permissions
  */
 
 export interface PermissionStatus {
@@ -12,11 +12,11 @@ export interface PermissionStatus {
 }
 
 /**
- * 请求 Clipboard 写入权限
+ * Request Clipboard write permission
  */
 export const requestClipboardPermission = async (): Promise<PermissionStatus> => {
   try {
-    // 检查是否支持权限 API
+    // Check if Permissions API is supported
     if (!navigator.permissions) {
       return {
         granted: false,
@@ -27,7 +27,7 @@ export const requestClipboardPermission = async (): Promise<PermissionStatus> =>
       };
     }
 
-    // 检查当前权限状态
+    // Check current permission status
     const permission = await navigator.permissions.query({ 
       name: 'clipboard-write' as PermissionName 
     });
@@ -39,12 +39,12 @@ export const requestClipboardPermission = async (): Promise<PermissionStatus> =>
       unavailable: false
     };
 
-    // 如果权限状态是 prompt，尝试触发权限请求
+    // If permission state is prompt, try to trigger permission request
     if (permission.state === 'prompt') {
       try {
-        // 尝试写入一个测试文本来触发权限请求
+        // Try to write a test text to trigger permission request
         await navigator.clipboard.writeText('permission_test');
-        // 如果成功，重新检查权限状态
+        // If successful, recheck permission status
         const newPermission = await navigator.permissions.query({ 
           name: 'clipboard-write' as PermissionName 
         });
@@ -71,14 +71,14 @@ export const requestClipboardPermission = async (): Promise<PermissionStatus> =>
 };
 
 /**
- * 检查 Clipboard API 是否可用
+ * Check if Clipboard API is available
  */
 export const isClipboardAPIAvailable = (): boolean => {
   return !!(navigator.clipboard && window.isSecureContext);
 };
 
 /**
- * 获取权限状态描述
+ * Get permission status message
  */
 export const getPermissionStatusMessage = (status: PermissionStatus): string => {
   if (status.unavailable) {
@@ -97,11 +97,11 @@ export const getPermissionStatusMessage = (status: PermissionStatus): string => 
 };
 
 /**
- * 显示权限请求对话框
+ * Show permission request dialog
  */
 export const showPermissionDialog = (status: PermissionStatus): Promise<boolean> => {
   return new Promise((resolve) => {
-    // 创建权限请求对话框
+    // Create permission request dialog
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed;
@@ -190,7 +190,7 @@ export const showPermissionDialog = (status: PermissionStatus): Promise<boolean>
       transition: all 0.2s;
     `;
 
-    // 事件处理
+    // Event handlers
     allowBtn.onclick = async () => {
       try {
         allowBtn.textContent = 'Requesting...';
@@ -229,7 +229,7 @@ export const showPermissionDialog = (status: PermissionStatus): Promise<boolean>
       resolve(false);
     };
 
-    // 组装对话框
+    // Assemble dialog
     buttonContainer.appendChild(allowBtn);
     buttonContainer.appendChild(cancelBtn);
     dialog.appendChild(title);
@@ -237,10 +237,10 @@ export const showPermissionDialog = (status: PermissionStatus): Promise<boolean>
     dialog.appendChild(buttonContainer);
     overlay.appendChild(dialog);
 
-    // 添加到页面
+    // Add to page
     document.body.appendChild(overlay);
 
-    // ESC 键关闭
+    // Close on ESC key
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         document.body.removeChild(overlay);
@@ -250,7 +250,7 @@ export const showPermissionDialog = (status: PermissionStatus): Promise<boolean>
     };
     document.addEventListener('keydown', handleEscape);
 
-    // 点击外部关闭
+    // Close on outside click
     overlay.onclick = (e) => {
       if (e.target === overlay) {
         document.body.removeChild(overlay);
@@ -261,24 +261,41 @@ export const showPermissionDialog = (status: PermissionStatus): Promise<boolean>
 };
 
 /**
- * 智能权限管理：自动检查并请求权限
+ * Detect if browser is iOS Safari
+ */
+const isIOSSafari = (): boolean => {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  return isIOS && isSafari;
+};
+
+/**
+ * Smart permission management: automatically check and request permission
  */
 export const ensureClipboardPermission = async (): Promise<boolean> => {
-  // 首先检查 Clipboard API 是否可用
+  // iOS Safari doesn't need permission request, return true directly
+  if (isIOSSafari()) {
+    console.log('iOS Safari detected, skipping permission request');
+    return true;
+  }
+
+  // First check if Clipboard API is available
   if (!isClipboardAPIAvailable()) {
     console.warn('Clipboard API not available');
     return false;
   }
 
-  // 检查当前权限状态
+  // Check current permission status
   const status = await requestClipboardPermission();
   
-  // 如果已经授权，直接返回
+  // If already granted, return directly
   if (status.granted) {
     return true;
   }
 
-  // 如果被拒绝或需要提示，显示权限对话框
+  // If denied or prompt needed, show permission dialog
   if (status.denied || status.prompt || status.unavailable) {
     return await showPermissionDialog(status);
   }

@@ -1,9 +1,69 @@
 /**
  * Enhanced clipboard copy utility with intelligent fallback methods
  * Handles permissions policy violations and provides robust copy functionality
+ * iOS Safari specific handling included
  */
 
 import { ensureClipboardPermission, isClipboardAPIAvailable } from './permissions.js';
+
+/**
+ * Detect if device is iOS
+ */
+export const isIOS = (): boolean => {
+  const ua = navigator.userAgent;
+  console.log('[Platform] Checking iOS, userAgent:', ua);
+  
+  // Check for iPhone or iPod
+  if (/iPhone|iPod/.test(ua)) {
+    console.log('[Platform] Detected iPhone/iPod');
+    return true;
+  }
+  
+  // Check for iPad (but not iPad Pro on iOS 13+ which can appear as MacIntel)
+  if (/iPad/.test(ua)) {
+    console.log('[Platform] Detected iPad');
+    return true;
+  }
+  
+  // iOS 13+ iPad Pro detection: appears as MacIntel but has touch points
+  // AND doesn't have "Mac OS X" in user agent (that's real Mac)
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+    const hasMacOSX = /Mac OS X/.test(ua);
+    console.log('[Platform] MacIntel platform with touch points, hasMacOSX:', hasMacOSX);
+    // If it has Mac OS X, it's a real Mac, not iPad
+    // If it doesn't have Mac OS X, it's likely an iPad Pro
+    return !hasMacOSX;
+  }
+  
+  console.log('[Platform] Not iOS');
+  return false;
+};
+
+/**
+ * Detect if browser is iOS Safari
+ */
+export const isIOSSafari = (): boolean => {
+  const ua = navigator.userAgent;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  const isIOSDevice = isIOS();
+  console.log('[Platform] isIOS:', isIOSDevice, 'isSafari:', isSafari);
+  return isIOSDevice && isSafari;
+};
+
+/**
+ * Detect if device is Android
+ */
+export const isAndroid = (): boolean => {
+  return /Android/.test(navigator.userAgent);
+};
+
+/**
+ * Detect if browser is Android Chrome
+ */
+export const isAndroidChrome = (): boolean => {
+  const ua = navigator.userAgent;
+  return isAndroid() && /Chrome/.test(ua);
+};
 
 interface ClipboardOptions {
   silent?: boolean; // Don't show console warnings
@@ -23,30 +83,128 @@ export const safeCopyToClipboard = async (
 ): Promise<boolean> => {
   const { silent = false, showManualCopyDialog = true, requestPermission = true } = options;
   
+  console.log('[Clipboard] Starting copy operation, text length:', text.length);
+  console.log('[Clipboard] Options:', { silent, showManualCopyDialog, requestPermission });
+  console.log('[Clipboard] Platform check:', {
+    isIOS: isIOS(),
+    isIOSSafari: isIOSSafari(),
+    isAndroid: isAndroid(),
+    isAndroidChrome: isAndroidChrome(),
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    maxTouchPoints: navigator.maxTouchPoints
+  });
+  
+  // Check if this is simulated iOS in Chrome DevTools
+  // Chrome DevTools simulation uses iPhone userAgent but is still Chrome
+  const ua = navigator.userAgent;
+  const isChromeSimulatediOS = /iPhone|iPad|iPod/.test(ua) && /Chrome/.test(ua);
+  const isRealIOS = /iPhone|iPad|iPod/.test(ua) && !/CriOS|FxiOS|Chrome/.test(ua);
+  const isActuallyIOS = isRealIOS || isChromeSimulatediOS;
+  
+  if (isActuallyIOS) {
+    console.log('[Clipboard] iOS detected - Real:', isRealIOS, 'Simulated:', isChromeSimulatediOS);
+    
+    // For Chrome DevTools simulation, use normal methods
+    if (isChromeSimulatediOS) {
+      console.log('[Clipboard] Chrome DevTools iOS simulation - using normal methods');
+      // Don't use iOS-specific handling for simulated iOS
+    } else {
+      // Real iOS device handling
+      console.log('[Clipboard] Real iOS device - using iOS-specific handling');
+      
+      // Method 1: Try modern Clipboard API first (iOS 13.4+)
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          console.log('[Clipboard] Trying Clipboard API on real iOS...');
+          await navigator.clipboard.writeText(text);
+          console.log('[Clipboard] iOS Clipboard API copy successful');
+          return true;
+        } catch (error) {
+          console.warn('[Clipboard] iOS Clipboard API failed:', error);
+        }
+      }
+      
+      // Method 2: Fallback to execCommand for real iOS
+      try {
+        console.log('[Clipboard] Falling back to execCommand on real iOS...');
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = (window.pageYOffset || document.documentElement.scrollTop) + 'px';
+        textArea.style.width = '1px';
+        textArea.style.height = '1px';
+        textArea.style.padding = '0';
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.boxShadow = 'none';
+        textArea.style.background = 'transparent';
+        textArea.style.opacity = '0';
+        textArea.style.fontSize = '12px';
+        textArea.setAttribute('readonly', 'readonly');
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.setSelectionRange(0, text.length);
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          console.log('[Clipboard] iOS execCommand copy successful');
+          return true;
+        } else {
+          console.warn('[Clipboard] iOS execCommand copy returned false');
+        }
+      } catch (error) {
+        console.warn('[Clipboard] iOS execCommand failed:', error);
+      }
+      
+      console.warn('[Clipboard] Real iOS copy failed, suggesting manual copy');
+      return false;
+    }
+  }
+  
   // Method 1: Try modern Clipboard API with enhanced error handling and permission management
+  // Note: iOS Safari is handled separately above
   if (isClipboardAPIAvailable()) {
     try {
-      // 如果需要，请求权限
+      console.log('[Clipboard] Trying Clipboard API, requestPermission:', requestPermission);
+      
+      // Non-iOS Safari uses permission management
       if (requestPermission) {
         const hasPermission = await ensureClipboardPermission();
+        console.log('[Clipboard] Permission check result:', hasPermission);
+        
         if (!hasPermission) {
-          if (!silent) console.warn('Clipboard permission not granted, trying fallback methods');
+          if (!silent) console.warn('[Clipboard] Permission not granted, trying fallback methods');                                                               
         } else {
-          // 权限已获得，直接复制
+          // Permission granted, copy directly
+          console.log('[Clipboard] Permission granted, copying text...');
           await navigator.clipboard.writeText(text);
+          console.log('[Clipboard] Text copied successfully');
           return true;
         }
       } else {
-        // 直接尝试复制，不请求权限
+        // Try to copy directly without requesting permission
+        console.log('[Clipboard] Skipping permission check, copying directly...');
         await navigator.clipboard.writeText(text);
+        console.log('[Clipboard] Text copied successfully (no permission check)');
         return true;
       }
     } catch (error) {
-      if (!silent) console.warn('Clipboard API failed, trying fallback method:', error);
+      console.error('[Clipboard] Clipboard API failed:', error);
+      if (!silent) console.warn('[Clipboard] Trying fallback method...', error);                                                                        
     }
   }
 
   // Method 2: Enhanced execCommand with better element positioning
+  // Both Android and iOS require special handling
+  console.log('[Clipboard] Trying Method 2: execCommand');
   try {
     if (typeof document.execCommand === 'function') {
       // Create a more robust textarea element
@@ -64,21 +222,59 @@ export const safeCopyToClipboard = async (
       textArea.style.outline = 'none';
       textArea.style.boxShadow = 'none';
       textArea.style.background = 'transparent';
-      textArea.style.fontSize = '16px'; // Prevent zoom on iOS
+      textArea.style.fontSize = '16px'; // Prevent zoom on mobile
+      
+      // Android-specific attributes
+      if (isAndroid()) {
+        textArea.style.webkitUserSelect = 'text';
+        textArea.setAttribute('readonly', '');
+      }
+      
+      // iOS-specific attributes
+      if (isIOS()) {
+        textArea.setAttribute('contenteditable', 'true');
+      }
       
       document.body.appendChild(textArea);
       
       // Focus and select with error handling
       try {
         textArea.focus();
-        textArea.select();
+        
+        // Different platforms need special selection methods
+        if (isAndroidChrome()) {
+          // Android Chrome prefers Clipboard API, fallback to execCommand
+          try {
+            await navigator.clipboard.writeText(text);
+            document.body.removeChild(textArea);
+            return true;
+          } catch (clipboardError) {
+            // Clipboard API failed, continue with execCommand
+            textArea.setSelectionRange?.(0, text.length);
+          }
+        } else if (isIOS()) {
+          // iOS special selection method
+          const range = document.createRange();
+          range.selectNodeContents(textArea);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          textArea.setSelectionRange?.(0, 999999);
+        } else {
+          // Other platforms use standard selection
+          textArea.select();
+        }
         
         // Try to copy
         const successful = document.execCommand('copy');
+        console.log('[Clipboard] execCommand result:', successful);
         document.body.removeChild(textArea);
         
         if (successful) {
+          console.log('[Clipboard] execCommand copy successful');
           return true;
+        } else {
+          console.warn('[Clipboard] execCommand returned false');
         }
       } catch (focusError) {
         document.body.removeChild(textArea);
@@ -131,13 +327,14 @@ export const safeCopyToClipboard = async (
   }
 
   // Method 5: Show text in alert for manual copy (last resort)
+  console.warn('[Clipboard] All methods failed, showing manual copy dialog');
   try {
     if (showManualCopyDialog) {
       alert(`Please copy this text manually:\n\n${text}`);
     }
     return false;
   } catch (error) {
-    if (!silent) console.error('All clipboard methods failed:', error);
+    if (!silent) console.error('[Clipboard] All clipboard methods failed:', error);
     return false;
   }
 };
@@ -349,21 +546,37 @@ export const copyWithFeedback = async (
   options: ClipboardOptions = {}
 ): Promise<void> => {
   try {
+    // iOS Safari and Android Chrome don't need permission request dialog
+    // iOS uses execCommand, Android Chrome can automatically use Clipboard API
+    const shouldRequestPermission = !isIOSSafari() && !isAndroidChrome();
+    
     const success = await safeCopyToClipboard(text, {
-      requestPermission: true,
+      requestPermission: shouldRequestPermission,
       ...options
     });
     
     if (success) {
       onSuccess?.();
     } else {
-      const errorMessage = 'Copy failed. Please try the manual copy option.';
-      onError?.(errorMessage);
+      // On mobile platforms, don't show error prompts to avoid disturbing users
+      if (!isIOSSafari() && !isAndroidChrome()) {
+        const errorMessage = 'Copy failed. Please try the manual copy option.';
+        onError?.(errorMessage);
+      } else {
+        // Silent failure on mobile platforms
+        console.log('Copy operation completed on mobile platform');
+      }
     }
   } catch (error) {
     console.error('Clipboard operation failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Copy operation failed';
-    onError?.(errorMessage);
+    
+    // On mobile platforms, don't show error prompts
+    if (!isIOSSafari() && !isAndroidChrome()) {
+      const errorMessage = error instanceof Error ? error.message : 'Copy operation failed';                                                                      
+      onError?.(errorMessage);
+    } else {
+      console.log('Copy operation failed silently on mobile platform');
+    }
   }
 };
 
