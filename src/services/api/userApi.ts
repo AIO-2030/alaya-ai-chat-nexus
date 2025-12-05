@@ -903,3 +903,83 @@ export const getTotalContactsByOwner = async (ownerPrincipalId: string): Promise
   }
 };
 
+// ==== Email Registration API ====
+
+/**
+ * Generate a principal ID from email and password
+ */
+export const generatePrincipalFromEmailPassword = async (
+  email: string, 
+  password: string
+): Promise<string> => {
+  try {
+    const actor = getActor();
+    console.log('[UserApi] Generating principal from email and password...');
+    const principalId = await actor.generate_principal_from_email_password(email, password);
+    console.log('[UserApi] Generated principal ID:', principalId);
+    return principalId as string;
+  } catch (error) {
+    console.error('[UserApi] Error generating principal from email and password:', error);
+    throw error;
+  }
+};
+
+/**
+ * Register a new user with email, password, and nickname
+ */
+export const registerUserWithEmail = async (
+  email: string,
+  password: string,
+  nickname: string
+): Promise<string> => {
+  try {
+    const actor = getActor();
+    console.log('[UserApi] Registering user with email:', email);
+    const result = await actor.register_user_with_email(email, password, nickname);
+    
+    if ('Ok' in result) {
+      const principalId = result.Ok as string;
+      console.log('[UserApi] User registered successfully, principal ID:', principalId);
+      return principalId;
+    } else {
+      throw new Error(`Failed to register user: ${result.Err}`);
+    }
+  } catch (error) {
+    console.error('[UserApi] Error registering user with email:', error);
+    throw error;
+  }
+};
+
+/**
+ * Login user with email and password
+ */
+export const loginUserWithEmail = async (
+  email: string,
+  password: string
+): Promise<UserInfo | null> => {
+  try {
+    console.log('[UserApi] Attempting login with email:', email);
+    
+    // Generate principal ID from email and password
+    const principalId = await generatePrincipalFromEmailPassword(email, password);
+    
+    // Get user profile by principal
+    const userInfo = await getUserInfoByPrincipal(principalId);
+    
+    if (!userInfo) {
+      throw new Error('User not found. Please check your email and password.');
+    }
+    
+    // Verify email matches
+    if (userInfo.email?.toLowerCase() !== email.toLowerCase()) {
+      throw new Error('Invalid email or password');
+    }
+    
+    console.log('[UserApi] Login successful:', userInfo);
+    return userInfo;
+  } catch (error) {
+    console.error('[UserApi] Error logging in with email:', error);
+    throw error;
+  }
+};
+

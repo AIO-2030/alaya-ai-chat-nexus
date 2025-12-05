@@ -630,6 +630,10 @@ export interface _SERVICE {
     string
   >,
   'find_inverted_index_by_mcp' : ActorMethod<[string], string>,
+  'generate_principal_from_email_password' : ActorMethod<
+    [string, string],
+    string
+  >,
   'generate_social_pair_key' : ActorMethod<[string, string], string>,
   'get_account_info' : ActorMethod<[string], [] | [AccountInfo]>,
   'get_accounts_paginated' : ActorMethod<[bigint, bigint], Array<AccountInfo>>,
@@ -904,6 +908,11 @@ export interface _SERVICE {
       [] | [string],
     ],
     { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'register_user_with_email' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : string } |
       { 'Err' : string }
   >,
   'remove_user_device' : ActorMethod<

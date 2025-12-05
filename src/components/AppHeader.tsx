@@ -2,14 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { LoginScreen } from './LoginScreen';
+import { RegisterScreen } from './RegisterScreen';
+import { EmailLoginScreen } from './EmailLoginScreen';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Wallet, Sparkles, Menu } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -21,16 +17,28 @@ interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true }) => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, loginWithWallet, loginWithGoogle, logout } = useAuth();
+  const { user, loading: authLoading, loginWithWallet, loginWithGoogle, loginWithEmailPassword, registerWithEmail, logout } = useAuth();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
+  const [showRegisterModal, setShowRegisterModal] = React.useState(false);
+  const [showEmailLoginModal, setShowEmailLoginModal] = React.useState(false);
 
-  // Auto-close login modal when user is authenticated
+  // Auto-close login modals when user is authenticated
   React.useEffect(() => {
-    if (user && showLoginModal) {
-      console.log('[AppHeader] User authenticated, auto-closing login modal');
-      setShowLoginModal(false);
+    if (user) {
+      if (showLoginModal) {
+        console.log('[AppHeader] User authenticated, auto-closing login modal');
+        setShowLoginModal(false);
+      }
+      if (showEmailLoginModal) {
+        console.log('[AppHeader] User authenticated, auto-closing email login modal');
+        setShowEmailLoginModal(false);
+      }
+      if (showRegisterModal) {
+        console.log('[AppHeader] User authenticated, auto-closing register modal');
+        setShowRegisterModal(false);
+      }
     }
-  }, [user, showLoginModal]);
+  }, [user, showLoginModal, showEmailLoginModal, showRegisterModal]);
 
   const handleWalletLogin = async () => {
     try {
@@ -56,6 +64,45 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
       // Don't close modal on error, let user try again
       throw error;
     }
+  };
+
+  const handleRegister = async (nickname: string, email: string, password: string) => {
+    try {
+      await registerWithEmail(nickname, email, password);
+      console.log('[AppHeader] Registration successful, closing modal');
+      setShowRegisterModal(false);
+    } catch (error) {
+      console.error('[AppHeader] Registration failed:', error);
+      throw error;
+    }
+  };
+
+  const handleShowRegister = () => {
+    setShowLoginModal(false);
+    setShowRegisterModal(true);
+  };
+
+  const handleEmailLogin = async (email: string, password: string) => {
+    try {
+      const userInfo = await loginWithEmailPassword(email, password);
+      console.log('[AppHeader] Email login successful, closing modal');
+      setShowEmailLoginModal(false);
+      return userInfo;
+    } catch (error) {
+      console.error('[AppHeader] Email login failed:', error);
+      throw error;
+    }
+  };
+
+  const handleShowEmailLogin = () => {
+    setShowLoginModal(false);
+    setShowEmailLoginModal(true);
+  };
+
+  const handleBackToLogin = () => {
+    setShowRegisterModal(false);
+    setShowEmailLoginModal(false);
+    setShowLoginModal(true);
   };
 
   return (
@@ -124,29 +171,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
                 </Button>
               </>
             ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-3 md:px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl text-xs md:text-sm"
-                  >
-                    <Wallet className="h-4 w-4 mr-1 md:mr-2" />
-                    <span className="hidden md:inline">Login & Connect Wallet</span>
-                    <span className="md:hidden">Login</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10">
-                  <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                    <Wallet className="h-4 w-4 mr-3" />
-                    Connect with Plug Wallet
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowLoginModal(true)} className="text-white hover:bg-white/10 py-3">
-                    <User className="h-4 w-4 mr-3" />
-                    Sign in with Google
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLoginModal(true)}
+                className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-3 md:px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl text-xs md:text-sm"
+              >
+                <Wallet className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden md:inline">Login & Connect Wallet</span>
+                <span className="md:hidden">Login</span>
+              </Button>
             )}
           </div>
         </div>
@@ -159,8 +193,38 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
             <LoginScreen
               onWalletLogin={handleWalletLogin}
               onGoogleLogin={handleGoogleLogin}
+              onEmailLoginClick={handleShowEmailLogin}
+              onRegisterClick={handleShowRegister}
               loading={authLoading}
               onClose={() => setShowLoginModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Email Login Modal */}
+      {showEmailLoginModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowEmailLoginModal(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <EmailLoginScreen
+              onEmailLogin={handleEmailLogin}
+              onBackToLogin={handleBackToLogin}
+              loading={authLoading}
+              onClose={() => setShowEmailLoginModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Register Modal */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowRegisterModal(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <RegisterScreen
+              onRegister={handleRegister}
+              onBackToLogin={handleBackToLogin}
+              loading={authLoading}
+              onClose={() => setShowRegisterModal(false)}
             />
           </div>
         </div>

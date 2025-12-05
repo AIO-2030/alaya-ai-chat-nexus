@@ -643,6 +643,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'find_inverted_index_by_mcp' : IDL.Func([IDL.Text], [IDL.Text], ['query']),
+    'generate_principal_from_email_password' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
     'generate_social_pair_key' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Text],
@@ -1111,6 +1116,11 @@ export const idlFactory = ({ IDL }) => {
           IDL.Opt(IDL.Text),
         ],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'register_user_with_email' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
         [],
       ),
     'remove_user_device' : IDL.Func(

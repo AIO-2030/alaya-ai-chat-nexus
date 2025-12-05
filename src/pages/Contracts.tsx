@@ -369,41 +369,41 @@ const Contracts = () => {
                         
                         {/* Login Tips */}
                         <div className="w-full max-w-md mb-6">
-                          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-4 mb-4">
+                          <div className="bg-slate-800/90 backdrop-blur-sm border border-cyan-400/30 rounded-lg p-4 mb-4 shadow-xl">
                             <h4 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2">
                               <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
                               {t('contracts.howToLogin')}
                             </h4>
-                            <div className="space-y-2 text-xs text-white/70 text-left">
+                            <div className="space-y-2 text-xs text-white/90 text-left">
                               <div className="flex items-start gap-2">
                                 <span className="text-cyan-400 font-semibold">1.</span>
-                                <span>{t('contracts.loginStep1')}</span>
+                                <span className="text-white/90">{t('contracts.loginStep1')}</span>
                               </div>
                               <div className="flex items-start gap-2">
                                 <span className="text-cyan-400 font-semibold">2.</span>
-                                <span>{t('contracts.loginStep2')}</span>
+                                <span className="text-white/90">{t('contracts.loginStep2')}</span>
                               </div>
                               <div className="flex items-start gap-2">
                                 <span className="text-cyan-400 font-semibold">3.</span>
-                                <span>{t('contracts.loginStep3')}</span>
+                                <span className="text-white/90">{t('contracts.loginStep3')}</span>
                               </div>
                               <div className="flex items-start gap-2">
                                 <span className="text-cyan-400 font-semibold">4.</span>
-                                <span>{t('contracts.loginStep4')}</span>
+                                <span className="text-white/90">{t('contracts.loginStep4')}</span>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur-sm border border-blue-400/20 rounded-lg p-3">
+                          <div className="bg-slate-800/90 backdrop-blur-sm border border-purple-400/30 rounded-lg p-3 shadow-xl">
                             <div className="flex items-center gap-2 mb-2">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                              <span className="text-xs font-semibold text-blue-400">{t('contracts.benefitsOfLogin')}</span>
+                              <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                              <span className="text-xs font-semibold text-purple-400 text-left">{t('contracts.benefitsOfLogin')}</span>
                             </div>
-                            <div className="text-xs text-white/60 space-y-1">
-                              <div>• {t('contracts.benefit1')}</div>
-                              <div>• {t('contracts.benefit2')}</div>
-                              <div>• {t('contracts.benefit3')}</div>
-                              <div>• {t('contracts.benefit4')}</div>
+                            <div className="text-xs text-white/90 space-y-1 text-left">
+                              <div className="text-left">• {t('contracts.benefit1')}</div>
+                              <div className="text-left">• {t('contracts.benefit2')}</div>
+                              <div className="text-left">• {t('contracts.benefit3')}</div>
+                              <div className="text-left">• {t('contracts.benefit4')}</div>
                             </div>
                           </div>
                         </div>
@@ -567,7 +567,7 @@ const Contracts = () => {
                 if (!qrValue) return null;
                 
                 return (
-                  <div className="p-4 bg-white rounded-lg">
+                  <div className="p-4 bg-slate-800/90 rounded-lg border border-white/20 shadow-xl">
                     <QRCode value={qrValue} size={200} level="M" />
                   </div>
                 );

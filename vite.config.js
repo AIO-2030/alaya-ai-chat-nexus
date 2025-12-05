@@ -39,6 +39,10 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
       },
     },
+    middlewareMode: false,
+    fs: {
+      strict: false,
+    },
     headers: {
       'Content-Security-Policy': `
         default-src 'self';
