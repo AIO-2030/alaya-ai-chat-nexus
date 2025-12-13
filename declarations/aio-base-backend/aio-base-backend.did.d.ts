@@ -436,6 +436,7 @@ export interface UserProfile {
   'login_method' : LoginMethod,
   'principal_id' : string,
   'devices' : Array<string>,
+  'passwd' : [] | [string],
 }
 export interface Version {
   'version_id' : VersionId,
@@ -498,10 +499,20 @@ export interface _SERVICE {
       { 'Err' : string }
   >,
   'admin_set_bitpay_pos_token' : ActorMethod<[string], undefined>,
+  'authenticate_user_with_email_password' : ActorMethod<
+    [string, string],
+    { 'Ok' : string } |
+      { 'Err' : string }
+  >,
   'cal_unclaim_rewards' : ActorMethod<[string], bigint>,
   'calculate_emission' : ActorMethod<
     [string],
     { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
+  'change_user_password' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : UserProfile } |
       { 'Err' : string }
   >,
   'check_is_newuser' : ActorMethod<[string], boolean>,

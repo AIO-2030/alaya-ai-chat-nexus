@@ -115,6 +115,7 @@ export const idlFactory = ({ IDL }) => {
     'login_method' : LoginMethod,
     'principal_id' : IDL.Text,
     'devices' : IDL.Vec(IDL.Text),
+    'passwd' : IDL.Opt(IDL.Text),
   });
   const TokenGrantStatus = IDL.Variant({
     'Active' : IDL.Null,
@@ -490,11 +491,21 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'admin_set_bitpay_pos_token' : IDL.Func([IDL.Text], [], []),
+    'authenticate_user_with_email_password' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
+        [],
+      ),
     'cal_unclaim_rewards' : IDL.Func([IDL.Text], [IDL.Nat64], ['query']),
     'calculate_emission' : IDL.Func(
         [IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
         ['query'],
+      ),
+    'change_user_password' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : UserProfile, 'Err' : IDL.Text })],
+        [],
       ),
     'check_is_newuser' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'claim_grant' : IDL.Func(

@@ -8,6 +8,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { PageLayout } from '../components/PageLayout';
+import { LoginScreen } from '../components/LoginScreen';
+import { RegisterScreen } from '../components/RegisterScreen';
+import { EmailLoginScreen } from '../components/EmailLoginScreen';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { pixelizeEmoji, PixelFormat, PixelProcessingResult } from '../lib/pixelProcessor';
 import { PixelCreationApi, ProjectListItem } from '../services/api/pixelCreationApi';
 import { useAuth } from '../lib/auth';
@@ -62,10 +66,15 @@ const Gallery = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAuthenticated, loginWithGoogle, loginWithWallet } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, loginWithEmailPassword, registerWithEmail } = useAuth();
   const [activeTab, setActiveTab] = useState('public');
   const [publicSubTab, setPublicSubTab] = useState('pixel'); // 'pixel' or 'gif'
   const [pixelFormat, setPixelFormat] = useState<PixelFormat>('32x32');
+  
+  // Login modal state
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showEmailLoginModal, setShowEmailLoginModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingUserCreations, setIsLoadingUserCreations] = useState(false);
   const [userCreations, setUserCreations] = useState<UserCreationItem[]>([]);
@@ -99,6 +108,13 @@ const Gallery = () => {
       }
     }
   };
+
+  // Auto-open login modal when switching to "My Creator" tab and user is not authenticated
+  useEffect(() => {
+    if (activeTab === 'mycreator' && !isAuthenticated() && !authLoading) {
+      setShowLoginModal(true);
+    }
+  }, [activeTab, isAuthenticated, authLoading]);
 
   const handleBackToSource = () => {
     // Set sessionStorage flag and use URL parameter as backup
@@ -898,38 +914,87 @@ const Gallery = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             <div className="h-full p-2 md:p-4">
-              <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col">
+              <div 
+                className="h-full rounded-2xl bg-gradient-to-br from-slate-800/40 to-purple-900/30 backdrop-blur-xl shadow-2xl border border-cyan-400/20 flex flex-col"
+                style={{
+                  WebkitFontSmoothing: 'antialiased',
+                  MozOsxFontSmoothing: 'grayscale',
+                  WebkitBackfaceVisibility: 'hidden',
+                  backfaceVisibility: 'hidden',
+                }}
+              >
                 
                 {/* Gallery Header */}
-                <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-white/10 bg-white/5">
+                <div 
+                  className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-cyan-400/20 bg-gradient-to-r from-slate-800/60 to-purple-900/40"
+                  style={{
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
                   <div className="flex items-center gap-3 sm:gap-4">
                     {/* Back Button */}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2 sm:p-3"
+                      className="bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80 backdrop-blur-sm p-2 sm:p-3"
                       onClick={handleBackToSource}
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                      }}
                     >
                       <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
                     
                     {/* Title */}
                     <div className="flex-1">
-                      <h1 className="text-lg sm:text-xl font-bold text-white">{t('gallery.title')}</h1>
+                      <h1 
+                        className="text-lg sm:text-xl font-bold text-white"
+                        style={{
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          textRendering: 'optimizeLegibility',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
+                      >
+                        {t('gallery.title')}
+                      </h1>
                     </div>
 
                     {/* Pixel Format Selector */}
                     <div className="flex items-center gap-2">
                       <Palette className="h-4 w-4 text-cyan-400" />
                       <Select value={pixelFormat} onValueChange={(value: PixelFormat) => setPixelFormat(value)}>
-                        <SelectTrigger className="w-32 bg-white/5 border-white/20 text-white">
+                        <SelectTrigger 
+                          className="w-32 bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80"
+                          style={{
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
+                          }}
+                        >
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/20">
-                          <SelectItem value="32x32" className="text-white hover:bg-white/10">
+                        <SelectContent className="bg-slate-800 border-cyan-400/30">
+                          <SelectItem 
+                            value="32x32" 
+                            className="text-white hover:bg-slate-700/60"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
+                          >
                             {t('pixel.format32x32')}
                           </SelectItem>
-                          <SelectItem value="32x16" className="text-white hover:bg-white/10">
+                          <SelectItem 
+                            value="32x16" 
+                            className="text-white hover:bg-slate-700/60"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
+                          >
                             {t('pixel.format32x16')}
                           </SelectItem>
                         </SelectContent>
@@ -939,18 +1004,36 @@ const Gallery = () => {
                 </div>
 
                 {/* Tabs Navigation */}
-                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-white/3">
+                <div 
+                  className="flex-shrink-0 p-3 sm:p-4 border-b border-cyan-400/20 bg-gradient-to-br from-slate-800/50 to-purple-900/30"
+                  style={{
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm">
+                    <TabsList className="grid w-full grid-cols-2 bg-slate-800/60 backdrop-blur-sm border border-cyan-400/20 rounded-lg p-1">
                       <TabsTrigger 
                         value="public" 
-                        className="text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white"
+                        className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md font-semibold"
+                        style={{
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          WebkitTapHighlightColor: 'transparent',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
                       >
                         {t('gallery.public')}
                       </TabsTrigger>
                       <TabsTrigger 
                         value="mycreator"
-                        className="text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white"
+                        className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md font-semibold"
+                        style={{
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          WebkitTapHighlightColor: 'transparent',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
                       >
                         {t('gallery.myCreator')}
                       </TabsTrigger>
@@ -961,16 +1044,28 @@ const Gallery = () => {
                   {activeTab === 'public' && (
                     <div className="mt-3">
                       <Tabs value={publicSubTab} onValueChange={setPublicSubTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 bg-white/5 backdrop-blur-sm">
+                        <TabsList className="grid w-full grid-cols-2 bg-slate-800/60 backdrop-blur-sm border border-cyan-400/20 rounded-lg p-1">
                           <TabsTrigger 
                             value="pixel" 
-                            className="text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white text-sm"
+                            className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md text-sm font-medium"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              WebkitTapHighlightColor: 'transparent',
+                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            }}
                           >
                             🎨 {t('gallery.pixelEmojis')}
                           </TabsTrigger>
                           <TabsTrigger 
                             value="gif"
-                            className="text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white text-sm"
+                            className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md text-sm font-medium"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              WebkitTapHighlightColor: 'transparent',
+                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            }}
                           >
                             🎬 {t('gallery.animatedGifs')}
                           </TabsTrigger>
@@ -1001,25 +1096,70 @@ const Gallery = () => {
                               </div>
                             )}
                             {publicGalleryItems.map((item) => (
-                              <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/20 transition-all duration-200 flex flex-col">
+                              <div 
+                                key={item.id} 
+                                className="bg-slate-700/40 backdrop-blur-sm rounded-lg p-3 border border-cyan-400/20 hover:bg-slate-700/60 hover:border-cyan-400/40 transition-all duration-200 flex flex-col"
+                                style={{
+                                  WebkitFontSmoothing: 'antialiased',
+                                  MozOsxFontSmoothing: 'grayscale',
+                                  WebkitTapHighlightColor: 'transparent',
+                                }}
+                              >
                                 <div className="flex-1">
                                   {renderPixelCanvas(item)}
                                 </div>
                                 <div className="mt-3 space-y-2">
-                                  <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
-                                  <p className="text-white/60 text-xs truncate">by {item.creator}</p>
+                                  <h3 
+                                    className="text-white font-semibold text-sm truncate"
+                                    style={{
+                                      WebkitFontSmoothing: 'antialiased',
+                                      MozOsxFontSmoothing: 'grayscale',
+                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                    }}
+                                  >
+                                    {item.title}
+                                  </h3>
+                                  <p 
+                                    className="text-white/70 text-xs truncate"
+                                    style={{
+                                      WebkitFontSmoothing: 'antialiased',
+                                      MozOsxFontSmoothing: 'grayscale',
+                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                    }}
+                                  >
+                                    by {item.creator}
+                                  </p>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
+                                    <span 
+                                      className="text-cyan-400 text-xs font-medium"
+                                      style={{
+                                        WebkitFontSmoothing: 'antialiased',
+                                        MozOsxFontSmoothing: 'grayscale',
+                                      }}
+                                    >
+                                      ❤️ {item.likes}
+                                    </span>
                                     <div className="flex gap-1">
                                       <Button 
                                         size="sm" 
                                         variant="outline" 
-                                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
+                                        className="bg-cyan-500/20 border-cyan-400/40 text-white hover:bg-cyan-500/30 hover:border-cyan-400/60 text-xs px-2 py-1 font-medium"
                                         onClick={() => handleUsePublicItem(item)}
+                                        style={{
+                                          WebkitTapHighlightColor: 'transparent',
+                                          WebkitFontSmoothing: 'antialiased',
+                                          MozOsxFontSmoothing: 'grayscale',
+                                        }}
                                       >
                                         Use
                                       </Button>
-                                      <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
+                                      <div 
+                                        className="text-xs text-white/70 px-1 py-1 bg-slate-800/60 rounded border border-cyan-400/20 font-medium"
+                                        style={{
+                                          WebkitFontSmoothing: 'antialiased',
+                                          MozOsxFontSmoothing: 'grayscale',
+                                        }}
+                                      >
                                         {pixelFormat}
                                       </div>
                                     </div>
@@ -1034,25 +1174,70 @@ const Gallery = () => {
                         <TabsContent value="gif" className="h-full">
                           <div className="grid grid-cols-2 gap-4">
                             {gifGalleryItems.map((item) => (
-                              <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/20 transition-all duration-200 flex flex-col">
+                              <div 
+                                key={item.id} 
+                                className="bg-slate-700/40 backdrop-blur-sm rounded-lg p-3 border border-cyan-400/20 hover:bg-slate-700/60 hover:border-cyan-400/40 transition-all duration-200 flex flex-col"
+                                style={{
+                                  WebkitFontSmoothing: 'antialiased',
+                                  MozOsxFontSmoothing: 'grayscale',
+                                  WebkitTapHighlightColor: 'transparent',
+                                }}
+                              >
                                 <div className="flex-1">
                                   {renderGifCanvas(item)}
                                 </div>
                                 <div className="mt-3 space-y-2">
-                                  <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
-                                  <p className="text-white/60 text-xs truncate">by {item.creator}</p>
+                                  <h3 
+                                    className="text-white font-semibold text-sm truncate"
+                                    style={{
+                                      WebkitFontSmoothing: 'antialiased',
+                                      MozOsxFontSmoothing: 'grayscale',
+                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                    }}
+                                  >
+                                    {item.title}
+                                  </h3>
+                                  <p 
+                                    className="text-white/70 text-xs truncate"
+                                    style={{
+                                      WebkitFontSmoothing: 'antialiased',
+                                      MozOsxFontSmoothing: 'grayscale',
+                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                    }}
+                                  >
+                                    by {item.creator}
+                                  </p>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
+                                    <span 
+                                      className="text-cyan-400 text-xs font-medium"
+                                      style={{
+                                        WebkitFontSmoothing: 'antialiased',
+                                        MozOsxFontSmoothing: 'grayscale',
+                                      }}
+                                    >
+                                      ❤️ {item.likes}
+                                    </span>
                                     <div className="flex gap-1">
                                       <Button 
                                         size="sm" 
                                         variant="outline" 
-                                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
+                                        className="bg-cyan-500/20 border-cyan-400/40 text-white hover:bg-cyan-500/30 hover:border-cyan-400/60 text-xs px-2 py-1 font-medium"
                                         onClick={() => handleUseGifItem(item)}
+                                        style={{
+                                          WebkitTapHighlightColor: 'transparent',
+                                          WebkitFontSmoothing: 'antialiased',
+                                          MozOsxFontSmoothing: 'grayscale',
+                                        }}
                                       >
                                         Use
                                       </Button>
-                                      <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
+                                      <div 
+                                        className="text-xs text-white/70 px-1 py-1 bg-slate-800/60 rounded border border-cyan-400/20 font-medium"
+                                        style={{
+                                          WebkitFontSmoothing: 'antialiased',
+                                          MozOsxFontSmoothing: 'grayscale',
+                                        }}
+                                      >
                                         {item.width}x{item.height}
                                       </div>
                                     </div>
@@ -1068,30 +1253,46 @@ const Gallery = () => {
                     {/* My Creator Gallery */}
                     <TabsContent value="mycreator" className="h-full">
                       {!isAuthenticated() ? (
-                        <div className="flex flex-col items-start justify-center h-full text-left p-8">
-                          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 max-w-md">
+                        <div className="flex flex-col items-center justify-center h-full p-8">
+                          <div 
+                            className="bg-slate-700/60 backdrop-blur-sm rounded-lg p-6 border border-cyan-400/30 max-w-md shadow-xl text-center"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
+                          >
                             <Palette className="h-12 w-12 mx-auto mb-4 text-cyan-400" />
-                            <h3 className="text-white font-semibold text-lg mb-2">
+                            <h3 
+                              className="text-white font-semibold text-lg mb-2"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
                               {t('auth.loginRequired')}
                             </h3>
-                            <p className="text-white/60 text-sm mb-4">
+                            <p 
+                              className="text-white/80 text-sm mb-4"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
                               {t('gallery.loginToViewCreations')}
                             </p>
-                            <div className="flex flex-col gap-3">
-                              <Button
-                                onClick={loginWithGoogle}
-                                className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white"
-                              >
-                                {t('auth.loginWithGoogle')}
-                              </Button>
-                              <Button
-                                onClick={loginWithWallet}
-                                variant="outline"
-                                className="bg-white/5 border-white/20 text-white hover:bg-white/10"
-                              >
-                                {t('auth.loginWithWallet')}
-                              </Button>
-                            </div>
+                            <Button
+                              onClick={() => setShowLoginModal(true)}
+                              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-semibold"
+                              style={{
+                                WebkitTapHighlightColor: 'transparent',
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                              }}
+                            >
+                              {t('common.login') || 'Login'}
+                            </Button>
                           </div>
                         </div>
                       ) : isLoadingUserCreations ? (
@@ -1103,17 +1304,42 @@ const Gallery = () => {
                         </div>
                       ) : userCreations.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 max-w-md">
+                          <div 
+                            className="bg-slate-700/60 backdrop-blur-sm rounded-lg p-6 border border-cyan-400/30 max-w-md shadow-xl"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
+                          >
                             <Palette className="h-12 w-12 mx-auto mb-4 text-cyan-400" />
-                            <h3 className="text-white font-semibold text-lg mb-2">
+                            <h3 
+                              className="text-white font-semibold text-lg mb-2"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
                               {t('gallery.noCreations')}
                             </h3>
-                            <p className="text-white/60 text-sm mb-4">
+                            <p 
+                              className="text-white/80 text-sm mb-4"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
                               {t('gallery.startCreating')}
                             </p>
                             <Button
                               onClick={handleCreateClick}
-                              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white"
+                              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-semibold"
+                              style={{
+                                WebkitTapHighlightColor: 'transparent',
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                              }}
                             >
                               <Plus className="h-4 w-4 mr-2" />
                               {t('gallery.createNew')}
@@ -1124,36 +1350,85 @@ const Gallery = () => {
                         <div>
                           <div className="grid grid-cols-2 gap-4">
                             {userCreations.map((item) => (
-                              <div key={item.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:bg-white/20 transition-all duration-200 flex flex-col">
+                              <div 
+                                key={item.id} 
+                                className="bg-slate-700/40 backdrop-blur-sm rounded-lg p-3 border border-cyan-400/20 hover:bg-slate-700/60 hover:border-cyan-400/40 transition-all duration-200 flex flex-col"
+                                style={{
+                                  WebkitFontSmoothing: 'antialiased',
+                                  MozOsxFontSmoothing: 'grayscale',
+                                  WebkitTapHighlightColor: 'transparent',
+                                }}
+                              >
                                 <div className="flex-1">
                                   {renderUserCreationCanvas(item)}
                                 </div>
                                 <div className="mt-3 space-y-2">
-                                  <h3 className="text-white font-semibold text-sm truncate" title={item.title}>
+                                  <h3 
+                                    className="text-white font-semibold text-sm truncate" 
+                                    title={item.title}
+                                    style={{
+                                      WebkitFontSmoothing: 'antialiased',
+                                      MozOsxFontSmoothing: 'grayscale',
+                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                    }}
+                                  >
                                     {item.title}
                                   </h3>
                                   {item.description && (
-                                    <p className="text-white/60 text-xs truncate" title={item.description}>
+                                    <p 
+                                      className="text-white/70 text-xs truncate" 
+                                      title={item.description}
+                                      style={{
+                                        WebkitFontSmoothing: 'antialiased',
+                                        MozOsxFontSmoothing: 'grayscale',
+                                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                                      }}
+                                    >
                                       {item.description}
                                     </p>
                                   )}
-                                  <div className="flex items-center justify-between text-xs text-white/50">
+                                  <div 
+                                    className="flex items-center justify-between text-xs text-white/60"
+                                    style={{
+                                      WebkitFontSmoothing: 'antialiased',
+                                      MozOsxFontSmoothing: 'grayscale',
+                                    }}
+                                  >
                                     <span>{item.status}</span>
                                     <span>{new Date(item.updatedAt).toLocaleDateString()}</span>
                                   </div>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-cyan-400 text-xs">❤️ {item.likes}</span>
+                                    <span 
+                                      className="text-cyan-400 text-xs font-medium"
+                                      style={{
+                                        WebkitFontSmoothing: 'antialiased',
+                                        MozOsxFontSmoothing: 'grayscale',
+                                      }}
+                                    >
+                                      ❤️ {item.likes}
+                                    </span>
                                     <div className="flex gap-1">
                                       <Button 
                                         size="sm" 
                                         variant="outline" 
-                                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 text-xs px-2 py-1"
+                                        className="bg-cyan-500/20 border-cyan-400/40 text-white hover:bg-cyan-500/30 hover:border-cyan-400/60 text-xs px-2 py-1 font-medium"
                                         onClick={() => handleUseCreationItem(item)}
+                                        style={{
+                                          WebkitTapHighlightColor: 'transparent',
+                                          WebkitFontSmoothing: 'antialiased',
+                                          MozOsxFontSmoothing: 'grayscale',
+                                        }}
                                       >
                                         Use
                                       </Button>
                                       {item.gifResult && (
-                                        <div className="text-xs text-white/40 px-1 py-1 bg-white/5 rounded border border-white/10">
+                                        <div 
+                                          className="text-xs text-white/70 px-1 py-1 bg-slate-800/60 rounded border border-cyan-400/20 font-medium"
+                                          style={{
+                                            WebkitFontSmoothing: 'antialiased',
+                                            MozOsxFontSmoothing: 'grayscale',
+                                          }}
+                                        >
                                           {item.gifResult.width}x{item.gifResult.height}
                                         </div>
                                       )}
@@ -1203,6 +1478,110 @@ const Gallery = () => {
             {t('gallery.createNew')}
           </Button>
         </div>
+
+        {/* Login Modals */}
+        {showLoginModal && (
+          <Dialog 
+            open={showLoginModal} 
+            onOpenChange={(open) => {
+              setShowLoginModal(open);
+              if (!open) {
+                navigate('/');
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-transparent border-0 p-0">
+              <LoginScreen
+                onEmailLoginClick={() => {
+                  setShowLoginModal(false);
+                  setShowEmailLoginModal(true);
+                }}
+                onRegisterClick={() => {
+                  setShowLoginModal(false);
+                  setShowRegisterModal(true);
+                }}
+                loading={authLoading}
+                closeBehavior="navigateToHome"
+                onClose={() => {
+                  setShowLoginModal(false);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {showRegisterModal && (
+          <Dialog 
+            open={showRegisterModal} 
+            onOpenChange={(open) => {
+              setShowRegisterModal(open);
+              if (!open) {
+                navigate('/');
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-transparent border-0 p-0">
+              <RegisterScreen
+                onRegister={async (nickname: string, email: string, password: string) => {
+                  try {
+                    await registerWithEmail(nickname, email, password);
+                    setShowRegisterModal(false);
+                    setShowLoginModal(false);
+                  } catch (error) {
+                    console.error('[Gallery] Registration failed:', error);
+                    throw error;
+                  }
+                }}
+                onBackToLogin={() => {
+                  setShowRegisterModal(false);
+                  setShowLoginModal(true);
+                }}
+                loading={authLoading}
+                onClose={() => {
+                  setShowRegisterModal(false);
+                  navigate('/');
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {showEmailLoginModal && (
+          <Dialog 
+            open={showEmailLoginModal} 
+            onOpenChange={(open) => {
+              setShowEmailLoginModal(open);
+              if (!open) {
+                navigate('/');
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-transparent border-0 p-0">
+              <EmailLoginScreen
+                onEmailLogin={async (email: string, password: string) => {
+                  try {
+                    const userInfo = await loginWithEmailPassword(email, password);
+                    setShowEmailLoginModal(false);
+                    setShowLoginModal(false);
+                    return userInfo;
+                  } catch (error) {
+                    console.error('[Gallery] Email login failed:', error);
+                    throw error;
+                  }
+                }}
+                onBackToLogin={() => {
+                  setShowEmailLoginModal(false);
+                  setShowLoginModal(true);
+                }}
+                loading={authLoading}
+                onClose={() => {
+                  setShowEmailLoginModal(false);
+                  navigate('/');
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </PageLayout>
   );

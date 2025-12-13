@@ -136,6 +136,7 @@ const resources = {
         recommended: 'Recommended',
         detected: 'Detected',
         available: 'Available',
+        unavailable: 'Unavailable',
         or: 'or',
         newUser: 'New to Univoice?',
         registerButton: 'Create New Account',
@@ -193,7 +194,7 @@ const resources = {
       contracts: {
         howToLogin: 'How to Login',
         loginStep1: 'Click the "Login" button in the top-right corner',
-        loginStep2: 'Choose your preferred login method (Google or Wallet)',
+        loginStep2: 'Choose your preferred login method ',
         loginStep3: 'Complete the authentication process',
         loginStep4: 'Return here to view and manage your contacts',
         benefitsOfLogin: 'Benefits of Login',
@@ -369,6 +370,29 @@ const resources = {
         cancel: 'Cancel',
         refresh: 'Refresh',
         edit: 'Edit'
+      },
+      passwordChange: {
+        title: 'Change Password',
+        changeButton: 'Change',
+        oldPassword: 'Old Password',
+        oldPasswordPlaceholder: 'Enter your current password',
+        newPassword: 'New Password',
+        newPasswordPlaceholder: 'Enter your new password (min 6 characters)',
+        confirmPassword: 'Confirm New Password',
+        confirmPasswordPlaceholder: 'Re-enter your new password',
+        saveButton: 'Save Password',
+        changing: 'Changing...',
+        success: 'Password Changed',
+        successDescription: 'Your password has been changed successfully',
+        error: {
+          oldPasswordRequired: 'Old password is required',
+          newPasswordRequired: 'New password is required',
+          passwordTooShort: 'Password must be at least 6 characters',
+          passwordTooLong: 'Password is too long (max 128 characters)',
+          passwordMismatch: 'New passwords do not match',
+          samePassword: 'New password must be different from old password',
+          changeFailed: 'Failed to change password. Please check your old password.'
+        }
       },
       deviceSend: {
         title: 'Send to Device',
@@ -546,6 +570,7 @@ const resources = {
         recommended: '推荐',
         detected: '已检测',
         available: '可用',
+        unavailable: '不可用',
         or: '或',
         newUser: '新用户？',
         registerButton: '创建新账户',
@@ -603,7 +628,7 @@ const resources = {
       contracts: {
         howToLogin: '如何登录',
         loginStep1: '点击右上角的"登录"按钮',
-        loginStep2: '选择您喜欢的登录方式（Google 或钱包）',
+        loginStep2: '选择您喜欢的登录方式',
         loginStep3: '完成身份验证流程',
         loginStep4: '返回此处查看和管理您的联系人',
         benefitsOfLogin: '登录的好处',
@@ -777,6 +802,29 @@ const resources = {
         cancel: '取消',
         refresh: '刷新',
         edit: '编辑'
+      },
+      passwordChange: {
+        title: '修改密码',
+        changeButton: '修改',
+        oldPassword: '当前密码',
+        oldPasswordPlaceholder: '请输入您的当前密码',
+        newPassword: '新密码',
+        newPasswordPlaceholder: '请输入您的新密码（至少6个字符）',
+        confirmPassword: '确认新密码',
+        confirmPasswordPlaceholder: '请再次输入您的新密码',
+        saveButton: '保存密码',
+        changing: '修改中...',
+        success: '密码修改成功',
+        successDescription: '您的密码已成功修改',
+        error: {
+          oldPasswordRequired: '当前密码不能为空',
+          newPasswordRequired: '新密码不能为空',
+          passwordTooShort: '密码至少需要6个字符',
+          passwordTooLong: '密码过长（最多128个字符）',
+          passwordMismatch: '两次输入的新密码不一致',
+          samePassword: '新密码必须与当前密码不同',
+          changeFailed: '密码修改失败，请检查您的当前密码是否正确'
+        }
       },
       deviceSend: {
         title: '发送到设备',

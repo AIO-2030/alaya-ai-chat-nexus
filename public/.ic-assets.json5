@@ -1,23 +1,36 @@
 [
-    // CSS files - must have correct MIME type
+    // HTML files - must not be cached to ensure fresh content
+    {
+        "match": "**/*.html",
+        "headers": {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    },
+    // CSS files - with hash in filename can be cached long-term
     {
         "match": "**/*.css",
         "headers": {
-            "Content-Type": "text/css; charset=utf-8"
+            "Content-Type": "text/css; charset=utf-8",
+            "Cache-Control": "public, max-age=31536000, immutable"
         }
     },
-    // JavaScript files
+    // JavaScript files - with hash in filename can be cached long-term
     {
         "match": "**/*.js",
         "headers": {
-            "Content-Type": "application/javascript; charset=utf-8"
+            "Content-Type": "application/javascript; charset=utf-8",
+            "Cache-Control": "public, max-age=31536000, immutable"
         }
     },
     // JSON files
     {
         "match": "**/*.json",
         "headers": {
-            "Content-Type": "application/json; charset=utf-8"
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "public, max-age=3600"
         }
     },
     // Image files
@@ -33,13 +46,6 @@
         "headers": {
             "Content-Type": "font/woff2",
             "Cache-Control": "public, max-age=31536000, immutable"
-        }
-    },
-    // HTML files
-    {
-        "match": "**/*.html",
-        "headers": {
-            "Content-Type": "text/html; charset=utf-8"
         }
     },
     // Default headers for all files

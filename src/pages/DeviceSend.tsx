@@ -324,16 +324,35 @@ const DeviceSend = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             <div className="h-full p-2 md:p-4">
-              <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col">
+              <div 
+                className="h-full rounded-2xl bg-gradient-to-br from-slate-800/60 to-purple-900/40 backdrop-blur-xl shadow-2xl border border-cyan-400/20 flex flex-col"
+                style={{
+                  WebkitFontSmoothing: 'antialiased',
+                  MozOsxFontSmoothing: 'grayscale',
+                  WebkitBackfaceVisibility: 'hidden',
+                  backfaceVisibility: 'hidden',
+                }}
+              >
                 {/* Device Header */}
-                <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-white/10 bg-white/5">
+                <div 
+                  className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-cyan-400/20 bg-gradient-to-r from-slate-800/60 to-purple-900/40"
+                  style={{
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
                   <div className="flex items-center gap-3 sm:gap-4">
                     {/* Back Button */}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2 sm:p-3"
+                      className="bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80 hover:border-cyan-400/50 backdrop-blur-sm p-2 sm:p-3"
                       onClick={handleBackToDevices}
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                      }}
                     >
                       <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -347,12 +366,35 @@ const DeviceSend = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-1 sm:gap-2">
-                          <h1 className="text-lg sm:text-xl font-bold text-white">{deviceName}</h1>
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-400/20 text-green-400 backdrop-blur-sm">
+                          <h1 
+                            className="text-lg sm:text-xl font-bold text-white"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              textRendering: 'optimizeLegibility',
+                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            }}
+                          >
+                            {deviceName}
+                          </h1>
+                          <span 
+                            className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/30 text-green-300 backdrop-blur-sm border border-green-400/40"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
+                          >
                             {deviceStatus}
                           </span>
                         </div>
-                        <p className="text-xs sm:text-sm text-white/60">
+                        <p 
+                          className="text-xs sm:text-sm text-white/80"
+                          style={{
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                          }}
+                        >
                           {deviceType} • ID: {deviceId}
                         </p>
                       </div>
@@ -361,12 +403,25 @@ const DeviceSend = () => {
                 </div>
 
                 {/* Device Details */}
-                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-white/3">
-                  <div className="p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
-                    <div className="text-xs sm:text-sm text-white/80 space-y-1">
-                      <p><span className="text-cyan-400">Device Type:</span> {deviceType}</p>
-                      <p><span className="text-cyan-400">Status:</span> {deviceStatus}</p>
-                      <p><span className="text-cyan-400">Device ID:</span> <code className="text-cyan-300 text-xs">{deviceId}</code></p>
+                <div 
+                  className="flex-shrink-0 p-3 sm:p-4 border-b border-cyan-400/20 bg-slate-800/40"
+                  style={{
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
+                >
+                  <div className="p-2 sm:p-3 bg-slate-700/60 rounded-lg backdrop-blur-sm border border-cyan-400/20">
+                    <div 
+                      className="text-xs sm:text-sm text-white/90 space-y-1"
+                      style={{
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                      }}
+                    >
+                      <p><span className="text-cyan-400 font-semibold">Device Type:</span> {deviceType}</p>
+                      <p><span className="text-cyan-400 font-semibold">Status:</span> {deviceStatus}</p>
+                      <p><span className="text-cyan-400 font-semibold">Device ID:</span> <code className="text-cyan-300 text-xs font-mono">{deviceId}</code></p>
                     </div>
                   </div>
                 </div>
@@ -376,20 +431,59 @@ const DeviceSend = () => {
                   <div className="w-full max-w-2xl">
                     <div className="text-center mb-8">
                       <div className="text-6xl mb-4">📱</div>
-                      <h2 className="text-2xl font-bold text-white mb-2">{t('deviceSend.title')}</h2>
-                      <p className="text-white/60">{t('deviceSend.subtitle')}</p>
+                      <h2 
+                        className="text-2xl font-bold text-white mb-2"
+                        style={{
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          textRendering: 'optimizeLegibility',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
+                      >
+                        {t('deviceSend.title')}
+                      </h2>
+                      <p 
+                        className="text-white/80"
+                        style={{
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
+                      >
+                        {t('deviceSend.subtitle')}
+                      </p>
                     </div>
 
                     {/* Pending GIF Preview */}
                     {pendingGif && (
-                      <div className="bg-white/10 rounded-lg p-3 border border-white/20 mb-4">
+                      <div 
+                        className="bg-slate-700/60 rounded-lg p-3 border border-cyan-400/30 mb-4 backdrop-blur-sm"
+                        style={{
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                        }}
+                      >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-white text-sm font-medium">{t('chat.readyToSend')}:</span>
+                          <span 
+                            className="text-white text-sm font-semibold"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            }}
+                          >
+                            {t('chat.readyToSend')}:
+                          </span>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setPendingGif(null)}
-                            className="text-white/60 hover:text-white hover:bg-white/10 p-1"
+                            className="text-white/80 hover:text-white hover:bg-slate-600/60 p-1"
+                            style={{
+                              WebkitTapHighlightColor: 'transparent',
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
                           >
                             ✕
                           </Button>
@@ -398,11 +492,22 @@ const DeviceSend = () => {
                           <img 
                             src={pendingGif.thumbnailUrl} 
                             alt="GIF Preview"
-                            className="w-12 h-12 rounded border border-white/20 object-cover"
+                            className="w-12 h-12 rounded border border-cyan-400/30 object-cover"
+                            style={{
+                              WebkitTransform: 'translateZ(0)',
+                              transform: 'translateZ(0)',
+                            }}
                           />
-                          <div className="flex-1 text-white/80 text-xs">
-                            <div className="font-medium">{pendingGif.title}</div>
-                            <div className="text-white/60">GIF • {pendingGif.width}x{pendingGif.height}</div>
+                          <div 
+                            className="flex-1 text-white/90 text-xs"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            }}
+                          >
+                            <div className="font-semibold">{pendingGif.title}</div>
+                            <div className="text-white/70">GIF • {pendingGif.width}x{pendingGif.height}</div>
                           </div>
                         </div>
                       </div>
@@ -415,7 +520,12 @@ const DeviceSend = () => {
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           placeholder={t('deviceSend.placeholder') as string}
-                          className="w-full bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm"
+                          className="w-full bg-slate-700/60 border-cyan-400/30 text-white placeholder:text-white/60 focus:border-cyan-400/60 focus:ring-cyan-400/30 backdrop-blur-sm text-xs sm:text-sm"
+                          style={{
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                          }}
                           onKeyPress={(e) => {
                             if (e.key === 'Enter' && !loading) {
                               e.preventDefault();
@@ -429,8 +539,17 @@ const DeviceSend = () => {
                       <Button
                         onClick={handleSendMessage}
                         disabled={loading || (!newMessage.trim() && !pendingGif)}
-                        className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                         title="Send message to device"
+                        style={{
+                          WebkitTapHighlightColor: 'transparent',
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          WebkitBackfaceVisibility: 'hidden',
+                          backfaceVisibility: 'hidden',
+                          transform: 'translateZ(0)',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
                       >
                         {loading ? (
                           <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -445,8 +564,14 @@ const DeviceSend = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm text-xs px-3 py-2 flex-1"
+                        className="bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80 hover:border-cyan-400/50 backdrop-blur-sm text-xs px-3 py-2 flex-1 font-medium"
                         onClick={handleEmojiClick}
+                        style={{
+                          WebkitTapHighlightColor: 'transparent',
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        }}
                       >
                         <Smile className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                         {t('common.emoji')}

@@ -75,6 +75,7 @@ const convertToUserProfile = (info: UserInfo): UserProfile => {
     picture: info.picture ? [info.picture] : [],
     wallet_address: info.walletAddress ? [info.walletAddress] : [],
     devices: [], // Initialize with empty devices array
+    passwd: [], // Password is not stored in frontend UserInfo, set as empty
     created_at: BigInt(Date.now()),
     updated_at: BigInt(Date.now()),
     metadata: [],
@@ -951,7 +952,37 @@ export const registerUserWithEmail = async (
 };
 
 /**
- * Login user with email and password
+ * Authenticate user with email and password using the new authentication endpoint
+ */
+export const authenticateUserWithEmailPassword = async (
+  email: string,
+  password: string
+): Promise<string> => {
+  try {
+    const actor = getActor();
+    console.log('[UserApi] Authenticating user with email:', email);
+    const result = await actor.authenticate_user_with_email_password(email, password);
+    
+    if ('Ok' in result) {
+      const principalId = result.Ok as string;
+      console.log('[UserApi] Authentication successful, principal ID:', principalId);
+      return principalId;
+    } else {
+      const errorMsg = result.Err as string;
+      console.error('[UserApi] Authentication failed:', errorMsg);
+      throw new Error(errorMsg || 'Invalid email or password. Authentication failed.');
+    }
+  } catch (error) {
+    console.error('[UserApi] Error authenticating user with email and password:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Authentication failed. Please check your email and password.');
+  }
+};
+
+/**
+ * Login user with email and password (updated to use new authentication endpoint)
  */
 export const loginUserWithEmail = async (
   email: string,
@@ -960,8 +991,8 @@ export const loginUserWithEmail = async (
   try {
     console.log('[UserApi] Attempting login with email:', email);
     
-    // Generate principal ID from email and password
-    const principalId = await generatePrincipalFromEmailPassword(email, password);
+    // Use new authentication endpoint
+    const principalId = await authenticateUserWithEmailPassword(email, password);
     
     // Get user profile by principal
     const userInfo = await getUserInfoByPrincipal(principalId);
@@ -980,6 +1011,38 @@ export const loginUserWithEmail = async (
   } catch (error) {
     console.error('[UserApi] Error logging in with email:', error);
     throw error;
+  }
+};
+
+/**
+ * Change user password
+ */
+export const changeUserPassword = async (
+  principalId: string,
+  oldPassword: string,
+  newPassword: string
+): Promise<UserInfo | null> => {
+  try {
+    const actor = getActor();
+    console.log('[UserApi] Changing password for principal:', principalId);
+    const result = await actor.change_user_password(principalId, oldPassword, newPassword);
+    
+    if ('Ok' in result) {
+      const updatedProfile = result.Ok;
+      const userInfo = convertFromUserProfile(updatedProfile);
+      console.log('[UserApi] Password changed successfully');
+      return userInfo;
+    } else {
+      const errorMsg = result.Err as string;
+      console.error('[UserApi] Password change failed:', errorMsg);
+      throw new Error(errorMsg || 'Failed to change password. Please check your old password.');
+    }
+  } catch (error) {
+    console.error('[UserApi] Error changing password:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to change password. Please try again.');
   }
 };
 

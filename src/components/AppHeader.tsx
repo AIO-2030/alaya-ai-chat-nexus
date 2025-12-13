@@ -5,7 +5,7 @@ import { LoginScreen } from './LoginScreen';
 import { RegisterScreen } from './RegisterScreen';
 import { EmailLoginScreen } from './EmailLoginScreen';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Wallet, Sparkles, Menu } from 'lucide-react';
+import { LogOut, User, Sparkles, Menu } from 'lucide-react';
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -17,7 +17,7 @@ interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true }) => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, loginWithWallet, loginWithGoogle, loginWithEmailPassword, registerWithEmail, logout } = useAuth();
+  const { user, loading: authLoading, loginWithGoogle, loginWithEmailPassword, registerWithEmail, logout } = useAuth();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [showRegisterModal, setShowRegisterModal] = React.useState(false);
   const [showEmailLoginModal, setShowEmailLoginModal] = React.useState(false);
@@ -39,19 +39,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
       }
     }
   }, [user, showLoginModal, showEmailLoginModal, showRegisterModal]);
-
-  const handleWalletLogin = async () => {
-    try {
-      const result = await loginWithWallet();
-      console.log('[AppHeader] Wallet login successful, closing modal');
-      setShowLoginModal(false);
-      return result;
-    } catch (error) {
-      console.error('[AppHeader] Wallet login failed:', error);
-      // Don't close modal on error, let user try again
-      throw error;
-    }
-  };
 
   const handleGoogleLogin = async () => {
     try {
@@ -177,8 +164,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
                 onClick={() => setShowLoginModal(true)}
                 className="bg-gradient-to-r from-cyan-500 to-purple-500 border-0 text-white font-semibold hover:from-cyan-600 hover:to-purple-600 backdrop-blur-sm px-3 md:px-6 py-2 shadow-lg transition-all duration-200 hover:shadow-xl text-xs md:text-sm"
               >
-                <Wallet className="h-4 w-4 mr-1 md:mr-2" />
-                <span className="hidden md:inline">Login & Connect Wallet</span>
+                <span className="hidden md:inline">Login</span>
                 <span className="md:hidden">Login</span>
               </Button>
             )}
@@ -191,8 +177,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showSidebarTrigger = true 
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
           <div onClick={(e) => e.stopPropagation()}>
             <LoginScreen
-              onWalletLogin={handleWalletLogin}
-              onGoogleLogin={handleGoogleLogin}
               onEmailLoginClick={handleShowEmailLogin}
               onRegisterClick={handleShowRegister}
               loading={authLoading}

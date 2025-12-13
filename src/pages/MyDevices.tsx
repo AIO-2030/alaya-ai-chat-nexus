@@ -193,7 +193,15 @@ const MyDevices = () => {
             <div className="h-full flex flex-col">
               {/* Devices Content */}
               <div className="flex-1 min-w-0 flex">
-                <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
+                <div 
+                  className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-gradient-to-br from-slate-800/60 to-purple-900/40 backdrop-blur-xl shadow-2xl border border-cyan-400/20 overflow-hidden"
+                  style={{
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                    WebkitBackfaceVisibility: 'hidden',
+                    backfaceVisibility: 'hidden',
+                  }}
+                >
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-6 gap-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -201,11 +209,26 @@ const MyDevices = () => {
                           <Smartphone className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                         </div>
                         <div className="min-w-0">
-                          <h1 className="text-base sm:text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <h1 
+                            className="text-base sm:text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400 whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              textRendering: 'optimizeLegibility',
+                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                            }}
+                          >
                             {t('common.myDevices')}
                           </h1>
                           {isTencentIoTEnabled && (
-                            <div className="text-[10px] sm:text-xs text-blue-400 flex items-center gap-1 mt-0.5">
+                            <div 
+                              className="text-[10px] sm:text-xs text-blue-400 flex items-center gap-1 mt-0.5"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
                               <div className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0"></div>
                               <span className="whitespace-nowrap">{t('deviceStatus.iotCloudConnected')}</span>
                             </div>
@@ -217,15 +240,29 @@ const MyDevices = () => {
                           onClick={refreshDeviceStatus}
                           variant="outline"
                           size="sm"
-                          className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2"
+                          className="bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80 hover:border-cyan-400/50 backdrop-blur-sm p-2"
                           title="Refresh device status"
+                          style={{
+                            WebkitTapHighlightColor: 'transparent',
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
+                          }}
                         >
                           <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                         <Button 
                           onClick={handleAddDevice}
                           size="sm"
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl text-xs sm:text-sm whitespace-nowrap"
+                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl text-xs sm:text-sm whitespace-nowrap font-semibold"
+                          style={{
+                            WebkitTapHighlightColor: 'transparent',
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
+                            WebkitBackfaceVisibility: 'hidden',
+                            backfaceVisibility: 'hidden',
+                            transform: 'translateZ(0)',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                          }}
                         >
                           <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
                           <span className="hidden sm:inline">{t('common.addDevice')}</span>
@@ -254,15 +291,55 @@ const MyDevices = () => {
                         </div>
                       ) : devices.length === 0 ? (
                         <div className="col-span-full text-center py-12">
-                          <div className="text-white/40 mb-4">
-                            <Smartphone className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                            <p className="text-lg font-medium text-white/60 mb-2">{t('common.noDevices')}</p>
-                            <p className="text-sm text-white/40">{t('common.addYourFirstDevice')}</p>
+                          <div 
+                            className="mb-4"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                            }}
+                          >
+                            <Smartphone 
+                              className="h-16 w-16 mx-auto mb-4 text-cyan-400/60" 
+                              style={{
+                                WebkitTransform: 'translateZ(0)',
+                                transform: 'translateZ(0)',
+                              }}
+                            />
+                            <p 
+                              className="text-lg font-semibold text-white/80 mb-2"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                textRendering: 'optimizeLegibility',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
+                              {t('common.noDevices')}
+                            </p>
+                            <p 
+                              className="text-sm text-white/70"
+                              style={{
+                                WebkitFontSmoothing: 'antialiased',
+                                MozOsxFontSmoothing: 'grayscale',
+                                textRendering: 'optimizeLegibility',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                              }}
+                            >
+                              {t('common.addYourFirstDevice')}
+                            </p>
                           </div>
                         </div>
                       ) : (
                         devices.map((device) => (
-                          <div key={device.id} className="group relative overflow-hidden bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-blue-500/10 rounded-2xl border border-white/20 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/20 backdrop-blur-xl">
+                          <div 
+                            key={device.id} 
+                            className="group relative overflow-hidden bg-gradient-to-br from-slate-700/50 via-purple-800/30 to-cyan-800/30 rounded-2xl border border-cyan-400/20 hover:border-cyan-400/50 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/20 backdrop-blur-xl"
+                            style={{
+                              WebkitFontSmoothing: 'antialiased',
+                              MozOsxFontSmoothing: 'grayscale',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
                             {/* Animated background glow effect */}
                             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                             
@@ -362,7 +439,14 @@ const MyDevices = () => {
                   { id: 2, name: t('common.wifiNetworks.guestNetwork'), security: t('common.wifiSecurity.open'), strength: -50 },
                   { id: 3, name: t('common.wifiNetworks.office5G'), security: t('common.wifiSecurity.wpa3'), strength: -65 },
                 ].map((network: any) => (
-                  <div key={network.id} className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10 hover:bg-white/10 transition-colors backdrop-blur-sm">
+                  <div 
+                    key={network.id} 
+                    className="flex items-center justify-between p-3 bg-slate-700/60 rounded border border-cyan-400/20 hover:bg-slate-700/80 hover:border-cyan-400/40 transition-colors backdrop-blur-sm"
+                    style={{
+                      WebkitFontSmoothing: 'antialiased',
+                      MozOsxFontSmoothing: 'grayscale',
+                    }}
+                  >
                     <div className="flex items-center gap-3">
                       <Wifi className="h-4 w-4 text-cyan-400" />
                       <div>
@@ -384,7 +468,12 @@ const MyDevices = () => {
               <Button
                 onClick={() => setShowWifiDialog(false)}
                 variant="outline"
-                className="w-full bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                className="w-full bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80 hover:border-cyan-400/50 backdrop-blur-sm"
+                style={{
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitFontSmoothing: 'antialiased',
+                  MozOsxFontSmoothing: 'grayscale',
+                }}
               >
                 {t('common.cancel')}
               </Button>
@@ -418,7 +507,12 @@ const MyDevices = () => {
                 <Button
                   onClick={() => setShowDeleteDialog(false)}
                   variant="outline"
-                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                  className="flex-1 bg-slate-700/60 border-cyan-400/30 text-white hover:bg-slate-700/80 hover:border-cyan-400/50 backdrop-blur-sm"
+                  style={{
+                    WebkitTapHighlightColor: 'transparent',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
                 >
                   Cancel
                 </Button>

@@ -11,6 +11,9 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
+import { LoginScreen } from '../components/LoginScreen';
+import { RegisterScreen } from '../components/RegisterScreen';
+import { EmailLoginScreen } from '../components/EmailLoginScreen';
 import { PixelCreationApi, convertImageToPixelArt, ImageImportOptions } from '../services/api/pixelCreationApi';
 import { alayaMcpService, PixelImageGenerateParams } from '../services/alayaMcpService';
 import { useAuth } from '../lib/auth';
@@ -37,8 +40,14 @@ function download(filename: string, blob: Blob) {
 const Creation = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, loginWithEmailPassword, registerWithEmail } = useAuth();
   const { toast } = useToast();
+  
+  // Login modal state
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showEmailLoginModal, setShowEmailLoginModal] = useState(false);
+  const hasShownLoginPrompt = useRef(false);
   
   // Basic creation info
   const [title, setTitle] = useState('');
@@ -1044,6 +1053,78 @@ const Creation = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
 
+  // Check authentication on mount and when auth state changes
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated() && !hasShownLoginPrompt.current) {
+      hasShownLoginPrompt.current = true;
+      setShowLoginModal(true);
+    }
+    // Reset the flag when user becomes authenticated
+    if (isAuthenticated()) {
+      hasShownLoginPrompt.current = false;
+    }
+  }, [authLoading, isAuthenticated]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
+          <div className="mt-4 text-center">
+            <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+              {t('common.loading') || 'Loading...'}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user is authenticated
+  const isLoggedIn = isAuthenticated();
+
+  // Login handlers
+  const handleShowEmailLogin = () => {
+    setShowLoginModal(false);
+    setShowEmailLoginModal(true);
+  };
+
+  const handleShowRegister = () => {
+    setShowLoginModal(false);
+    setShowRegisterModal(true);
+  };
+
+  const handleBackToLogin = () => {
+    setShowRegisterModal(false);
+    setShowEmailLoginModal(false);
+    setShowLoginModal(true);
+  };
+
+  const handleEmailLogin = async (email: string, password: string) => {
+    try {
+      const userInfo = await loginWithEmailPassword(email, password);
+      setShowEmailLoginModal(false);
+      setShowLoginModal(false);
+      return userInfo;
+    } catch (error) {
+      console.error('[Creation] Email login failed:', error);
+      throw error;
+    }
+  };
+
+  const handleRegister = async (nickname: string, email: string, password: string) => {
+    try {
+      await registerWithEmail(nickname, email, password);
+      setShowRegisterModal(false);
+      setShowLoginModal(false);
+    } catch (error) {
+      console.error('[Creation] Registration failed:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden flex flex-col">
         {/* Animated background elements */}
@@ -1082,7 +1163,25 @@ const Creation = () => {
         {/* Header */}
         <AppHeader />
 
-        <div className="flex flex-1 w-full min-h-0">
+        {/* Login Required Overlay - Only show when login modal is open */}
+        {!isLoggedIn && showLoginModal && (
+          <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
+              <LoginScreen
+                onEmailLoginClick={handleShowEmailLogin}
+                onRegisterClick={handleShowRegister}
+                loading={authLoading}
+                closeBehavior="navigateToHome"
+                onClose={() => {
+                  setShowLoginModal(false);
+                  hasShownLoginPrompt.current = false;
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className={`flex flex-1 w-full min-h-0 ${!isLoggedIn ? 'pointer-events-none opacity-30' : ''}`}>
           {/* Sidebar for desktop only */}
           <div className="hidden lg:block">
             <AppSidebar />
@@ -1586,6 +1685,86 @@ const Creation = () => {
             </div>
           </SheetContent>
         </Sheet>
+
+        {/* Login Modals */}
+        {showLoginModal && !isLoggedIn && (
+          <Dialog 
+            open={showLoginModal} 
+            onOpenChange={(open) => {
+              setShowLoginModal(open);
+              if (!open) {
+                hasShownLoginPrompt.current = false;
+                // Navigation is handled by LoginScreen's closeBehavior
+                navigate('/');
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-transparent border-0 p-0">
+              <LoginScreen
+                onEmailLoginClick={handleShowEmailLogin}
+                onRegisterClick={handleShowRegister}
+                loading={authLoading}
+                closeBehavior="navigateToHome"
+                onClose={() => {
+                  setShowLoginModal(false);
+                  hasShownLoginPrompt.current = false;
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {showRegisterModal && (
+          <Dialog 
+            open={showRegisterModal} 
+            onOpenChange={(open) => {
+              setShowRegisterModal(open);
+              if (!open) {
+                hasShownLoginPrompt.current = false;
+                navigate('/');
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-transparent border-0 p-0">
+              <RegisterScreen
+                onRegister={handleRegister}
+                onBackToLogin={handleBackToLogin}
+                loading={authLoading}
+                onClose={() => {
+                  setShowRegisterModal(false);
+                  hasShownLoginPrompt.current = false;
+                  navigate('/');
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {showEmailLoginModal && (
+          <Dialog 
+            open={showEmailLoginModal} 
+            onOpenChange={(open) => {
+              setShowEmailLoginModal(open);
+              if (!open) {
+                hasShownLoginPrompt.current = false;
+                navigate('/');
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-transparent border-0 p-0">
+              <EmailLoginScreen
+                onEmailLogin={handleEmailLogin}
+                onBackToLogin={handleBackToLogin}
+                loading={authLoading}
+                onClose={() => {
+                  setShowEmailLoginModal(false);
+                  hasShownLoginPrompt.current = false;
+                  navigate('/');
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
     </div>
   );
 };

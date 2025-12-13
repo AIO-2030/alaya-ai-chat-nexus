@@ -99,6 +99,48 @@
 
   body {
     @apply bg-background text-foreground;
+    /* iOS font rendering optimizations */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* iOS touch optimizations */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    /* iOS performance optimizations */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    /* Use system fonts for better iOS rendering */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* iOS specific optimizations for all interactive elements */
+  button, a, [role="button"], input, textarea, select {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Improve text clarity on iOS */
+  h1, h2, h3, h4, h5, h6, p, span, div, label {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Optimize images for iOS Retina displays */
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  /* Improve backdrop blur performance on iOS */
+  [class*="backdrop-blur"] {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
   }
 }
 

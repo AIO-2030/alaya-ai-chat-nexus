@@ -66,13 +66,24 @@ export const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({
     <div className={onClose ? "" : "min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900"}>
       {!onClose && <div className="absolute inset-0 bg-black/20"></div>}
       
-      <Card className="relative w-full max-w-md mx-4 bg-white/10 backdrop-blur-lg border-white/20">
+      <Card 
+        className="relative w-full max-w-md mx-4 bg-white/10 backdrop-blur-lg border-white/20"
+        style={{
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          WebkitTapHighlightColor: 'transparent',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        }}
+      >
         {onClose && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
             className="absolute right-2 top-2 text-white/70 hover:text-white hover:bg-white/10 z-10"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -83,19 +94,42 @@ export const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({
           size="sm"
           onClick={onBackToLogin}
           className="absolute left-2 top-2 text-white/70 hover:text-white hover:bg-white/10"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           {t('emailLogin.back') || 'Back'}
         </Button>
         
         <CardHeader className="text-center pt-12">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-2xl border border-cyan-400/30">
-            <Mail className="h-8 w-8 text-cyan-400" />
+          <div 
+            className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-cyan-400/20 to-purple-400/20 rounded-2xl border border-cyan-400/30"
+            style={{
+              WebkitTransform: 'translateZ(0)',
+              transform: 'translateZ(0)',
+            }}
+          >
+            <Mail className="h-8 w-8 text-cyan-400" style={{ WebkitTransform: 'translateZ(0)' }} />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle 
+            className="text-2xl font-bold text-white"
+            style={{
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale',
+              textRendering: 'optimizeLegibility',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            }}
+          >
             {t('emailLogin.title') || 'Email Login'}
           </CardTitle>
-          <CardDescription className="text-gray-300">
+          <CardDescription 
+            className="text-gray-300"
+            style={{
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale',
+              textRendering: 'optimizeLegibility',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            }}
+          >
             {t('emailLogin.subtitle') || 'Sign in with your email and password'}
           </CardDescription>
         </CardHeader>
@@ -158,20 +192,32 @@ export const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:from-cyan-400 hover:via-purple-400 hover:to-pink-400 active:from-cyan-600 active:via-purple-600 active:to-pink-600 text-white font-bold py-6 shadow-2xl hover:shadow-cyan-500/50 active:shadow-cyan-500/30 border-2 border-transparent hover:border-cyan-300/50 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 active:from-cyan-600 active:to-purple-600 text-white font-semibold py-6 shadow-lg hover:shadow-cyan-500/30 border border-cyan-400/30 transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                boxShadow: '0 10px 40px -10px rgba(6, 182, 212, 0.4), 0 0 20px rgba(168, 85, 247, 0.3)',
-                WebkitTapHighlightColor: 'rgba(6, 182, 212, 0.3)',
+                WebkitTapHighlightColor: 'transparent',
+                WebkitFontSmoothing: 'antialiased',
+                MozOsxFontSmoothing: 'grayscale',
+                WebkitTransform: 'translateZ(0)',
+                transform: 'translateZ(0)',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
               }}
             >
-              <LogIn className="h-5 w-5 mr-3 drop-shadow-sm" />
-              <span className="drop-shadow-sm">
+              <LogIn className="h-5 w-5 mr-2" />
+              <span>
                 {loading ? (t('emailLogin.loggingIn') || 'Signing in...') : (t('emailLogin.submit') || 'Sign In')}
               </span>
             </Button>
           </form>
           
-          <p className="text-xs text-gray-400 text-center mt-6">
+          <p 
+            className="text-xs text-gray-400 text-center mt-6"
+            style={{
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale',
+              textRendering: 'optimizeLegibility',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            }}
+          >
             {t('emailLogin.terms') || 'By signing in, you agree to our Terms of Service and Privacy Policy'}
           </p>
         </CardContent>
