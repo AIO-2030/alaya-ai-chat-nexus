@@ -53,14 +53,14 @@ class DeviceService {
   private parseDeviceName(bluetoothName: string): string | null {
     try {
       // Find the last underscore position
-      const lastUnderscoreIndex = bluetoothName.lastIndexOf('_');
+      // const lastUnderscoreIndex = bluetoothName.lastIndexOf('_');
       
-      if (lastUnderscoreIndex !== -1 && lastUnderscoreIndex < bluetoothName.length - 1) {
-        // Extract the part after the underscore as device_name
-        const deviceName = bluetoothName.substring(lastUnderscoreIndex + 1);
-        console.log(`[DeviceService] Parsed device name: ${deviceName} from bluetooth name: ${bluetoothName}`);
-        return deviceName;
-      }
+      // if (lastUnderscoreIndex !== -1 && lastUnderscoreIndex < bluetoothName.length - 1) {
+      //   // Extract the part after the underscore as device_name
+      //   const deviceName = bluetoothName.substring(lastUnderscoreIndex + 1);
+      //   console.log(`[DeviceService] Parsed device name: ${deviceName} from bluetooth name: ${bluetoothName}`);
+      //   return deviceName;
+      // }
       
       // If no underscore found, use the original name
       console.log(`[DeviceService] No underscore found, using original name: ${bluetoothName}`);

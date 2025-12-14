@@ -547,7 +547,8 @@ export class DeviceInitManager {
         return bluetoothName;
       };
 
-      const deviceName = parseDeviceName(this.state.selectedBluetoothDevice.name);
+      //const deviceName = parseDeviceName(this.state.selectedBluetoothDevice.name);
+      const deviceName = this.state.selectedBluetoothDevice.name;
       console.log(`[DeviceInitManager] Parsed device name: ${deviceName} from bluetooth name: ${this.state.selectedBluetoothDevice.name}`);
 
       const record: DeviceRecord = {

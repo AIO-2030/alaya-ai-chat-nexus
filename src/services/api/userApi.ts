@@ -445,6 +445,15 @@ const convertFromContact = (contact: any): ContactInfo => {
     metadata
   });
 
+  const contactPrincipalId = contact.contact_principal_id || `contact_${contactId}`;
+  
+  console.log('[UserApi] Contact principal ID mapping:', {
+    rawContactPrincipalId: contact.contact_principal_id,
+    finalContactPrincipalId: contactPrincipalId,
+    contactId,
+    contactName
+  });
+  
   const result = {
     id: contactId,
     name: contactName,
@@ -456,7 +465,7 @@ const convertFromContact = (contact: any): ContactInfo => {
     isOnline: Boolean(contact.is_online),
     nickname,
     metadata,
-    contactPrincipalId: contact.contact_principal_id || `contact_${contactId}`,
+    contactPrincipalId,
   };
   
   console.log('[UserApi] convertFromContact result:', result);

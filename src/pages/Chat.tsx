@@ -26,7 +26,7 @@ import { deviceMessageService } from '../services/deviceMessageService';
 import { deviceSimulator } from '../services/deviceSimulator';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
-import { deviceApiService } from '../services/api/deviceApi';
+import { deviceApiService, DeviceRecord } from '../services/api/deviceApi';
 import { convertPixelToGif, GifResult } from '../lib/pixelToGifConverter';
 
 const Chat = () => {
@@ -166,7 +166,7 @@ const Chat = () => {
   const [notifications, setNotifications] = useState<NotificationInfo[]>([]);
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
-  const [contactDeviceList, setContactDeviceList] = useState<Array<{ id: string; name: string; deviceName?: string }>>([]);
+  const [contactDeviceList, setContactDeviceList] = useState<DeviceRecord[]>([]);
   const [hasContactDevices, setHasContactDevices] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [unrecoverableGifs, setUnrecoverableGifs] = useState<Set<string>>(new Set());
@@ -626,22 +626,85 @@ const Chat = () => {
 
   // Fetch contact's devices from backend
   useEffect(() => {
+    console.log('[Chat] useEffect for fetchContactDevices triggered:', {
+      contactPrincipalId,
+      hasContactPrincipalId: !!contactPrincipalId,
+      userPrincipalId: user?.principalId,
+      authLoading,
+      contactPrincipalIdValue: contactPrincipalId,
+      expectedContactPrincipalId: 'c5l6l-mb4vs-oo6hx-mbawz-tm6tf-7tzpi-jt2va-b726k-4h3yw-krk42-66a'
+    });
+    
     const fetchContactDevices = async () => {
+      console.log('[Chat] fetchContactDevices called:', {
+        contactPrincipalId,
+        hasContactPrincipalId: !!contactPrincipalId,
+        userPrincipalId: user?.principalId,
+        authLoading,
+        contactPrincipalIdValue: contactPrincipalId,
+        expectedContactPrincipalId: 'c5l6l-mb4vs-oo6hx-mbawz-tm6tf-7tzpi-jt2va-b726k-4h3yw-krk42-66a',
+        isCorrectPrincipalId: contactPrincipalId === 'c5l6l-mb4vs-oo6hx-mbawz-tm6tf-7tzpi-jt2va-b726k-4h3yw-krk42-66a'
+      });
+      
       if (!contactPrincipalId) {
         console.log('[Chat] No contact principal ID, skipping device fetch');
+        console.log('[Chat] URL searchParams:', Object.fromEntries(searchParams.entries()));
         return;
       }
 
       try {
         console.log('[Chat] Fetching contact devices for principal:', contactPrincipalId);
+        console.log('[Chat] Current user principal (for comparison):', user?.principalId);
+        console.log('[Chat] Contact principal ID (should be different from user):', contactPrincipalId);
+        console.log('[Chat] Principal IDs match?', contactPrincipalId === user?.principalId);
+        console.log('[Chat] Expected contact principal ID: c5l6l-mb4vs-oo6hx-mbawz-tm6tf-7tzpi-jt2va-b726k-4h3yw-krk42-66a');
+        console.log('[Chat] Actual contact principal ID:', contactPrincipalId);
+        console.log('[Chat] Calling getDevicesByOwner with contactPrincipalId:', contactPrincipalId);
         const response = await deviceApiService.getDevicesByOwner(contactPrincipalId, 0, 100);
         
+        console.log('[Chat] Device fetch response:', {
+          success: response.success,
+          hasData: !!response.data,
+          deviceCount: response.data?.devices.length || 0,
+          devices: response.data?.devices,
+          error: response.error
+        });
+        
         if (response.success && response.data && response.data.devices.length > 0) {
-          console.log('[Chat] Contact has devices:', response.data.devices);
-          setContactDeviceList(response.data.devices);
-          setHasContactDevices(true);
+          // Filter devices to only include online devices
+          const onlineDevices = response.data.devices.filter(device => {
+            const isOnline = 'Online' in device.status;
+            console.log('[Chat] Device status check:', {
+              deviceId: device.id,
+              deviceName: device.name,
+              status: device.status,
+              isOnline
+            });
+            return isOnline;
+          });
+          
+          console.log('[Chat] Contact devices filtered:', {
+            total: response.data.devices.length,
+            online: onlineDevices.length,
+            devices: onlineDevices
+          });
+          
+          if (onlineDevices.length > 0) {
+            console.log('[Chat] Contact has online devices:', onlineDevices);
+            setContactDeviceList(onlineDevices);
+            setHasContactDevices(true);
+          } else {
+            console.log('[Chat] Contact has devices but none are online');
+            setContactDeviceList([]);
+            setHasContactDevices(false);
+          }
         } else {
-          console.log('[Chat] No devices found for contact');
+          console.log('[Chat] No devices found for contact:', {
+            success: response.success,
+            hasData: !!response.data,
+            deviceCount: response.data?.devices.length || 0,
+            error: response.error
+          });
           setContactDeviceList([]);
           setHasContactDevices(false);
         }
@@ -653,7 +716,7 @@ const Chat = () => {
     };
 
     fetchContactDevices();
-  }, [contactPrincipalId]);
+  }, [contactPrincipalId, user?.principalId]);
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -1094,7 +1157,95 @@ const Chat = () => {
                           </div>
                         </div>
                       )}
-                      
+
+                      {/* Send to Device Section - Only show when contact has devices */}
+                      {hasContactDevices && (pendingGif || newMessage.trim()) && (
+                        <div className="bg-white/10 rounded-lg p-3 border border-white/20">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Smartphone className="h-4 w-4 text-cyan-400" />
+                              <span className="text-white text-sm font-medium">
+                                {t('chat.sendToDevice') || 'Send to Device'}
+                              </span>
+                            </div>
+                            <Button
+                              onClick={async () => {
+                                if (!hasContactDevices) {
+                                  toast({
+                                    title: t('chat.error.noDeviceConnected'),
+                                    description: 'Contact has no registered devices',
+                                    variant: "destructive"
+                                  });
+                                  return;
+                                }
+
+                                try {
+                                  const sentTo: string[] = [];
+                                  const errors: string[] = [];
+                                  
+                                  for (const device of contactDeviceList) {
+                                    // Use deviceName (MCP device name) if available, otherwise fall back to name
+                                    const deviceName = device.deviceName || device.name;
+                                    
+                                    console.log('[Chat] Sending to device:', {
+                                      deviceId: device.id,
+                                      deviceName: deviceName,
+                                      name: device.name,
+                                      deviceNameField: device.deviceName,
+                                      productId: device.productId
+                                    });
+                                    
+                                    try {
+                                      if (pendingGif) {
+                                        console.log('[Chat] Sending GIF to contact device:', { deviceName, pendingGif });
+                                        const result = await sendGifToDevice(deviceName, pendingGif);
+                                        if (result.success) {
+                                          sentTo.push(deviceName);
+                                        } else {
+                                          errors.push(`${deviceName}: ${result.error || 'Failed'}`);
+                                        }
+                                      } else if (newMessage.trim()) {
+                                        console.log('[Chat] Sending text to contact device:', { deviceName, message: newMessage });
+                                        const result = await sendMessageToDevices(newMessage, deviceName);
+                                        if (result.success) {
+                                          sentTo.push(deviceName);
+                                        } else {
+                                          errors.push(`${deviceName}: ${result.errors?.join('; ') || 'Failed'}`);
+                                        }
+                                      }
+                                    } catch (error) {
+                                      errors.push(`${deviceName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                    }
+                                  }
+                                  
+                                  if (sentTo.length > 0) {
+                                    toast({
+                                      title: pendingGif ? t('chat.success.gifSent') : t('chat.success.textSent'),
+                                      description: `Sent to ${sentTo.length} of ${contactDeviceList.length} device(s)`,
+                                      variant: "default"
+                                    });
+                                    setPendingGif(null);
+                                    setNewMessage('');
+                                  } else {
+                                    throw new Error(errors.join('; '));
+                                  }
+                                } catch (error) {
+                                  console.error('[Chat] Failed to send to contact devices:', error);
+                                  toast({
+                                    title: t('chat.error.deviceSendFailed'),
+                                    description: error instanceof Error ? error.message : t('chat.error.unknownError'),
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              disabled={!newMessage.trim() && !pendingGif}
+                              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {t('chat.send') || 'Send'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Message Input Row */}
                       <div className="flex items-center gap-2">
@@ -1126,81 +1277,6 @@ const Chat = () => {
                             <Send className="h-3 w-3 sm:h-4 sm:w-4" />
                           )}
                         </Button>
-                        
-                        {/* Send to Contact's Devices Button - Send to CONTACT's devices (not yours) */}
-                        {hasContactDevices && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm text-xs px-3 py-2 min-w-[44px] transition-all duration-200"
-                            onClick={async () => {
-                              if (!hasContactDevices) {
-                                toast({
-                                  title: t('chat.error.noDeviceConnected'),
-                                  description: 'Contact has no registered devices',
-                                  variant: "destructive"
-                                });
-                                return;
-                              }
-
-                              try {
-                                const sentTo: string[] = [];
-                                const errors: string[] = [];
-                                
-                                for (const device of contactDeviceList) {
-                                  const deviceName = device.name; // Contact's device name
-                                  
-                                  try {
-                                    if (pendingGif) {
-                                      // Send GIF to contact's device using MCP
-                                      console.log('[Chat] Sending GIF to contact device:', { deviceName, pendingGif });
-                                      const result = await sendGifToDevice(deviceName, pendingGif);
-                                      if (result.success) {
-                                        sentTo.push(deviceName);
-                                      } else {
-                                        errors.push(`${deviceName}: ${result.error || 'Failed'}`);
-                                      }
-                                    } else if (newMessage.trim()) {
-                                      // Send text to contact's device
-                                      console.log('[Chat] Sending text to contact device:', { deviceName, message: newMessage });
-                                      const result = await sendMessageToDevices(newMessage, deviceName);
-                                      if (result.success) {
-                                        sentTo.push(deviceName);
-                                      } else {
-                                        errors.push(`${deviceName}: ${result.errors?.join('; ') || 'Failed'}`);
-                                      }
-                                    }
-                                  } catch (error) {
-                                    errors.push(`${deviceName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                                  }
-                                }
-                                
-                                if (sentTo.length > 0) {
-                                  toast({
-                                    title: pendingGif ? t('chat.success.gifSent') : t('chat.success.textSent'),
-                                    description: `Sent to ${sentTo.length} of ${contactDeviceList.length} device(s)`,
-                                    variant: "default"
-                                  });
-                                  setPendingGif(null);
-                                  setNewMessage('');
-                                } else {
-                                  throw new Error(errors.join('; '));
-                                }
-                              } catch (error) {
-                                console.error('[Chat] Failed to send to contact devices:', error);
-                                toast({
-                                  title: t('chat.error.deviceSendFailed'),
-                                  description: error instanceof Error ? error.message : t('chat.error.unknownError'),
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                            disabled={!newMessage.trim() && !pendingGif}
-                            title={hasContactDevices ? `Send to ${contactName}'s ${contactDeviceList.length} device(s)` : "Contact has no devices"}
-                          >
-                            <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </Button>
-                        )}
                       </div>
                       
                       {/* Function Buttons Row */}
@@ -1215,11 +1291,11 @@ const Chat = () => {
                           {t('common.emoji')}
                         </Button>
                         
-                        {/* Device Status Indicator */}
-                        <DeviceStatusIndicator 
+                        {/* Device Status Indicator - Hidden in chat page as we show contact's devices instead */}
+                        {/* <DeviceStatusIndicator 
                           showDetails={false}
                           className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border bg-white/5 border-white/10"
-                        />
+                        /> */}
 
                         {/* Device Simulator Controls (Development Only) */}
                         {import.meta.env.DEV && (

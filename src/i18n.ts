@@ -313,8 +313,11 @@ const resources = {
         readyToSend: 'Ready to send',
         backToContacts: 'Back to Contacts',
         pixelArt: 'Pixel Art',
-        debug: {
-          info: 'Debug info'
+        sendToDevice: 'Send to Device',
+        send: 'Send',
+        success: {
+          gifSent: 'GIF Sent',
+          textSent: 'Message Sent'
         },
         error: {
           emptyMessage: 'Message is Empty',
@@ -330,7 +333,10 @@ const resources = {
           contactRestoreFailed: 'Contact Restoration Failed',
           contactRestoreFailedDesc: 'Unable to restore contact information. Please return to contacts list and select the contact again.',
           noContactFromGallery: 'No Contact Information',
-          noContactFromGalleryDesc: 'Unable to find contact information when returning from Gallery. Please select a contact first.'
+          noContactFromGalleryDesc: 'Unable to find contact information when returning from Gallery. Please select a contact first.',
+          noDeviceConnected: 'No Device Connected',
+          deviceSendFailed: 'Failed to Send to Device',
+          unknownError: 'Unknown error occurred'
         }
       },
       userManagement: {
@@ -747,8 +753,11 @@ const resources = {
         readyToSend: '准备发送',
         backToContacts: '返回联系人列表',
         pixelArt: '像素艺术',
-        debug: {
-          info: '调试信息'
+        sendToDevice: '发送到设备',
+        send: '发送',
+        success: {
+          gifSent: 'GIF已发送',
+          textSent: '消息已发送'
         },
         error: {
           emptyMessage: '消息为空',
@@ -762,7 +771,10 @@ const resources = {
           contactRestoreFailed: '联系人信息恢复失败',
           contactRestoreFailedDesc: '无法恢复联系人信息，请返回联系人列表重新选择联系人。',
           noContactFromGallery: '无联系人信息',
-          noContactFromGalleryDesc: '从画廊返回时无法找到联系人信息，请先选择联系人。'
+          noContactFromGalleryDesc: '从画廊返回时无法找到联系人信息，请先选择联系人。',
+          noDeviceConnected: '未连接设备',
+          deviceSendFailed: '发送到设备失败',
+          unknownError: '发生未知错误'
         }
       },
       userManagement: {

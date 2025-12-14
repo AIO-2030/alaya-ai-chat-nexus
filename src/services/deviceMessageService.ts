@@ -270,18 +270,11 @@ class DeviceMessageService {
     // "BLUFI_142B2F6AF8B4" -> "142B2F6AF8B4"
     // "device_1761407113938" -> "1761407113938"
     const parts = bleName.split('_');
-    let deviceName = parts.length > 1 ? parts[parts.length - 1] : bleName;
-    
+    //let deviceName = parts.length > 1 ? parts[parts.length - 1] : bleName;
+    let deviceName = bleName;
     // Check if this is a development board (142B2F6AF8B4)
     const isDevelopment = deviceName === '142B2F6AF8B4';
-    
-    // If it's a development board, map to production device name
-    console.log('[DeviceMessageService] isDevelopment:', isDevelopment, deviceName, '142B2F6AF8B4');
-    if (isDevelopment) {
-      console.log('[DeviceMessageService] Development board detected, mapping to production device name');
-      deviceName = '3CDC7580F950';
-    }
-    
+       
     console.log('[DeviceMessageService] Parsed device name:', { 
       originalBleName: bleName, 
       parts, 
@@ -303,7 +296,8 @@ class DeviceMessageService {
     if (!deviceName && device.name) {
       // Try to extract device name from name field (e.g., "BLUFI_142B2F6AF8B4" -> "142B2F6AF8B4")
       const parts = device.name.split('_');
-      deviceName = parts.length > 1 ? parts[parts.length - 1] : device.name;
+      //deviceName = parts.length > 1 ? parts[parts.length - 1] : device.name;
+      deviceName = device.name;
     }
     
     // Check if this is a development board and map to production device name
@@ -491,7 +485,40 @@ class DeviceMessageService {
 
   // Convert GIF to device message format
   private convertGifToDeviceMessage(gifInfo: GifInfo): DeviceMessage {
-    console.log('[DeviceMessageService] convertGifToDeviceMessage called with:', gifInfo);
+    console.log('[DeviceMessageService] convertGifToDeviceMessage called with:', {
+      title: gifInfo.title,
+      width: gifInfo.width,
+      height: gifInfo.height,
+      hasPixels: !!gifInfo.pixels,
+      hasPalette: !!gifInfo.palette,
+      pixelsLength: gifInfo.pixels?.length,
+      paletteLength: gifInfo.palette?.length
+    });
+    
+    // Check if we have actual pixel data and palette from the GIF
+    const hasActualPixelData = gifInfo.pixels && gifInfo.pixels.length > 0 && 
+                               gifInfo.palette && gifInfo.palette.length > 0;
+    
+    if (!hasActualPixelData) {
+      console.warn('[DeviceMessageService] GIF info missing pixel data or palette, using fallback');
+    }
+    
+    // Use actual pixel data if available, otherwise fall back to simple pattern
+    const pixels = hasActualPixelData 
+      ? gifInfo.pixels 
+      : this.createSimplePixelMatrix(gifInfo.width || 32, gifInfo.height || 32);
+    
+    const palette = hasActualPixelData && gifInfo.palette && gifInfo.palette.length > 0
+      ? gifInfo.palette
+      : this.createSimplePalette();
+    
+    console.log('[DeviceMessageService] Using pixel data:', {
+      hasActualPixelData,
+      pixelsType: Array.isArray(pixels) ? 'array' : typeof pixels,
+      pixelsLength: Array.isArray(pixels) ? pixels.length : 'N/A',
+      paletteLength: palette.length,
+      palettePreview: palette.slice(0, 5)
+    });
     
     // For GIF messages, we need to pass the GIF data in a format that ALAYA MCP can understand
     // The ALAYA MCP service expects either:
@@ -499,16 +526,14 @@ class DeviceMessageService {
     // 2. An object with frames and palette properties
     // 3. An array of frame data
     
-    // Since we have GIF info with URL, we'll create a simple frame-based format
-    // that the MCP service can process
     const gifData = {
-      // Create a simple single-frame animation from the GIF
+      // Use actual pixel data from GIF info
       frames: [{
         frame_index: 0,
-        pixels: this.createSimplePixelMatrix(gifInfo.width || 32, gifInfo.height || 32), // Use 'pixels' to match sendGifAnimationMessage expectations
+        pixels: pixels, // Use actual pixels from gifInfo, not a simple pattern
         duration: gifInfo.duration || 100
       }],
-      palette: this.createSimplePalette(),
+      palette: palette, // Use actual palette from gifInfo
       frame_delay: gifInfo.duration || 100,
       loop_count: 0, // Infinite loop
       width: gifInfo.width || 32,

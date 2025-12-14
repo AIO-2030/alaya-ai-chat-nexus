@@ -258,8 +258,13 @@ class DeviceApiService {
   // Get devices by owner
   async getDevicesByOwner(owner: string, offset: number = 0, limit: number = 20): Promise<ApiResponse<DeviceListResponse>> {
     try {
+      console.log('[DeviceApi] getDevicesByOwner called with owner:', owner);
       const actor = getActor();
       const result = await actor.get_devices_by_owner(owner);
+      console.log('[DeviceApi] get_devices_by_owner result:', {
+        resultLength: result.length,
+        devices: result.map(d => ({ id: d.id, name: d.name, owner: d.owner.toString() }))
+      });
       
       const devices = result.map(device => this.convertDeviceInfoToRecord(device));
       

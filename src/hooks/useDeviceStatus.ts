@@ -130,14 +130,8 @@ export function useDeviceStatus() {
           summary.deviceList.map(async (device) => {
             try {
               // Parse device ID to get product_id and device_name
-              let deviceName = device.name.includes('_') ? device.name.split('_')[1] : device.name;
-              
-              // Check if this is a development board (142B2F6AF8B4) and map to production device name
-              if (deviceName === '142B2F6AF8B4') {
-                console.log('[useDeviceStatus] Development board detected, mapping to production device name');
-                deviceName = '3CDC7580F950';
-              }
-              
+              //let deviceName = device.name.includes('_') ? device.name.split('_')[2] : device.name;
+              let deviceName = device.name;          
               // Convert basic device to extended device type
               const extendedDevice: DeviceStatus = {
                 ...device,
