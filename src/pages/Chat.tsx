@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, Send, Smile, Smartphone } from 'lucide-react';
+import { ArrowLeft, Send, Smile, Smartphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -16,6 +16,8 @@ import {
   sendChatMessage, 
   getRecentChatMessages, 
   getChatHistory,
+  getChatMessagesPaginated,
+  getChatMessageCount,
   startChatWithContact,
   checkForNewMessages,
   NotificationInfo,
@@ -168,10 +170,20 @@ const Chat = () => {
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
   const [contactDeviceList, setContactDeviceList] = useState<DeviceRecord[]>([]);
   const [hasContactDevices, setHasContactDevices] = useState(false);
+  const [showContactDetails, setShowContactDetails] = useState(true); // Control visibility of contact details card
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [unrecoverableGifs, setUnrecoverableGifs] = useState<Set<string>>(new Set());
   const [recoveredImages, setRecoveredImages] = useState<Set<string>>(new Set());
   const imageErrorHandlers = useRef<Map<string, boolean>>(new Map());
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pageSize = 20; // Messages per page
+  const pagesPerLoad = 5; // Load 5 pages at a time
   
 
   // Handle immediate restoration in useEffect to avoid React error #310
@@ -417,10 +429,51 @@ const Chat = () => {
         setSocialPairKey(pairKey);
         console.log('[Chat] Generated social pair key:', pairKey);
         
-        // Load recent chat messages
-        const recentMessages = await getRecentChatMessages(user.principalId, contactPrincipalId);
-        setMessages(recentMessages);
-        console.log('[Chat] Loaded recent messages:', recentMessages.length);
+        // Load initial chat history (latest 5 pages)
+        // Messages are stored from oldest to newest, so we need to load from the end
+        const totalCount = await getChatMessageCount(user.principalId, contactPrincipalId);
+        const initialLoadSize = pageSize * pagesPerLoad;
+        
+        if (totalCount === 0) {
+          setMessages([]);
+          setCurrentPage(0);
+          setHasMoreMessages(false);
+          console.log('[Chat] No messages found');
+        } else {
+          // Calculate offset to load from the end (latest messages first)
+          // If totalCount = 100, initialLoadSize = 100, we want offset = 0 (load all)
+          // If totalCount = 200, initialLoadSize = 100, we want offset = 100 (load last 100)
+          const offset = Math.max(0, totalCount - initialLoadSize);
+          const actualLoadSize = Math.min(initialLoadSize, totalCount - offset);
+          
+          const initialMessages = await getChatMessagesPaginated(
+            user.principalId, 
+            contactPrincipalId, 
+            offset, 
+            actualLoadSize
+          );
+          
+          setMessages(initialMessages);
+          // Set currentOffset to the next offset to load (going backwards, so subtract)
+          setCurrentPage(offset);
+          setHasMoreMessages(offset > 0);
+          console.log('[Chat] Loaded initial messages:', {
+            totalCount,
+            offset,
+            actualLoadSize,
+            messageCount: initialMessages.length,
+            hasMore: offset > 0,
+            currentPage: offset
+          });
+          
+          // Log pagination state for debugging
+          console.log('[Chat] Pagination state after initial load:', {
+            currentPage: offset,
+            hasMoreMessages: offset > 0,
+            totalMessages: totalCount,
+            loadedMessages: initialMessages.length
+          });
+        }
         
       } catch (error) {
         console.error('[Chat] Error initializing chat:', error);
@@ -464,10 +517,170 @@ const Chat = () => {
     }
   }, [searchParams, navigate]);
 
-  // Auto scroll to bottom when messages update
+  // Auto scroll to bottom when messages update (only if not loading more)
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!isLoadingMore) {
+      scrollToBottom();
+    }
+  }, [messages, isLoadingMore]);
+
+  // Load more messages when scrolling to top
+  const loadMoreMessages = useRef<(() => Promise<void>) | null>(null);
+  
+  // Create the load function with useCallback to avoid stale closures
+  useEffect(() => {
+    loadMoreMessages.current = async () => {
+      if (!user?.principalId || !contactPrincipalId || isLoadingMore || !hasMoreMessages) {
+        console.log('[Chat] Cannot load more messages:', {
+          hasUser: !!user?.principalId,
+          hasContact: !!contactPrincipalId,
+          isLoading: isLoadingMore,
+          hasMore: hasMoreMessages
+        });
+        return;
+      }
+
+      try {
+        setIsLoadingMore(true);
+        console.log('[Chat] Loading more messages, current offset:', currentPage);
+        
+        // Calculate next offset to load (going backwards, so subtract)
+        // currentPage represents the current offset (the oldest message we've loaded)
+        const loadPageSize = pageSize * pagesPerLoad;
+        const nextOffset = Math.max(0, currentPage - loadPageSize);
+        const actualLoadSize = currentPage - nextOffset;
+        
+        console.log('[Chat] Pagination calculation:', {
+          currentPage,
+          loadPageSize,
+          nextOffset,
+          actualLoadSize
+        });
+        
+        if (actualLoadSize <= 0) {
+          setHasMoreMessages(false);
+          console.log('[Chat] No more messages to load');
+          return;
+        }
+        
+        const olderMessages = await getChatMessagesPaginated(
+          user.principalId, 
+          contactPrincipalId, 
+          nextOffset, 
+          actualLoadSize
+        );
+        
+        console.log('[Chat] Retrieved older messages:', {
+          count: olderMessages.length,
+          nextOffset,
+          actualLoadSize
+        });
+        
+        if (olderMessages.length > 0) {
+          // Get current scroll position before adding messages
+          const container = messagesContainerRef.current;
+          const scrollHeightBefore = container?.scrollHeight || 0;
+          const scrollTopBefore = container?.scrollTop || 0;
+          
+          // Prepend older messages to the beginning
+          setMessages(prev => [...olderMessages, ...prev]);
+          
+          // Update pagination state
+          setCurrentPage(nextOffset);
+          setHasMoreMessages(nextOffset > 0);
+          
+          // Restore scroll position after messages are added
+          setTimeout(() => {
+            if (container) {
+              const scrollHeightAfter = container.scrollHeight;
+              const scrollDiff = scrollHeightAfter - scrollHeightBefore;
+              container.scrollTop = scrollTopBefore + scrollDiff;
+              console.log('[Chat] Scroll position restored:', {
+                before: scrollTopBefore,
+                after: container.scrollTop,
+                diff: scrollDiff
+              });
+            }
+          }, 0);
+          
+          console.log('[Chat] Loaded more messages:', {
+            messageCount: olderMessages.length,
+            nextOffset,
+            hasMore: nextOffset > 0
+          });
+        } else {
+          setHasMoreMessages(false);
+          console.log('[Chat] No more messages to load');
+        }
+      } catch (error) {
+        console.error('[Chat] Error loading more messages:', error);
+      } finally {
+        setIsLoadingMore(false);
+      }
+    };
+  }, [user?.principalId, contactPrincipalId, isLoadingMore, hasMoreMessages, currentPage]);
+
+  // Handle scroll event to detect when user scrolls to top
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || isLoadingChat) {
+      console.log('[Chat] Scroll listener not attached:', {
+        hasContainer: !!container,
+        isLoadingChat
+      });
+      return;
+    }
+
+    const handleScroll = () => {
+      // Clear previous timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Debounce: wait 100ms after scrolling stops before checking (reduced for better responsiveness)
+      scrollTimeoutRef.current = setTimeout(() => {
+        // Check if user scrolled near the top (within 300px for better UX on mobile)
+        const scrollTop = container.scrollTop;
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+        const distanceFromTop = scrollTop;
+        const shouldLoad = distanceFromTop < 300 && hasMoreMessages && !isLoadingMore;
+        
+        console.log('[Chat] Scroll event (debounced):', {
+          scrollTop,
+          scrollHeight,
+          clientHeight,
+          distanceFromTop,
+          hasMore: hasMoreMessages,
+          isLoading: isLoadingMore,
+          shouldLoad,
+          canScroll: scrollHeight > clientHeight
+        });
+        
+        if (shouldLoad && loadMoreMessages.current) {
+          console.log('[Chat] ✅ Triggering load more messages');
+          loadMoreMessages.current();
+        }
+      }, 100);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    
+    console.log('[Chat] Scroll listener attached, state:', {
+      hasMore: hasMoreMessages,
+      isLoading: isLoadingMore,
+      isLoadingChat
+    });
+    
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+      container.removeEventListener('scroll', handleScroll);
+      console.log('[Chat] Scroll listener removed');
+    };
+  }, [hasMoreMessages, isLoadingMore, isLoadingChat]);
 
   // Check for unrecoverable blob URLs on message load (page refresh scenario)
   useEffect(() => {
@@ -990,20 +1203,38 @@ const Chat = () => {
                     </div>
 
                 {/* Contact Details */}
-                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-white/3">
-                  <div className="p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
-                    <div className="text-xs sm:text-sm text-white/80 space-y-1">
-                      <p><span className="text-cyan-400">Devices:</span> {contactDeviceList.length > 0 ? `${contactDeviceList.length} device(s)` : 'None'}</p>
-                      <p><span className="text-cyan-400">Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
-                      {currentContact.contactPrincipalId && (
-                        <p><span className="text-cyan-400">Principal ID:</span> <code className="text-cyan-300 text-xs">{currentContact.contactPrincipalId}</code></p>
-                      )}
+                {showContactDetails && (
+                  <div className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-white/3">
+                    <div className="relative p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
+                      {/* Close Button */}
+                      <button
+                        onClick={() => setShowContactDetails(false)}
+                        className="absolute top-2 right-2 p-1 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all duration-200 backdrop-blur-sm"
+                        style={{
+                          WebkitTapHighlightColor: 'transparent',
+                          WebkitFontSmoothing: 'antialiased',
+                          MozOsxFontSmoothing: 'grayscale',
+                        }}
+                        aria-label="Close contact details"
+                      >
+                        <X className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </button>
+                      <div className="text-xs sm:text-sm text-white/80 space-y-1 pr-6">
+                        <p><span className="text-cyan-400">Devices:</span> {contactDeviceList.length > 0 ? `${contactDeviceList.length} device(s)` : 'None'}</p>
+                        <p><span className="text-cyan-400">Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
+                        {currentContact.contactPrincipalId && (
+                          <p><span className="text-cyan-400">Principal ID:</span> <code className="text-cyan-300 text-xs">{currentContact.contactPrincipalId}</code></p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Messages Area */}
-                <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-900/20">
+                <div 
+                  ref={messagesContainerRef}
+                  className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-900/20"
+                >
                   {isLoadingChat ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-white/60 text-sm">Loading chat history...</div>
@@ -1016,8 +1247,18 @@ const Chat = () => {
                       </div>
                     </div>
                   ) : (
-                    messages
-                      .filter(message => {
+                    <>
+                      {/* Loading indicator when loading more messages */}
+                      {isLoadingMore && (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="text-white/60 text-sm flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <span>加载历史消息...</span>
+                          </div>
+                        </div>
+                      )}
+                      {messages
+                        .filter(message => {
                         // Skip messages without proper content (e.g., GIF messages without gifInfo)
                         if (message.mode === 'Gif' && !message.gifInfo) {
                           console.warn('[Chat] Skipping message without gifInfo:', message);
@@ -1117,7 +1358,8 @@ const Chat = () => {
                           </div>
                         </div>
                       </div>
-                    ))
+                    ))}
+                    </>
                   )}
                   {/* Hidden element for auto scroll to bottom */}
                   <div ref={messagesEndRef} />

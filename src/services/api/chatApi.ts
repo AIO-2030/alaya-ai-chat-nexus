@@ -79,7 +79,8 @@ export interface GifInfo {
   sourceType: string;       // "gif"
   sourceId?: string;        // GIF ID
   palette?: string[];       // Color palette for restoration
-  pixels?: number[][];      // Pixel data for restoration
+  pixels?: number[][];      // Pixel data for restoration (single frame, for backward compatibility)
+  frames?: PixelFrame[];    // Multi-frame pixel data (preferred for animations)
 }
 
 // Pixel animation frame data

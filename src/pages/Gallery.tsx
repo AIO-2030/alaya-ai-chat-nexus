@@ -17,6 +17,7 @@ import { PixelCreationApi, ProjectListItem } from '../services/api/pixelCreation
 import { useAuth } from '../lib/auth';
 import { PixelArtInfo, GifInfo } from '../services/api/chatApi';
 import { convertPixelResultToGif, convertUserCreationToGif, GifResult } from '../lib/pixelToGifConverter';
+import { convertGifToPixelAnimation } from '../services/api/pixelCreationApi';
 
 interface GalleryItem {
   id: number;
@@ -456,8 +457,36 @@ const Gallery = () => {
       setIsUsingItem(true);
       console.log('[Gallery] Using GIF item:', item.title);
       
-      // Create GIF info object for chat
-      const gifData = {
+      // Load and parse GIF to extract pixel data
+      console.log('[Gallery] Loading GIF to extract pixel data:', item.gifUrl);
+      const pixelAnimationResult = await convertGifToPixelAnimation(
+        item.gifUrl,
+        item.title,
+        {
+          targetWidth: item.width,
+          targetHeight: item.height,
+          maxColors: 16,
+          frameDelay: item.duration
+        }
+      );
+      
+      if (!pixelAnimationResult.success || !pixelAnimationResult.animationData) {
+        console.error('[Gallery] Failed to extract pixel data from GIF:', pixelAnimationResult.error);
+        throw new Error(`Failed to extract pixel data from GIF: ${pixelAnimationResult.error || 'Unknown error'}`);
+      }
+      
+      const animationData = pixelAnimationResult.animationData;
+      console.log('[Gallery] Extracted pixel data from GIF:', {
+        width: animationData.width,
+        height: animationData.height,
+        paletteLength: animationData.palette.length,
+        frameCount: animationData.frames.length,
+        pixelsLength: animationData.frames[0]?.pixels?.length,
+        hasPixels: !!animationData.frames[0]?.pixels
+      });
+      
+      // Create GIF info object for chat with pixel data (supporting multi-frame)
+      const gifData: GifInfo = {
         gifUrl: item.gifUrl,
         thumbnailUrl: item.thumbnailUrl,
         title: item.title,
@@ -465,10 +494,17 @@ const Gallery = () => {
         width: item.width,
         height: item.height,
         sourceType: 'gif',
-        sourceId: item.id.toString()
+        sourceId: item.id.toString(),
+        palette: animationData.palette, // Include palette from extracted data
+        pixels: animationData.frames[0]?.pixels || [], // Include pixels from first frame (for backward compatibility)
+        frames: animationData.frames // Include all frames for multi-frame support
       };
 
-      console.log('[Gallery] Created GIF data for GIF item:', gifData);
+      console.log('[Gallery] Created GIF data for GIF item with pixel data:', {
+        ...gifData,
+        paletteLength: gifData.palette?.length,
+        pixelsLength: gifData.pixels?.length
+      });
 
       // Set sessionStorage flag and include in URL parameters
       sessionStorage.setItem('returning_from_gallery', 'true');
@@ -518,59 +554,59 @@ const Gallery = () => {
     { id: 6, title: 'Star', creator: 'User6', likes: 28, emoji: '⭐' },
   ]);
 
-  // Mock data for GIF emojis
+  // Mock data for GIF emojis,from https://vsgif.com/emoji
   const [gifGalleryItems, setGifGalleryItems] = useState<GifItem[]>([
     { 
       id: 1, 
-      title: 'Dancing Cat', 
+      title: 'Happy Face', 
       creator: 'User1', 
       likes: 89, 
-      gifUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
-      thumbnailUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      gifUrl: '/gifs/vsgif_com_happy-face-emoji_.3432464.gif',
+      thumbnailUrl: '/gifs/vsgif_com_happy-face-emoji_.3432464.gif',
       duration: 2000,
       width: 480,
       height: 480
     },
     { 
       id: 2, 
-      title: 'Happy Dance', 
+      title: 'Mind Blown', 
       creator: 'User2', 
       likes: 156, 
-      gifUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
-      thumbnailUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      gifUrl: '/gifs/vsgif_com_mind-blown-emoji_.3433917.gif',
+      thumbnailUrl: '/gifs/vsgif_com_mind-blown-emoji_.3433917.gif',
       duration: 3000,
       width: 480,
       height: 270
     },
     { 
       id: 3, 
-      title: 'Celebration', 
+      title: 'Awesome', 
       creator: 'User3', 
       likes: 203, 
-      gifUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
-      thumbnailUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      gifUrl: '/gifs/vsgif_com_awesome-piece-emoji_.3432474.gif',
+      thumbnailUrl: '/gifs/vsgif_com_awesome-piece-emoji_.3432474.gif',
       duration: 2500,
       width: 480,
       height: 480
     },
     { 
       id: 4, 
-      title: 'Thumbs Up', 
+      title: 'Angel', 
       creator: 'User4', 
       likes: 78, 
-      gifUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
-      thumbnailUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      gifUrl: '/gifs/vsgif_com_angel-emoji_.3432483.gif',
+      thumbnailUrl: '/gifs/vsgif_com_angel-emoji_.3432483.gif',
       duration: 1800,
       width: 480,
       height: 270
     },
     { 
       id: 5, 
-      title: 'Wave Hello', 
+      title: 'Celebration', 
       creator: 'User5', 
       likes: 134, 
-      gifUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
-      thumbnailUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVy/giphy.gif',
+      gifUrl: '/gifs/vsgif_com__.3078255.gif',
+      thumbnailUrl: '/gifs/vsgif_com__.3078255.gif',
       duration: 2200,
       width: 480,
       height: 480
@@ -580,8 +616,8 @@ const Gallery = () => {
       title: 'Love Heart', 
       creator: 'User6', 
       likes: 167, 
-      gifUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
-      thumbnailUrl: 'https://media.giphy.com/media/26BRrSvJUa28UAZSU/giphy.gif',
+      gifUrl: '/gifs/vsgif_com_loved-and-roses-emoji_.3432461.gif',
+      thumbnailUrl: '/gifs/vsgif_com_loved-and-roses-emoji_.3432461.gif',
       duration: 2800,
       width: 480,
       height: 270

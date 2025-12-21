@@ -22,6 +22,7 @@ import {
   ContactInfo 
 } from '../services/api/userApi';
 import { copyWithFeedback } from '../utils/clipboard.js';
+import QRCodeScanner from '../components/QRCodeScanner';
 
 const Contracts = () => {
   const { user, loading: authLoading } = useAuth();
@@ -39,6 +40,7 @@ const Contracts = () => {
   const [newContactPrincipalId, setNewContactPrincipalId] = useState('');
   const [newContactNickname, setNewContactNickname] = useState('');
   const [addingContact, setAddingContact] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   // Get user principal ID for API calls
   const getUserPrincipalId = (): string => {
@@ -642,13 +644,26 @@ const Contracts = () => {
                 <div className="text-xs sm:text-sm text-white/80 space-y-2 sm:space-y-3">
                   <div>
                     <p className="text-cyan-400 mb-1 sm:mb-2 text-xs sm:text-sm">Principal ID:</p>
-                    <Input
-                      value={newContactPrincipalId}
-                      onChange={(e) => setNewContactPrincipalId(e.target.value)}
-                      placeholder="Enter Principal ID"
-                      className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm"
-                      disabled={addingContact}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={newContactPrincipalId}
+                        onChange={(e) => setNewContactPrincipalId(e.target.value)}
+                        placeholder="Enter Principal ID"
+                        className="bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm flex-1"
+                        disabled={addingContact}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm px-2 sm:px-3"
+                        onClick={() => setShowQRScanner(true)}
+                        disabled={addingContact}
+                        title={t('common.scanQRCode')}
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <p className="text-cyan-400 mb-1 sm:mb-2 text-xs sm:text-sm">Nickname (optional):</p>
@@ -735,6 +750,38 @@ const Contracts = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* QR Code Scanner */}
+        <QRCodeScanner
+          isOpen={showQRScanner}
+          onClose={() => setShowQRScanner(false)}
+          onScan={(result) => {
+            console.log('[Contracts] QR Code scanned:', result);
+            
+            // Extract principal ID from scanned result
+            // Handle both direct principal ID and URL format (univoice://add-friend?uid=xxx)
+            let principalId = result.trim();
+            
+            // If it's a URL format, extract the principal ID
+            if (principalId.startsWith('univoice://')) {
+              try {
+                const url = new URL(principalId.replace('univoice://', 'https://'));
+                principalId = url.searchParams.get('uid') || principalId;
+              } catch (e) {
+                console.warn('[Contracts] Failed to parse URL format, using raw result');
+              }
+            }
+            
+            // Set the principal ID in the input field
+            if (principalId) {
+              setNewContactPrincipalId(principalId);
+              setError(null);
+              console.log('[Contracts] Principal ID extracted:', principalId);
+            } else {
+              setError('Invalid QR code format. Please scan a valid Principal ID QR code.');
+            }
+          }}
+        />
       </div>
     </PageLayout>
   );

@@ -43,6 +43,8 @@ class DeviceMessageService {
   private messageQueue: DeviceMessage[] = [];
   private tencentIoTEnabled: boolean = false;
   private deviceSyncInterval: ReturnType<typeof setInterval> | null = null;
+  private deviceStatusCache: Map<string, { status: DeviceStatus; timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 4 * 60 * 1000; // Cache device status for 4 minutes (slightly less than 5-minute sync interval)
 
   // Initialize Tencent IoT Cloud integration via MCP
   async initializeTencentIoT(): Promise<boolean> {
@@ -106,12 +108,14 @@ class DeviceMessageService {
       clearInterval(this.deviceSyncInterval);
     }
 
-    // Sync device status every 30 seconds
+    // Sync device status every 5 minutes to avoid excessive MCP calls
+    // Note: useDeviceStatus hook also has a 5-minute interval, but this provides
+    // a fallback for cases where the hook is not used
     this.deviceSyncInterval = setInterval(async () => {
       if (this.tencentIoTEnabled) {
         await this.syncDevicesFromCanister();
       }
-    }, 30000);
+    }, 5 * 60 * 1000); // 5 minutes
   }
 
   // Sync device list from canister
@@ -150,7 +154,24 @@ class DeviceMessageService {
             deviceNameForTransfer = '3CDC7580F950';
             console.log('[DeviceMessageService] transfer deviceName ,productId:', deviceName, productId);
           }
-          // Call MCP getDeviceStatus for this device
+          
+          // Check cache first to avoid excessive MCP calls
+          const cacheKey = `${productId}:${deviceNameForTransfer}`;
+          const cached = this.deviceStatusCache.get(cacheKey);
+          const now = Date.now();
+          
+          if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+            console.log('[DeviceMessageService] Using cached device status for:', cacheKey, 'age:', Math.round((now - cached.timestamp) / 1000), 'seconds');
+            const deviceStatus: DeviceStatus = {
+              ...cached.status,
+              deviceId: deviceId, // Update deviceId in case it changed
+            };
+            deviceStatuses.push(deviceStatus);
+            return;
+          }
+          
+          // Call MCP getDeviceStatus for this device (only if cache expired or missing)
+          console.log('[DeviceMessageService] Fetching fresh device status from MCP for:', cacheKey);
           const mcpResult = await alayaMcpService.getDeviceStatus(productId, deviceNameForTransfer);
           
           if (mcpResult.success && mcpResult.data) {
@@ -169,6 +190,12 @@ class DeviceMessageService {
               batteryLevel: undefined, // Not available in new API
               productId: productId
             };
+            
+            // Cache the device status to avoid frequent MCP calls
+            this.deviceStatusCache.set(cacheKey, {
+              status: deviceStatus,
+              timestamp: now
+            });
             
             deviceStatuses.push(deviceStatus);
             console.log('[DeviceMessageService] Device status retrieved via MCP:', {
@@ -526,15 +553,37 @@ class DeviceMessageService {
     // 2. An object with frames and palette properties
     // 3. An array of frame data
     
-    const gifData = {
-      // Use actual pixel data from GIF info
-      frames: [{
+    // Check if we have multi-frame data
+    const hasMultiFrame = gifInfo.frames && gifInfo.frames.length > 0;
+    
+    let gifFrames: Array<{ frame_index: number; pixels: number[][]; duration: number }>;
+    
+    if (hasMultiFrame && gifInfo.frames) {
+      // Use multi-frame data
+      console.log('[DeviceMessageService] Using multi-frame GIF data:', {
+        frameCount: gifInfo.frames.length,
+        durations: gifInfo.frames.map(f => f.duration)
+      });
+      gifFrames = gifInfo.frames.map((frame, index) => ({
+        frame_index: index,
+        pixels: frame.pixels || [],
+        duration: frame.duration || gifInfo.duration || 100
+      }));
+    } else {
+      // Fallback to single frame
+      console.log('[DeviceMessageService] Using single-frame GIF data');
+      gifFrames = [{
         frame_index: 0,
-        pixels: pixels, // Use actual pixels from gifInfo, not a simple pattern
+        pixels: pixels || [], // Use actual pixels from gifInfo, not a simple pattern
         duration: gifInfo.duration || 100
-      }],
+      }];
+    }
+    
+    const gifData = {
+      // Use actual pixel data from GIF info (multi-frame if available)
+      frames: gifFrames,
       palette: palette, // Use actual palette from gifInfo
-      frame_delay: gifInfo.duration || 100,
+      frame_delay: gifInfo.duration || 100, // Default frame delay
       loop_count: 0, // Infinite loop
       width: gifInfo.width || 32,
       height: gifInfo.height || 32,

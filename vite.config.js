@@ -63,9 +63,9 @@ export default defineConfig(({ mode }) => ({
         base-uri 'self';
         frame-ancestors 'none';
         worker-src 'self' blob:;
-        media-src 'self' blob:;
-        camera 'self' 'unsafe-inline';
+        media-src 'self' blob: mediastream:;
       `.replace(/\s+/g, ' ').trim(),
+      'Permissions-Policy': 'camera=(self), microphone=(self), clipboard-read=(self), clipboard-write=(self)',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Origin, Accept',
