@@ -74,6 +74,10 @@ const Creation = () => {
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   
+  // AI creation original image (for display, separate from pixel canvas)
+  const [aiOriginalImage, setAiOriginalImage] = useState<string | null>(null);
+  const [isAiCreationMode, setIsAiCreationMode] = useState(false);
+  
   // Voice recording state
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -302,21 +306,23 @@ const Creation = () => {
       if (result.success && result.data?.image_base64) {
         console.log('✅ AI image generation successful');
         
-        // Convert the generated image to pixel data and display on canvas
-        const success = await convertBase64ToPixelData(result.data.image_base64);
+        // Store the original AI-generated image for display
+        setAiOriginalImage(result.data.image_base64);
+        setIsAiCreationMode(true);
         
-        if (success) {
-          toast({
-            title: t('gallery.aiCreationDrawer.errors.aiCreationStarted'),
-            description: t('gallery.aiCreationDrawer.errors.aiCreationStartedDesc', { prompt: aiPrompt }),
-            variant: "default",
-          });
-          
-          // Close drawer after successful generation
-          handleAiCreationClose();
-        } else {
-          throw new Error('Failed to process generated image');
-        }
+        // Clear pixel canvas to show AI image clearly
+        const clearPixels = new Uint8Array(rows * cols).fill(1); // Fill with white
+        setPixels(clearPixels);
+        pushHistory(clearPixels);
+        
+        toast({
+          title: t('gallery.aiCreationDrawer.errors.aiCreationStarted'),
+          description: t('gallery.aiCreationDrawer.errors.aiCreationStartedDesc', { prompt: aiPrompt }),
+          variant: "success",
+        });
+        
+        // Close drawer after successful generation
+        handleAiCreationClose();
       } else {
         throw new Error(result.error || 'Image generation failed');
       }
@@ -405,146 +411,77 @@ const Creation = () => {
   };
 
   // Convert base64 image to pixel data and display on canvas
+  // Uses the same algorithm as convertImageToPixelArt for consistency
   const convertBase64ToPixelData = useCallback(async (base64Image: string) => {
     try {
-      console.log('🎨 [Creation] Starting image conversion from MCP result...');
-      console.log('🎨 [Creation] Base64 image length:', base64Image.length);
-      console.log('🎨 [Creation] Base64 image preview:', base64Image.substring(0, 100) + '...');
-      console.log('🎨 [Creation] Base64 image format check:', {
-        hasDataUrlPrefix: base64Image.startsWith('data:image/'),
-        isPng: base64Image.includes('data:image/png'),
-        isJpg: base64Image.includes('data:image/jpeg'),
-        isWebp: base64Image.includes('data:image/webp')
-      });
+      console.log('🎨 [Creation] Starting image conversion from MCP result using convertImageToPixelArt algorithm...');
       
-      // Create an image element to load the base64 data
-      const img = new Image();
+      // Convert base64 to File object to reuse convertImageToPixelArt
+      // Extract base64 data (remove data:image/...;base64, prefix if present)
+      let base64Data = base64Image;
+      if (base64Image.includes(',')) {
+        base64Data = base64Image.split(',')[1];
+      }
       
-      return new Promise<boolean>((resolve) => {
-        img.onload = () => {
-          try {
-            console.log('🖼️ [Creation] Image loaded successfully from MCP result:');
-            console.log('🖼️ [Creation] - Original dimensions:', img.width, 'x', img.height);
-            console.log('🖼️ [Creation] - Natural dimensions:', img.naturalWidth, 'x', img.naturalHeight);
-            console.log('🖼️ [Creation] - Image complete:', img.complete);
-            
-            // Create a temporary canvas to process the image
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            if (!tempCtx) {
-              console.error('❌ [Creation] Failed to get 2D context');
-              resolve(false);
-              return;
-            }
+      // Decode base64 to binary
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Create blob and file from binary data
+      const blob = new Blob([bytes], { type: 'image/png' });
+      const file = new File([blob], 'ai-generated-image.png', { type: 'image/png' });
+      
+      // Use the same conversion function as image import
+      const options: ImageImportOptions = {
+        targetWidth: cols,
+        targetHeight: rows,
+        maxColors: palette.length || 16,
+        enableDithering: false,
+        preserveAspectRatio: true,
+        scaleMode: 'fill' // Use 'fill' to maximize canvas usage
+      };
 
-            // Set canvas size to match our pixel grid (32x32)
-            tempCanvas.width = 32;
-            tempCanvas.height = 32;
-            
-            console.log('🎨 [Creation] Drawing MCP image to 32x32 canvas...');
-            
-            // Draw the image scaled to 32x32
-            tempCtx.drawImage(img, 0, 0, 32, 32);
-            
-            // Get image data
-            const imageData = tempCtx.getImageData(0, 0, 32, 32);
-            const data = imageData.data;
-            
-            console.log('📊 [Creation] Image data extracted from MCP result:');
-            console.log('📊 [Creation] - Data length:', data.length, 'Expected:', 32 * 32 * 4);
-            console.log('📊 [Creation] - Data type:', typeof data, 'Is Uint8ClampedArray:', data instanceof Uint8ClampedArray);
-            
-            // Convert to pixel indices using existing palette
-            const newPixels = new Uint8Array(32 * 32);
-            let nonWhitePixels = 0;
-            let transparentPixels = 0;
-            let colorDistribution: { [key: number]: number } = {};
-            
-            console.log('🎨 [Creation] Converting MCP image to pixel art using palette:');
-            console.log('🎨 [Creation] - Palette size:', palette.length);
-            console.log('🎨 [Creation] - Palette colors:', palette);
-            
-            for (let i = 0; i < data.length; i += 4) {
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-              const a = data[i + 3];
-              
-              // Skip transparent pixels
-              if (a < 128) {
-                newPixels[i / 4] = 1; // Use white (index 1) for transparent
-                transparentPixels++;
-                continue;
-              }
-              
-              // Convert RGB to hex
-              const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-              
-              // Find closest color in palette
-              let closestIndex = 1; // Default to white
-              let minDistance = Infinity;
-              
-              palette.forEach((paletteColor, index) => {
-                const paletteRgb = hexToRgb(paletteColor);
-                if (paletteRgb) {
-                  const distance = Math.sqrt(
-                    Math.pow(r - paletteRgb.r, 2) +
-                    Math.pow(g - paletteRgb.g, 2) +
-                    Math.pow(b - paletteRgb.b, 2)
-                  );
-                  
-                  if (distance < minDistance) {
-                    minDistance = distance;
-                    closestIndex = index;
-                  }
-                }
-              });
-              
-              newPixels[i / 4] = closestIndex;
-              
-              // Count color distribution
-              colorDistribution[closestIndex] = (colorDistribution[closestIndex] || 0) + 1;
-              
-              // Count non-white pixels for debugging
-              if (closestIndex !== 1) {
-                nonWhitePixels++;
-              }
+      const result = await convertImageToPixelArt(file, options);
+      
+      if (result.success && result.pixelArt) {
+        const importedPixelArt = result.pixelArt;
+        
+        // Convert 2D array to flat array for pixels
+        const flatPixels = new Uint8Array(cols * rows);
+        
+        // Copy imported pixels
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            if (y < importedPixelArt.height && x < importedPixelArt.width) {
+              flatPixels[y * cols + x] = importedPixelArt.pixels[y][x];
+            } else {
+              // Fallback to white
+              flatPixels[y * cols + x] = 0; // Assuming 0 is white in the palette
             }
-            
-            console.log('🎨 [Creation] MCP image conversion completed:');
-            console.log('🎨 [Creation] - Non-white pixels:', nonWhitePixels, 'out of', 32 * 32);
-            console.log('🎨 [Creation] - Transparent pixels:', transparentPixels);
-            console.log('🎨 [Creation] - Color distribution:', colorDistribution);
-            console.log('🎨 [Creation] - Sample pixels (first 20):', Array.from(newPixels.slice(0, 20)));
-            console.log('🎨 [Creation] - Sample pixels (last 20):', Array.from(newPixels.slice(-20)));
-            
-            // Update the canvas with new pixel data
-            console.log('🎨 [Creation] Updating canvas with MCP-generated pixel data...');
-            setPixels(newPixels);
-            pushHistory(newPixels);
-            
-            console.log('✅ [Creation] MCP image conversion and canvas update completed successfully');
-            resolve(true);
-          } catch (error) {
-            console.error('❌ [Creation] Error processing MCP image data:', error);
-            resolve(false);
           }
-        };
+        }
         
-        img.onerror = (error) => {
-          console.error('❌ [Creation] Error loading MCP image:', error);
-          console.error('❌ [Creation] Image source:', base64Image.substring(0, 200) + '...');
-          resolve(false);
-        };
+        // Update the canvas with imported data
+        setPixels(flatPixels);
+        setPalette(importedPixelArt.palette);
         
-        console.log('🎨 [Creation] Setting image source to load MCP result...');
-        img.src = base64Image;
-      });
+        // Add to history
+        pushHistory(flatPixels);
+        
+        console.log('✅ [Creation] MCP image conversion completed successfully using convertImageToPixelArt');
+        return true;
+      } else {
+        console.error('❌ [Creation] Failed to convert MCP image:', result.error);
+        return false;
+      }
     } catch (error) {
       console.error('❌ [Creation] Error in convertBase64ToPixelData:', error);
       return false;
     }
-  }, [palette, pushHistory]);
+  }, [cols, rows, palette, pushHistory, setPixels, setPalette]);
 
   // Drawing operations
   const setPixel = useCallback((x: number, y: number, idx: number) => {
@@ -597,6 +534,18 @@ const Creation = () => {
           variant: "destructive",
         });
         setIsSaving(false);
+        return;
+      }
+
+      // If in AI creation mode, prompt user to convert to pixel art first
+      if (isAiCreationMode && aiOriginalImage) {
+        toast({
+          title: t('gallery.convertToPixelCanvasFirst'),
+          description: t('gallery.convertToPixelCanvasFirstDesc'),
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        setShowSaveDialog(false);
         return;
       }
 
@@ -924,29 +873,6 @@ const Creation = () => {
     const display = displayRef.current;
     if (!buffer || !display) return;
 
-    // Ensure buffer matches logical grid size
-    if (buffer.width !== cols || buffer.height !== rows) {
-      buffer.width = cols;
-      buffer.height = rows;
-    }
-
-    // Draw logical pixels
-    const bctx = buffer.getContext("2d", { willReadFrequently: true })!;
-    const image = bctx.createImageData(cols, rows);
-    for (let i = 0; i < pixels.length; i++) {
-      const idx = pixels[i];
-      const col = palette[idx] || "#000000";
-      const r = parseInt(col.slice(1, 3), 16);
-      const g = parseInt(col.slice(3, 5), 16);
-      const b = parseInt(col.slice(5, 7), 16);
-      const off = i * 4;
-      image.data[off] = r;
-      image.data[off + 1] = g;
-      image.data[off + 2] = b;
-      image.data[off + 3] = 255;
-    }
-    bctx.putImageData(image, 0, 0);
-
     // Scale to display - Optimize for mobile screens
     const container = display.parentElement;
     let currentScale = scale;
@@ -976,30 +902,90 @@ const Creation = () => {
     display.style.height = `${rows * currentScale}px`;
     
     const dctx = display.getContext("2d", { willReadFrequently: true })!;
-    dctx.imageSmoothingEnabled = false;
     dctx.clearRect(0, 0, display.width, display.height);
-    dctx.drawImage(buffer, 0, 0, display.width, display.height);
 
-    // Grid overlay
-    if (showGrid && currentScale >= 6) {
-      dctx.strokeStyle = "rgba(255,255,255,0.3)";
-      dctx.lineWidth = 1;
-      for (let x = 0; x <= cols; x++) {
-        const sx = x * currentScale + 0.5;
-        dctx.beginPath(); 
-        dctx.moveTo(sx, 0); 
-        dctx.lineTo(sx, rows * currentScale); 
-        dctx.stroke();
+    // If in AI creation mode, display the original image
+    if (isAiCreationMode && aiOriginalImage) {
+      // Display original AI-generated image
+      dctx.imageSmoothingEnabled = true;
+      dctx.imageSmoothingQuality = 'high';
+      
+      const img = new Image();
+      img.onload = () => {
+        // Calculate aspect ratio and fit image within canvas
+        const imgAspect = img.width / img.height;
+        const canvasAspect = display.width / display.height;
+        
+        let drawWidth = display.width;
+        let drawHeight = display.height;
+        let offsetX = 0;
+        let offsetY = 0;
+        
+        if (imgAspect > canvasAspect) {
+          // Image is wider, fit to width
+          drawHeight = display.width / imgAspect;
+          offsetY = (display.height - drawHeight) / 2;
+        } else {
+          // Image is taller, fit to height
+          drawWidth = display.height * imgAspect;
+          offsetX = (display.width - drawWidth) / 2;
+        }
+        
+        dctx.clearRect(0, 0, display.width, display.height);
+        dctx.fillStyle = '#ffffff';
+        dctx.fillRect(0, 0, display.width, display.height);
+        dctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      };
+      img.src = aiOriginalImage;
+    } else {
+      // Normal pixel art rendering (hand-drawn mode)
+      // Ensure buffer matches logical grid size
+      if (buffer.width !== cols || buffer.height !== rows) {
+        buffer.width = cols;
+        buffer.height = rows;
       }
-      for (let y = 0; y <= rows; y++) {
-        const sy = y * currentScale + 0.5;
-        dctx.beginPath(); 
-        dctx.moveTo(0, sy); 
-        dctx.lineTo(cols * currentScale, sy); 
-        dctx.stroke();
+
+      // Draw logical pixels
+      const bctx = buffer.getContext("2d", { willReadFrequently: true })!;
+      const image = bctx.createImageData(cols, rows);
+      for (let i = 0; i < pixels.length; i++) {
+        const idx = pixels[i];
+        const col = palette[idx] || "#000000";
+        const r = parseInt(col.slice(1, 3), 16);
+        const g = parseInt(col.slice(3, 5), 16);
+        const b = parseInt(col.slice(5, 7), 16);
+        const off = i * 4;
+        image.data[off] = r;
+        image.data[off + 1] = g;
+        image.data[off + 2] = b;
+        image.data[off + 3] = 255;
+      }
+      bctx.putImageData(image, 0, 0);
+      
+      dctx.imageSmoothingEnabled = false;
+      dctx.drawImage(buffer, 0, 0, display.width, display.height);
+
+      // Grid overlay (only for pixel art mode)
+      if (showGrid && currentScale >= 6) {
+        dctx.strokeStyle = "rgba(255,255,255,0.3)";
+        dctx.lineWidth = 1;
+        for (let x = 0; x <= cols; x++) {
+          const sx = x * currentScale + 0.5;
+          dctx.beginPath(); 
+          dctx.moveTo(sx, 0); 
+          dctx.lineTo(sx, rows * currentScale); 
+          dctx.stroke();
+        }
+        for (let y = 0; y <= rows; y++) {
+          const sy = y * currentScale + 0.5;
+          dctx.beginPath(); 
+          dctx.moveTo(0, sy); 
+          dctx.lineTo(cols * currentScale, sy); 
+          dctx.stroke();
+        }
       }
     }
-  }, [pixels, cols, rows, scale, palette, showGrid]);
+  }, [pixels, cols, rows, scale, palette, showGrid, isAiCreationMode, aiOriginalImage]);
 
   // Export functions
   const exportPNG = useCallback(() => {
@@ -1305,18 +1291,64 @@ const Creation = () => {
                   </div>
                   
                   {/* Canvas Area - Main Drawing Space - Optimized for mobile */}
-                  <div className="flex-1 min-h-0 bg-white/10 backdrop-blur-sm overflow-hidden">
+                  <div className="flex-1 min-h-0 bg-white/10 backdrop-blur-sm overflow-hidden relative">
+                    {/* AI Creation Mode Banner */}
+                    {isAiCreationMode && aiOriginalImage && (
+                      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-gradient-to-r from-cyan-500/90 to-purple-500/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border border-cyan-400/30">
+                        <div className="flex items-center gap-3">
+                          <span className="text-white text-sm font-medium">{t('gallery.aiCreationMode')}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-white/20 border-white/40 text-white hover:bg-white/30 text-xs"
+                            onClick={async () => {
+                              // Convert AI image to pixel art for editing
+                              if (aiOriginalImage) {
+                                const success = await convertBase64ToPixelData(aiOriginalImage);
+                                if (success) {
+                                  setIsAiCreationMode(false);
+                                  setAiOriginalImage(null);
+                                  toast({
+                                    title: t('gallery.convertedToPixelCanvas'),
+                                    description: t('gallery.convertedToPixelCanvasDesc'),
+                                    variant: "success",
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            {t('gallery.convertToPixelCanvas')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-white/20 border-white/40 text-white hover:bg-white/30 text-xs"
+                            onClick={() => {
+                              setIsAiCreationMode(false);
+                              setAiOriginalImage(null);
+                              const clearPixels = new Uint8Array(rows * cols).fill(1);
+                              setPixels(clearPixels);
+                              pushHistory(clearPixels);
+                            }}
+                          >
+                            {t('gallery.clear')}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="h-full w-full flex items-center justify-center p-2 sm:p-3 md:p-4 min-h-[150px] sm:min-h-[200px]">
                       <canvas
                         ref={displayRef}
-                        onPointerDown={handlePointerDown}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={handlePointerUp}
+                        onPointerDown={isAiCreationMode ? undefined : handlePointerDown}
+                        onPointerMove={isAiCreationMode ? undefined : handlePointerMove}
+                        onPointerUp={isAiCreationMode ? undefined : handlePointerUp}
                         className="bg-white/5 max-w-full max-h-full"
                         style={{
-                          imageRendering: 'pixelated',
-                          touchAction: 'none',
-                          cursor: tool === "pen" ? "crosshair" : 
+                          imageRendering: isAiCreationMode ? 'auto' : 'pixelated',
+                          touchAction: isAiCreationMode ? 'auto' : 'none',
+                          cursor: isAiCreationMode ? 'default' : 
+                                 tool === "pen" ? "crosshair" : 
                                  tool === "eraser" ? "cell" : 
                                  tool === "picker" ? "copy" : "crosshair",
                         }}

@@ -163,7 +163,7 @@ export interface ImageImportOptions {
 }
 
 // Color quantization using median cut algorithm
-class ColorQuantizer {
+export class ColorQuantizer {
   private colors: [number, number, number, number][] = []; // [r, g, b, count]
 
   quantize(imageData: ImageData, maxColors: number): string[] {
@@ -173,7 +173,12 @@ class ColorQuantizer {
     // Convert to hex strings and sort by frequency
     return quantizedColors
       .sort((a, b) => b[3] - a[3])
-      .map(([r, g, b]) => `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`);
+      .map(([r, g, b]) => {
+        const rHex = Math.round(Math.max(0, Math.min(255, r))).toString(16).padStart(2, '0');
+        const gHex = Math.round(Math.max(0, Math.min(255, g))).toString(16).padStart(2, '0');
+        const bHex = Math.round(Math.max(0, Math.min(255, b))).toString(16).padStart(2, '0');
+        return `#${rHex}${gHex}${bHex}`;
+      });
   }
 
   private extractPixels(imageData: ImageData): [number, number, number][] {
@@ -381,6 +386,49 @@ const mapToPixels = (imageData: ImageData, palette: string[], width: number, hei
   return pixels;
 };
 
+// Helper function to apply smoothing filter (box blur)
+const applySmoothing = (ctx: CanvasRenderingContext2D, width: number, height: number): void => {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  // Simple 3x3 box blur
+  const tempData = new Uint8ClampedArray(data);
+  const kernelSize = 3;
+  const half = Math.floor(kernelSize / 2);
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      
+      let r = 0, g = 0, b = 0, a = 0;
+      let count = 0;
+      
+      for (let ky = -half; ky <= half; ky++) {
+        for (let kx = -half; kx <= half; kx++) {
+          const ny = y + ky;
+          const nx = x + kx;
+          
+          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+            const kidx = (ny * width + nx) * 4;
+            r += tempData[kidx];
+            g += tempData[kidx + 1];
+            b += tempData[kidx + 2];
+            a += tempData[kidx + 3];
+            count++;
+          }
+        }
+      }
+      
+      data[idx] = r / count;
+      data[idx + 1] = g / count;
+      data[idx + 2] = b / count;
+      data[idx + 3] = a / count;
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+};
+
 // Main image to pixel art conversion function
 export const convertImageToPixelArt = async (
   file: File, 
@@ -398,16 +446,7 @@ export const convertImageToPixelArt = async (
 
     // Create image element
     const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    if (!ctx) {
-      return {
-        success: false,
-        error: 'Failed to create canvas context'
-      };
-    }
-
+    
     // Load image
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
@@ -415,79 +454,101 @@ export const convertImageToPixelArt = async (
       img.src = URL.createObjectURL(file);
     });
 
-    // Calculate final dimensions based on scale mode
-    let finalWidth = targetWidth;
-    let finalHeight = targetHeight;
+    // ========================================
+    // STEP 1: Smooth downscaling to intermediate size
+    // ========================================
+    // Calculate intermediate size (4-8x target size to preserve detail)
+    const intermediateScale = img.width > 512 || img.height > 512 ? 8 : 4;
+    const intermediateWidth = targetWidth * intermediateScale;
+    const intermediateHeight = targetHeight * intermediateScale;
 
-    if (preserveAspectRatio) {
-      const scaleX = targetWidth / img.width;
-      const scaleY = targetHeight / img.height;
-      let scale: number = 1; // Initialize with default value
+    // Create intermediate canvas for smooth downscaling
+    const intermediateCanvas = document.createElement('canvas');
+    const intermediateCtx = intermediateCanvas.getContext('2d', { willReadFrequently: true });
 
-      switch (scaleMode) {
-        case 'fit':
-          // Fit entirely within bounds (original behavior)
-          scale = Math.min(scaleX, scaleY);
-          break;
-        case 'fill':
-          // Fill the entire canvas, may crop (maximize canvas usage)
-          scale = Math.max(scaleX, scaleY);
-          break;
-        case 'stretch':
-          // Ignore aspect ratio, stretch to exact size
-          finalWidth = targetWidth;
-          finalHeight = targetHeight;
-          break;
-        default:
-          scale = Math.min(scaleX, scaleY);
-      }
-
-      if (scaleMode !== 'stretch') {
-        finalWidth = Math.round(img.width * scale);
-        finalHeight = Math.round(img.height * scale);
-        
-        // Ensure minimum 1x1
-        finalWidth = Math.max(1, finalWidth);
-        finalHeight = Math.max(1, finalHeight);
-      }
+    if (!intermediateCtx) {
+      return {
+        success: false,
+        error: 'Failed to create canvas context'
+      };
     }
 
-    // Create a target size canvas first
+    intermediateCanvas.width = intermediateWidth;
+    intermediateCanvas.height = intermediateHeight;
+    
+    // Enable smooth scaling for first stage
+    intermediateCtx.imageSmoothingEnabled = true;
+    intermediateCtx.imageSmoothingQuality = 'high';
+    
+    // Fill with white background
+    intermediateCtx.fillStyle = '#ffffff';
+    intermediateCtx.fillRect(0, 0, intermediateWidth, intermediateHeight);
+
+    // Calculate dimensions based on scale mode for intermediate canvas
+    if (scaleMode === 'fill' && preserveAspectRatio) {
+      // Fill mode: scale to cover entire canvas
+      const scaleX = intermediateWidth / img.width;
+      const scaleY = intermediateHeight / img.height;
+      const scale = Math.max(scaleX, scaleY);
+      
+      const scaledWidth = img.width * scale;
+      const scaledHeight = img.height * scale;
+      
+      // Center the image
+      const cropX = (scaledWidth - intermediateWidth) / 2;
+      const cropY = (scaledHeight - intermediateHeight) / 2;
+      
+      intermediateCtx.drawImage(
+        img, 
+        0, 0, img.width, img.height,
+        -cropX, -cropY, scaledWidth, scaledHeight
+      );
+    } else if (scaleMode === 'stretch') {
+      // Stretch mode: ignore aspect ratio
+      intermediateCtx.drawImage(img, 0, 0, intermediateWidth, intermediateHeight);
+    } else {
+      // Fit mode: maintain aspect ratio, fit within bounds
+      const scaleX = intermediateWidth / img.width;
+      const scaleY = intermediateHeight / img.height;
+      const scale = Math.min(scaleX, scaleY);
+      
+      const scaledWidth = Math.round(img.width * scale);
+      const scaledHeight = Math.round(img.height * scale);
+      
+      const offsetX = Math.floor((intermediateWidth - scaledWidth) / 2);
+      const offsetY = Math.floor((intermediateHeight - scaledHeight) / 2);
+      
+      intermediateCtx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+    }
+
+    // Apply smoothing filter to reduce noise (optional but recommended)
+    applySmoothing(intermediateCtx, intermediateWidth, intermediateHeight);
+
+    // ========================================
+    // STEP 2: Nearest-neighbor downscaling to final pixel size
+    // ========================================
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (!ctx) {
+      return {
+        success: false,
+        error: 'Failed to create final canvas context'
+      };
+    }
+
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     
-    // Fill with transparent/white background
+    // Fill with white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, targetWidth, targetHeight);
 
     // Use nearest neighbor scaling for pixelated effect
     ctx.imageSmoothingEnabled = false;
 
-    if (scaleMode === 'fill' && preserveAspectRatio) {
-      // For fill mode, we may need to crop the image to fit exactly in the canvas
-      const scaleX = targetWidth / img.width;
-      const scaleY = targetHeight / img.height;
-      const scale = Math.max(scaleX, scaleY);
-      
-      const scaledWidth = img.width * scale;
-      const scaledHeight = img.height * scale;
-      
-      // Calculate crop area to center the image
-      const cropX = (scaledWidth - targetWidth) / 2;
-      const cropY = (scaledHeight - targetHeight) / 2;
-      
-      // Draw with cropping
-      ctx.drawImage(
-        img, 
-        0, 0, img.width, img.height, // source rectangle (full image)
-        -cropX, -cropY, scaledWidth, scaledHeight // destination rectangle (may extend beyond canvas)
-      );
-    } else {
-      // For fit and stretch modes, center the image on canvas
-      const offsetX = Math.floor((targetWidth - finalWidth) / 2);
-      const offsetY = Math.floor((targetHeight - finalHeight) / 2);
-      ctx.drawImage(img, offsetX, offsetY, finalWidth, finalHeight);
-    }
+    // Scale from intermediate to final size
+    ctx.drawImage(intermediateCanvas, 0, 0, targetWidth, targetHeight);
 
     // Get image data from the full target canvas
     const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
@@ -2641,7 +2702,7 @@ export class PixelCreationApi {
   /**
    * Get user's projects with pagination
    */
-  static async getUserProjects(offset: number = 0, limit: number = 20): Promise<{ success: boolean; projects?: ProjectListItem[]; error?: string }> {
+  static async getUserProjects(offset: number = 0, limit: number = 20): Promise<{ success: boolean; projects?: ProjectListItem[]; total?: number; error?: string }> {
     try {
       const principalId = getPrincipalId();
       if (!principalId) {
@@ -2653,11 +2714,17 @@ export class PixelCreationApi {
       
       const actor = await createActor();
       const principal = Principal.fromText(principalId);
-      const projects = await actor.list_pixel_projects_by_owner(
-        principal,
-        offset,
-        limit
-      );
+      
+      // Convert offset to page number (backend expects page, not offset)
+      const page = Math.floor(offset / limit);
+      
+      console.log('[PixelCreationApi] getUserProjects:', { offset, limit, page });
+      
+      // Get total count and projects in parallel
+      const [projects, totalCount] = await Promise.all([
+        actor.list_pixel_projects_by_owner(principal, page, limit),
+        actor.get_pixel_project_count_by_owner(principal)
+      ]);
       
       const projectList: ProjectListItem[] = projects.map(project => {
         const metadata = project.current_version.source.metadata && project.current_version.source.metadata.length > 0 
@@ -2688,10 +2755,41 @@ export class PixelCreationApi {
       
       return {
         success: true,
-        projects: projectList
+        projects: projectList,
+        total: Number(totalCount)
       };
     } catch (error) {
       console.error('Failed to get user projects:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Get user's project count
+   */
+  static async getUserProjectCount(): Promise<{ success: boolean; count?: number; error?: string }> {
+    try {
+      const principalId = getPrincipalId();
+      if (!principalId) {
+        return {
+          success: false,
+          error: 'No principal ID found. Please login first.'
+        };
+      }
+      
+      const actor = await createActor();
+      const principal = Principal.fromText(principalId);
+      const count = await actor.get_pixel_project_count_by_owner(principal);
+      
+      return {
+        success: true,
+        count: Number(count)
+      };
+    } catch (error) {
+      console.error('Failed to get user project count:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'

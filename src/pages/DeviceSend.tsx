@@ -161,7 +161,7 @@ const DeviceSend = () => {
           toast({
             title: t('chat.success.gifSent'),
             description: t('chat.success.sentToDevice', { device: deviceName }),
-            variant: "default"
+            variant: "success"
           });
           setPendingGif(null);
         } else {
@@ -181,7 +181,7 @@ const DeviceSend = () => {
           toast({
             title: t('chat.success.textSent'),
             description: t('chat.success.sentToDevices', { count: result.sentTo.length, devices: result.sentTo.join(', ') }),
-            variant: "default"
+            variant: "success"
           });
           setNewMessage('');
         } else {

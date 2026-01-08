@@ -27,6 +27,7 @@ import {
 import { deviceMessageService } from '../services/deviceMessageService';
 import { deviceSimulator } from '../services/deviceSimulator';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
+import { useGlobalDeviceStatus } from '../hooks/useGlobalDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 import { deviceApiService, DeviceRecord } from '../services/api/deviceApi';
 import { convertPixelToGif, GifResult } from '../lib/pixelToGifConverter';
@@ -175,6 +176,9 @@ const Chat = () => {
   const [unrecoverableGifs, setUnrecoverableGifs] = useState<Set<string>>(new Set());
   const [recoveredImages, setRecoveredImages] = useState<Set<string>>(new Set());
   const imageErrorHandlers = useRef<Map<string, boolean>>(new Map());
+  const [isSendingToDevice, setIsSendingToDevice] = useState(false);
+  const [sendProgress, setSendProgress] = useState(0);
+  const [sendProgressText, setSendProgressText] = useState('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -298,11 +302,20 @@ const Chat = () => {
     isTencentIoTEnabled,
     isLoading: deviceLoading,
     error: deviceError,
+    isInitialized: deviceServiceInitialized,
     sendMessageToDevices,
     sendGifToDevices,
     sendGifToDevice,
     refreshDeviceStatus
   } = useDeviceStatus();
+
+  // Use global device status for contact devices
+  const {
+    getContactDeviceStatus,
+    getContactDevices,
+    refreshContactDevices,
+    lastUpdateTime: deviceStatusUpdateTime
+  } = useGlobalDeviceStatus(contactPrincipalId ? [contactPrincipalId] : []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if contact info needs to be restored from sessionStorage on component load
@@ -367,8 +380,76 @@ const Chat = () => {
     }
   }, [authLoading, contactPrincipalId, toast, t]); // Execute when auth status or contact ID changes
 
-  // Determine contact online status based on actual device presence
-  const actualContactIsOnline = hasContactDevices;
+  // Determine contact online status based on contact's device online status
+  // Check if any of the contact's devices are online using global status service
+  // Only trust real-time status from MCP, not backend cached status
+  const actualContactIsOnline = useMemo(() => {
+    if (!contactPrincipalId || contactDeviceList.length === 0) {
+      return false;
+    }
+    
+    // Check if any contact device is online using global status service
+    // Only use real-time MCP status, don't fallback to backend status
+    return contactDeviceList.some(device => {
+      const globalStatus = getContactDeviceStatus(contactPrincipalId, device.id);
+      if (globalStatus) {
+        return globalStatus.isOnline;
+      }
+      // If no real-time status available, assume offline
+      return false;
+    });
+  }, [contactPrincipalId, contactDeviceList, getContactDeviceStatus, deviceStatusUpdateTime]);
+  
+  // Check if contact device is online using global status service
+  // Only trust real-time status from MCP, not backend cached status
+  const isContactDeviceOnline = (device: DeviceRecord): boolean => {
+    if (!contactPrincipalId) {
+      return false; // Unknown status if no contact ID
+    }
+    
+    // Only use global device status service (real-time MCP status)
+    // Don't fallback to backend status as it may be stale
+    const globalStatus = getContactDeviceStatus(contactPrincipalId, device.id);
+    if (globalStatus) {
+      return globalStatus.isOnline;
+    }
+    
+    // If no real-time status available, assume offline (safer than assuming online)
+    return false;
+  };
+  
+  // Get contact device status text
+  const getContactDeviceStatusText = (): string => {
+    if (contactDeviceList.length === 0) {
+      return '';
+    }
+    
+    const onlineCount = contactDeviceList.filter(device => isContactDeviceOnline(device)).length;
+    const totalCount = contactDeviceList.length;
+    
+    if (onlineCount === totalCount && totalCount > 0) {
+      return t('chat.deviceStatus.online');
+    } else if (onlineCount === 0) {
+      return t('chat.deviceStatus.offline');
+    } else {
+      return `${t('chat.deviceStatus.online')} (${onlineCount}/${totalCount})`;
+    }
+  };
+  
+  // Get contact device status color
+  const getContactDeviceStatusColor = (): string => {
+    if (contactDeviceList.length === 0) {
+      return 'text-white/60';
+    }
+    
+    const onlineCount = contactDeviceList.filter(device => isContactDeviceOnline(device)).length;
+    
+    if (onlineCount > 0) {
+      return 'text-green-400';
+    } else {
+      return 'text-red-400';
+    }
+  };
   
   // Build current contact object
   const currentContact: ContactInfo = {
@@ -884,33 +965,26 @@ const Chat = () => {
         });
         
         if (response.success && response.data && response.data.devices.length > 0) {
-          // Filter devices to only include online devices
-          const onlineDevices = response.data.devices.filter(device => {
-            const isOnline = 'Online' in device.status;
-            console.log('[Chat] Device status check:', {
-              deviceId: device.id,
-              deviceName: device.name,
+          // Get all devices (don't filter by status, as status may not reflect real-time connection)
+          const allDevices = response.data.devices;
+          
+          console.log('[Chat] Contact devices fetched:', {
+            total: allDevices.length,
+            devices: allDevices.map(device => ({
+              id: device.id,
+              name: device.name,
               status: device.status,
-              isOnline
-            });
-            return isOnline;
+              isOnline: 'Online' in device.status
+            }))
           });
           
-          console.log('[Chat] Contact devices filtered:', {
-            total: response.data.devices.length,
-            online: onlineDevices.length,
-            devices: onlineDevices
-          });
+          // Set all devices, not just online ones
+          // The status check will be done in the UI using global device status service
+          setContactDeviceList(allDevices);
+          setHasContactDevices(allDevices.length > 0);
           
-          if (onlineDevices.length > 0) {
-            console.log('[Chat] Contact has online devices:', onlineDevices);
-            setContactDeviceList(onlineDevices);
-            setHasContactDevices(true);
-          } else {
-            console.log('[Chat] Contact has devices but none are online');
-            setContactDeviceList([]);
-            setHasContactDevices(false);
-          }
+          // Device status refresh is now handled by the page active effect below
+          // This ensures we only refresh when page is active and devices don't have status yet
         } else {
           console.log('[Chat] No devices found for contact:', {
             success: response.success,
@@ -930,6 +1004,55 @@ const Chat = () => {
 
     fetchContactDevices();
   }, [contactPrincipalId, user?.principalId]);
+
+  // Refresh contact device status when page becomes active (only refresh friend's devices, not own devices)
+  useEffect(() => {
+    if (!contactPrincipalId || contactDeviceList.length === 0) {
+      // Wait for device list to be loaded
+      return;
+    }
+
+    // Check if contact devices already have status - if yes, skip refresh
+    const hasDeviceStatus = contactDeviceList.some(device => {
+      const status = getContactDeviceStatus(contactPrincipalId, device.id);
+      return status !== undefined; // Has status means already refreshed
+    });
+
+    if (hasDeviceStatus) {
+      console.log('[Chat] Contact devices already have status, skipping refresh');
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Check again if status exists before refreshing
+        const stillHasStatus = contactDeviceList.some(device => {
+          const status = getContactDeviceStatus(contactPrincipalId, device.id);
+          return status !== undefined;
+        });
+        
+        if (!stillHasStatus) {
+          console.log('[Chat] Page became visible, refreshing contact device status (friend devices only)...');
+          refreshContactDevices(contactPrincipalId).catch(error => {
+            console.error('[Chat] Failed to refresh contact device status on visibility change:', error);
+          });
+        }
+      }
+    };
+
+    // Refresh immediately when device list is loaded and no status exists (only friend devices)
+    console.log('[Chat] Refreshing contact device status on page active (friend devices only)...');
+    refreshContactDevices(contactPrincipalId).catch(error => {
+      console.error('[Chat] Failed to refresh contact device status:', error);
+    });
+
+    // Also refresh when page becomes visible (user switches back to tab)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [contactPrincipalId, refreshContactDevices, contactDeviceList, getContactDeviceStatus]);
 
   // Poll for new messages every 5 seconds
   useEffect(() => {
@@ -1403,13 +1526,29 @@ const Chat = () => {
                       {/* Send to Device Section - Only show when contact has devices */}
                       {hasContactDevices && (pendingGif || newMessage.trim()) && (
                         <div className="bg-white/10 rounded-lg p-3 border border-white/20">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <Smartphone className="h-4 w-4 text-cyan-400" />
-                              <span className="text-white text-sm font-medium">
-                                {t('chat.sendToDevice') || 'Send to Device'}
-                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-white text-sm font-medium">
+                                  {t('chat.sendToDevice') || 'Send to Device'}
+                                </span>
+                                {contactDeviceList.length > 0 && (
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      contactDeviceList.some(device => isContactDeviceOnline(device))
+                                        ? 'bg-green-400 animate-pulse'
+                                        : 'bg-red-400'
+                                    }`} />
+                                    <span className={`text-xs ${getContactDeviceStatusColor()}`}>
+                                      {getContactDeviceStatusText()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                            {/* Only show Send button if at least one device is online */}
+                            {contactDeviceList.some(device => isContactDeviceOnline(device)) && (
                             <Button
                               onClick={async () => {
                                 if (!hasContactDevices) {
@@ -1422,12 +1561,43 @@ const Chat = () => {
                                 }
 
                                 try {
+                                  setIsSendingToDevice(true);
+                                  setSendProgress(0);
+                                  
+                                  // Check if device service is initialized, if not, try to initialize it (with timeout)
+                                  if (!deviceServiceInitialized) {
+                                    console.log('[Chat] Device service not initialized, attempting to initialize...');
+                                    setSendProgressText(t('chat.initializingDeviceService') || '正在初始化设备服务...');
+                                    
+                                    // Initialize with timeout to prevent blocking
+                                    try {
+                                      await Promise.race([
+                                        refreshDeviceStatus(),
+                                        new Promise((_, reject) => 
+                                          setTimeout(() => reject(new Error('Initialization timeout')), 3000)
+                                        )
+                                      ]);
+                                    } catch (initError) {
+                                      console.warn('[Chat] Device service initialization timeout or failed, continuing anyway:', initError);
+                                      // Continue even if initialization fails or times out
+                                    }
+                                  }
+                                  
+                                  setSendProgressText(t('chat.sending') || '正在发送...');
+                                  
                                   const sentTo: string[] = [];
                                   const errors: string[] = [];
+                                  const totalDevices = contactDeviceList.length;
                                   
-                                  for (const device of contactDeviceList) {
+                                  for (let i = 0; i < contactDeviceList.length; i++) {
+                                    const device = contactDeviceList[i];
                                     // Use deviceName (MCP device name) if available, otherwise fall back to name
                                     const deviceName = device.deviceName || device.name;
+                                    
+                                    // Update progress before sending
+                                    const currentProgress = Math.round((i / totalDevices) * 100);
+                                    setSendProgress(currentProgress);
+                                    setSendProgressText(t('chat.sendingToDevice', { current: i + 1, total: totalDevices }) || `正在发送到设备 ${i + 1}/${totalDevices}...`);
                                     
                                     console.log('[Chat] Sending to device:', {
                                       deviceId: device.id,
@@ -1455,24 +1625,72 @@ const Chat = () => {
                                           errors.push(`${deviceName}: ${result.errors?.join('; ') || 'Failed'}`);
                                         }
                                       }
+                                      
+                                      // Update progress after sending
+                                      const progressAfterSend = Math.round(((i + 1) / totalDevices) * 100);
+                                      setSendProgress(progressAfterSend);
                                     } catch (error) {
                                       errors.push(`${deviceName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                      // Update progress even on error
+                                      const progressAfterError = Math.round(((i + 1) / totalDevices) * 100);
+                                      setSendProgress(progressAfterError);
                                     }
                                   }
                                   
+                                  // Complete progress
+                                  setSendProgress(100);
+                                  setSendProgressText(t('chat.sendComplete') || '发送完成');
+                                  
+                                  // Clear pending content first
+                                  const hadPendingGif = !!pendingGif;
+                                  const hadPendingMessage = !!newMessage.trim();
+                                  setPendingGif(null);
+                                  setNewMessage('');
+                                  
                                   if (sentTo.length > 0) {
                                     toast({
-                                      title: pendingGif ? t('chat.success.gifSent') : t('chat.success.textSent'),
+                                      title: hadPendingGif ? t('chat.success.gifSent') : t('chat.success.textSent'),
                                       description: `Sent to ${sentTo.length} of ${contactDeviceList.length} device(s)`,
-                                      variant: "default"
+                                      variant: "success"
                                     });
-                                    setPendingGif(null);
-                                    setNewMessage('');
+                                    
+                                    // Send automatic chat message to friend (don't wait for it)
+                                    const sendAutoMessage = async () => {
+                                      try {
+                                        const deviceMessage = t('chat.deviceMessageSent');
+                                        const contactId = contactPrincipalId || 'unknown';
+                                        if (user?.principalId && contactId !== 'unknown') {
+                                          await sendChatMessage(user.principalId, contactId, deviceMessage, 'Text');
+                                          console.log('[Chat] Auto-sent device message to chat:', deviceMessage);
+                                          
+                                          // Reload messages to include the new one
+                                          const updatedMessages = await getRecentChatMessages(user.principalId, contactId);
+                                          setMessages(updatedMessages);
+                                        }
+                                      } catch (error) {
+                                        console.error('[Chat] Failed to send auto device message to chat:', error);
+                                        // Don't show error to user, as device send was successful
+                                      }
+                                    };
+                                    
+                                    // Send auto message in background, don't wait
+                                    sendAutoMessage();
+                                    
+                                    // Wait a moment to show completion, then close
+                                    await new Promise(resolve => setTimeout(resolve, 800));
                                   } else {
                                     throw new Error(errors.join('; '));
                                   }
+                                  
+                                  // Close sending UI
+                                  setIsSendingToDevice(false);
+                                  setSendProgress(0);
+                                  setSendProgressText('');
                                 } catch (error) {
                                   console.error('[Chat] Failed to send to contact devices:', error);
+                                  setIsSendingToDevice(false);
+                                  setSendProgress(0);
+                                  setSendProgressText('');
                                   toast({
                                     title: t('chat.error.deviceSendFailed'),
                                     description: error instanceof Error ? error.message : t('chat.error.unknownError'),
@@ -1480,12 +1698,28 @@ const Chat = () => {
                                   });
                                 }
                               }}
-                              disabled={!newMessage.trim() && !pendingGif}
+                              disabled={(!newMessage.trim() && !pendingGif) || isSendingToDevice}
                               className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {t('chat.send') || 'Send'}
+                              {isSendingToDevice ? (t('chat.sending') || '发送中...') : (t('chat.send') || 'Send')}
                             </Button>
+                            )}
                           </div>
+                          {/* Progress Bar */}
+                          {isSendingToDevice && (
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center justify-between text-xs text-white/70">
+                                <span>{sendProgressText}</span>
+                                <span>{sendProgress}%</span>
+                              </div>
+                              <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 transition-all duration-300 ease-out"
+                                  style={{ width: `${sendProgress}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

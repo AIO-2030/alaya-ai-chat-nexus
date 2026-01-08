@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Plus, Palette, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, Palette, Settings, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useToast } from '../hooks/use-toast';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { PageLayout } from '../components/PageLayout';
@@ -68,6 +69,7 @@ const Gallery = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated, loading: authLoading, loginWithEmailPassword, registerWithEmail } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('public');
   const [publicSubTab, setPublicSubTab] = useState('pixel'); // 'pixel' or 'gif'
   const [pixelFormat, setPixelFormat] = useState<PixelFormat>('32x32');
@@ -83,6 +85,8 @@ const Gallery = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isUsingItem, setIsUsingItem] = useState(false);
+  const [totalCreations, setTotalCreations] = useState<number>(0);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const galleryScrollRef = useRef<HTMLDivElement>(null);
@@ -375,6 +379,52 @@ const Gallery = () => {
     }
   };
 
+  // Handle delete button click for user creation items
+  const handleDeleteCreationItem = async (item: UserCreationItem) => {
+    if (deletingItemId) return; // Prevent multiple clicks
+    
+    // Confirm deletion
+    if (!window.confirm(t('gallery.deleteConfirm'))) {
+      return;
+    }
+    
+    try {
+      setDeletingItemId(item.id);
+      console.log('[Gallery] Deleting creation item:', item.id);
+      
+      const result = await PixelCreationApi.deleteProject(item.id);
+      
+      if (result.success) {
+        console.log('[Gallery] Creation deleted successfully:', item.id);
+        // Remove from local state
+        setUserCreations(prev => prev.filter(creation => creation.id !== item.id));
+        // Update total count
+        setTotalCreations(prev => Math.max(0, prev - 1));
+        // Show success message
+        toast({
+          title: t('gallery.deleteSuccess'),
+          variant: "success",
+        });
+      } else {
+        console.error('[Gallery] Failed to delete creation:', result.error);
+        toast({
+          title: t('gallery.deleteError'),
+          description: result.error || 'Unknown error',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('[Gallery] Error deleting creation item:', error);
+      toast({
+        title: t('gallery.deleteError'),
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
   // Handle Use button click for user creation items
   const handleUseCreationItem = async (item: UserCreationItem) => {
     if (isUsingItem) return; // Prevent multiple clicks
@@ -626,6 +676,8 @@ const Gallery = () => {
 
   // Load user's pixel art creations with pagination
   const loadUserCreations = async (page: number = 0, append: boolean = false) => {
+    console.log('[Gallery] loadUserCreations called:', { page, append, currentPage });
+    
     if (page === 0) {
       setIsLoadingUserCreations(true);
       setUserCreations([]);
@@ -640,6 +692,7 @@ const Gallery = () => {
       const userAuthenticated = isAuthenticated();
       
       if (!userAuthenticated) {
+        console.log('[Gallery] User not authenticated, clearing creations');
         setUserCreations([]);
         setHasMoreCreations(false);
         return;
@@ -647,8 +700,21 @@ const Gallery = () => {
 
       const pageSize = 10; // Load 10 projects per page
       const offset = page * pageSize;
-      const result = await PixelCreationApi.getUserProjects(offset, pageSize);         
+      console.log('[Gallery] Fetching projects:', { page, offset, pageSize });
+      
+      const result = await PixelCreationApi.getUserProjects(offset, pageSize);
+      console.log('[Gallery] API result:', { 
+        success: result.success, 
+        projectCount: result.projects?.length,
+        total: result.total,
+        currentLoaded: offset + (result.projects?.length || 0)
+      });
+      
       if (result.success && result.projects) {
+        // Update total count
+        if (result.total !== undefined) {
+          setTotalCreations(result.total);
+        }
         const creationsWithPixelArt = await Promise.all(
           result.projects.map(async (project) => {
             try {
@@ -699,27 +765,41 @@ const Gallery = () => {
           })
         );
         
+        console.log('[Gallery] Processed creations:', creationsWithPixelArt.length);
+        
         if (append) {
-          setUserCreations(prev => [...prev, ...creationsWithPixelArt]);
+          setUserCreations(prev => {
+            const newCreations = [...prev, ...creationsWithPixelArt];
+            console.log('[Gallery] Total creations after append:', newCreations.length);
+            return newCreations;
+          });
         } else {
           setUserCreations(creationsWithPixelArt);
         }
 
-        // Check if there are more items to load
-        if (result.projects.length < pageSize) {
-          setHasMoreCreations(false);
-        } else {
-          setCurrentPage(page);
-        }
+        // Check if there are more items to load using total count
+        const currentLoaded = offset + creationsWithPixelArt.length;
+        const total = result.total || 0;
+        const hasMore = currentLoaded < total;
+        
+        console.log('[Gallery] Pagination check:', {
+          currentLoaded,
+          total,
+          hasMore,
+          nextPage: page + 1
+        });
+        
+        setHasMoreCreations(hasMore);
+        setCurrentPage(page);
       } else {
-        console.error('Failed to load user projects:', result.error);
+        console.error('[Gallery] Failed to load user projects:', result.error);
         if (!append) {
           setUserCreations([]);
         }
         setHasMoreCreations(false);
       }
     } catch (error) {
-      console.error('Error loading user creations:', error);
+      console.error('[Gallery] Error loading user creations:', error);
       if (!append) {
         setUserCreations([]);
       }
@@ -744,7 +824,7 @@ const Gallery = () => {
       const pixelResult = await pixelizeEmoji(item.emoji, pixelFormat, {
         colorReduction: 16,
         dithering: false,
-        smoothing: true
+        smoothing: false
       });
       
       // 将像素图转换为GIF
@@ -783,24 +863,49 @@ const Gallery = () => {
 
   // Add scroll listener for infinite loading
   useEffect(() => {
+    // Only add scroll listener when on "My Creator" tab and user is authenticated
+    if (activeTab !== 'mycreator' || !isAuthenticated()) {
+      return;
+    }
+
     const handleScroll = () => {
       const scrollElement = galleryScrollRef.current;
-      if (!scrollElement || !hasMoreCreations || isLoadingMore) return;
+      if (!scrollElement || !hasMoreCreations || isLoadingMore) {
+        return;
+      }
 
       const { scrollTop, scrollHeight, clientHeight } = scrollElement;
       const threshold = 200; // Load more when 200px from bottom
 
+      console.log('[Gallery] Scroll event:', {
+        scrollTop,
+        scrollHeight,
+        clientHeight,
+        hasMoreCreations,
+        isLoadingMore,
+        shouldLoadMore: scrollTop + clientHeight >= scrollHeight - threshold
+      });
+
       if (scrollTop + clientHeight >= scrollHeight - threshold) {
+        console.log('[Gallery] Loading more creations...');
         loadMoreCreations();
       }
     };
 
     const scrollElement = galleryScrollRef.current;
     if (scrollElement) {
+      console.log('[Gallery] Adding scroll listener for infinite loading');
       scrollElement.addEventListener('scroll', handleScroll);
-      return () => scrollElement.removeEventListener('scroll', handleScroll);
+      
+      // Also check on mount if we need to load more (in case content doesn't fill the container)
+      handleScroll();
+      
+      return () => {
+        console.log('[Gallery] Removing scroll listener');
+        scrollElement.removeEventListener('scroll', handleScroll);
+      };
     }
-  }, [hasMoreCreations, isLoadingMore, currentPage, isAuthenticated]);
+  }, [hasMoreCreations, isLoadingMore, currentPage, activeTab, user]);
 
   // Render user creation canvas (now shows GIF)
   const renderUserCreationCanvas = (item: UserCreationItem) => {
@@ -951,7 +1056,7 @@ const Gallery = () => {
           <div className="flex-1 min-w-0">
             <div className="h-full p-2 md:p-4">
               <div 
-                className="h-full rounded-2xl bg-gradient-to-br from-slate-800/40 to-purple-900/30 backdrop-blur-xl shadow-2xl border border-cyan-400/20 flex flex-col"
+                className="h-full rounded-2xl bg-gradient-to-br from-slate-800/40 to-purple-900/30 backdrop-blur-xl shadow-2xl border border-cyan-400/20 flex flex-col overflow-hidden"
                 style={{
                   WebkitFontSmoothing: 'antialiased',
                   MozOsxFontSmoothing: 'grayscale',
@@ -1047,43 +1152,67 @@ const Gallery = () => {
                     MozOsxFontSmoothing: 'grayscale',
                   }}
                 >
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-slate-800/60 backdrop-blur-sm border border-cyan-400/20 rounded-lg p-1">
-                      <TabsTrigger 
-                        value="public" 
-                        className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md font-semibold"
-                        style={{
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                          WebkitTapHighlightColor: 'transparent',
-                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                        }}
-                      >
-                        {t('gallery.public')}
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="mycreator"
-                        className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md font-semibold"
-                        style={{
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                          WebkitTapHighlightColor: 'transparent',
-                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                        }}
-                      >
-                        {t('gallery.myCreator')}
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  {/* Main Tabs with Create Button in Center */}
+                  <div className="flex items-center gap-3">
+                    {/* Public Tab - Left */}
+                    <Button
+                      onClick={() => setActiveTab('public')}
+                      className={`flex-1 h-12 rounded-xl font-semibold text-base transition-all duration-200 border ${
+                        activeTab === 'public'
+                          ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white shadow-lg border-cyan-400/30'
+                          : 'bg-slate-700/40 hover:bg-slate-700/60 text-white/90 border-cyan-400/20'
+                      }`}
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                      }}
+                    >
+                      {t('gallery.public')}
+                    </Button>
+                    
+                    {/* Create Button - Center Circular Icon */}
+                    <Button
+                      onClick={handleCreateClick}
+                      className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-lg rounded-full w-12 h-12 p-0 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-cyan-400/50 border border-cyan-400/30 flex-shrink-0"
+                      title={t('gallery.createNew')}
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                      }}
+                    >
+                      <Sparkles className="h-6 w-6" />
+                    </Button>
+                    
+                    {/* My Creator Tab - Right */}
+                    <Button
+                      onClick={() => setActiveTab('mycreator')}
+                      className={`flex-1 h-12 rounded-xl font-semibold text-base transition-all duration-200 border ${
+                        activeTab === 'mycreator'
+                          ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white shadow-lg border-cyan-400/30'
+                          : 'bg-slate-700/40 hover:bg-slate-700/60 text-white/90 border-cyan-400/20'
+                      }`}
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                      }}
+                    >
+                      {t('gallery.myCreator')}
+                    </Button>
+                  </div>
                   
                   {/* Public Sub-tabs */}
                   {activeTab === 'public' && (
                     <div className="mt-3">
                       <Tabs value={publicSubTab} onValueChange={setPublicSubTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 bg-slate-800/60 backdrop-blur-sm border border-cyan-400/20 rounded-lg p-1">
+                        <TabsList className="w-full bg-slate-800/60 backdrop-blur-sm border border-cyan-400/20 rounded-xl p-1 inline-flex h-12">
                           <TabsTrigger 
                             value="pixel" 
-                            className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md text-sm font-medium"
+                            className="flex-1 text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-lg text-sm font-medium"
                             style={{
                               WebkitFontSmoothing: 'antialiased',
                               MozOsxFontSmoothing: 'grayscale',
@@ -1095,7 +1224,7 @@ const Gallery = () => {
                           </TabsTrigger>
                           <TabsTrigger 
                             value="gif"
-                            className="text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-md text-sm font-medium"
+                            className="flex-1 text-white/90 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-slate-700/40 data-[state=inactive]:hover:bg-slate-700/60 transition-all duration-200 rounded-lg text-sm font-medium"
                             style={{
                               WebkitFontSmoothing: 'antialiased',
                               MozOsxFontSmoothing: 'grayscale',
@@ -1115,6 +1244,11 @@ const Gallery = () => {
                 <div 
                   ref={galleryScrollRef}
                   className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-900/20"
+                  style={{
+                    WebkitOverflowScrolling: 'touch',
+                    touchAction: 'pan-y',
+                    overscrollBehavior: 'contain'
+                  }}
                 >
                   <Tabs value={activeTab} className="w-full h-full">
                     {/* Public Gallery */}
@@ -1155,16 +1289,6 @@ const Gallery = () => {
                                   >
                                     {item.title}
                                   </h3>
-                                  <p 
-                                    className="text-white/70 text-xs truncate"
-                                    style={{
-                                      WebkitFontSmoothing: 'antialiased',
-                                      MozOsxFontSmoothing: 'grayscale',
-                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                                    }}
-                                  >
-                                    by {item.creator}
-                                  </p>
                                   <div className="flex items-center justify-between">
                                     <span 
                                       className="text-cyan-400 text-xs font-medium"
@@ -1233,16 +1357,6 @@ const Gallery = () => {
                                   >
                                     {item.title}
                                   </h3>
-                                  <p 
-                                    className="text-white/70 text-xs truncate"
-                                    style={{
-                                      WebkitFontSmoothing: 'antialiased',
-                                      MozOsxFontSmoothing: 'grayscale',
-                                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                                    }}
-                                  >
-                                    by {item.creator}
-                                  </p>
                                   <div className="flex items-center justify-between">
                                     <span 
                                       className="text-cyan-400 text-xs font-medium"
@@ -1384,6 +1498,13 @@ const Gallery = () => {
                         </div>
                       ) : (
                         <div>
+                          {/* Total count indicator */}
+                          {totalCreations > 0 && (
+                            <div className="mb-4 text-white/60 text-sm text-center">
+                              {t('gallery.totalCreations') || 'Total creations'}: {totalCreations}
+                            </div>
+                          )}
+                          
                           <div className="grid grid-cols-2 gap-4">
                             {userCreations.map((item) => (
                               <div 
@@ -1423,16 +1544,6 @@ const Gallery = () => {
                                       {item.description}
                                     </p>
                                   )}
-                                  <div 
-                                    className="flex items-center justify-between text-xs text-white/60"
-                                    style={{
-                                      WebkitFontSmoothing: 'antialiased',
-                                      MozOsxFontSmoothing: 'grayscale',
-                                    }}
-                                  >
-                                    <span>{item.status}</span>
-                                    <span>{new Date(item.updatedAt).toLocaleDateString()}</span>
-                                  </div>
                                   <div className="flex items-center justify-between">
                                     <span 
                                       className="text-cyan-400 text-xs font-medium"
@@ -1449,6 +1560,7 @@ const Gallery = () => {
                                         variant="outline" 
                                         className="bg-cyan-500/20 border-cyan-400/40 text-white hover:bg-cyan-500/30 hover:border-cyan-400/60 text-xs px-2 py-1 font-medium"
                                         onClick={() => handleUseCreationItem(item)}
+                                        disabled={deletingItemId !== null}
                                         style={{
                                           WebkitTapHighlightColor: 'transparent',
                                           WebkitFontSmoothing: 'antialiased',
@@ -1457,17 +1569,25 @@ const Gallery = () => {
                                       >
                                         Use
                                       </Button>
-                                      {item.gifResult && (
-                                        <div 
-                                          className="text-xs text-white/70 px-1 py-1 bg-slate-800/60 rounded border border-cyan-400/20 font-medium"
-                                          style={{
-                                            WebkitFontSmoothing: 'antialiased',
-                                            MozOsxFontSmoothing: 'grayscale',
-                                          }}
-                                        >
-                                          {item.gifResult.width}x{item.gifResult.height}
-                                        </div>
-                                      )}
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="bg-red-500/20 border-red-400/40 text-white hover:bg-red-500/30 hover:border-red-400/60 text-xs px-2 py-1 font-medium"
+                                        onClick={() => handleDeleteCreationItem(item)}
+                                        disabled={deletingItemId === item.id || deletingItemId !== null}
+                                        style={{
+                                          WebkitTapHighlightColor: 'transparent',
+                                          WebkitFontSmoothing: 'antialiased',
+                                          MozOsxFontSmoothing: 'grayscale',
+                                        }}
+                                        title={t('gallery.delete')}
+                                      >
+                                        {deletingItemId === item.id ? (
+                                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                          <Trash2 className="h-3 w-3" />
+                                        )}
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>
@@ -1489,7 +1609,7 @@ const Gallery = () => {
                           {!hasMoreCreations && userCreations.length > 0 && (
                             <div className="flex justify-center items-center py-6">
                               <div className="text-white/40 text-sm">
-                                {t('gallery.allLoaded')}
+                                {t('gallery.allLoaded')} ({userCreations.length}/{totalCreations})
                               </div>
                             </div>
                           )}
@@ -1501,18 +1621,6 @@ const Gallery = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Floating Create Button */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <Button
-            onClick={handleCreateClick}
-            size="lg"
-            className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-xl rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 hover:scale-105"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            {t('gallery.createNew')}
-          </Button>
         </div>
 
         {/* Login Modals */}

@@ -562,7 +562,7 @@ export class DeviceInitManager {
         connectedAt: new Date().toISOString(),
         principalId: principalId,
         // Add Tencent IoT product info from GATT
-        productId: (this.state.selectedBluetoothDevice as any).productId || deviceName
+        productId: 'H3PI4FBTV5' // Always use fixed productId, not from device name
       };
 
       // Submit to backend canister

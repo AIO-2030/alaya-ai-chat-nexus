@@ -396,29 +396,8 @@ export function useDeviceStatus() {
     initializeService();
   }, [initializeService]);
 
-  // Set up periodic status updates
-  useEffect(() => {
-    if (!isInitialized) return;
-
-    // Initial status update
-    updateDeviceStatus();
-
-    // Set up interval for periodic updates with MCP status checks
-    // Only run periodic updates if we have devices to check
-    const interval = setInterval(async () => {
-      const summary = getDeviceConnectionSummary();
-      if (summary.deviceList.length > 0) {
-        console.log('[useDeviceStatus] Running periodic device status update...');
-        await updateDeviceStatus();
-      } else {
-        console.log('[useDeviceStatus] Skipping periodic update - no devices to check');
-      }
-    }, 5 * 60 * 1000); // Update every 5 minutes
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [isInitialized, updateDeviceStatus]);
+  // Removed periodic status updates - now handled by pages (Chat.tsx and MyDevices.tsx)
+  // Pages will refresh device status when they become active
 
   // Manual reset of initialization state (for debugging or special cases)
   const resetInitializationState = useCallback(() => {

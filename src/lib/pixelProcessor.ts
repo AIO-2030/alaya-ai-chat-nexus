@@ -43,7 +43,7 @@ export class PixelProcessor {
     options: PixelProcessingOptions
   ): Promise<PixelProcessingResult> {
     const img = await this.loadImage(imageSource);
-    const { format, colorReduction = 16, dithering = false, smoothing = true } = options;
+    const { format, colorReduction = 16, dithering = false, smoothing = false } = options;
     
     // Get pixel dimensions based on format
     const pixelDimensions = this.getPixelDimensions(format);

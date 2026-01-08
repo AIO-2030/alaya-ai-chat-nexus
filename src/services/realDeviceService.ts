@@ -3655,7 +3655,7 @@ class RealDeviceService {
         id: deviceId,
         name: deviceName, // Use actual Tencent IoT device name from GATT
         deviceName: record.deviceName || deviceName, // Use deviceName for MCP calls
-        productId: record.productId || deviceName, // Use productId for MCP calls
+        productId: 'H3PI4FBTV5', // Always use fixed productId, not from device record
         deviceType: this.convertStringToDeviceType(record.type),
         owner: record.principalId, // Use principalId as owner
         status: this.convertStringToDeviceStatus(record.status),
@@ -3665,7 +3665,7 @@ class RealDeviceService {
           wifiNetwork: record.wifiNetwork,
           connectedAt: record.connectedAt,
           // Store Tencent IoT product info from device
-          productId: record.productId || deviceName,
+          productId: 'H3PI4FBTV5', // Always use fixed productId
           userPrincipal: record.principalId, // Store full principal for reference
         },
         createdAt: Date.now(),

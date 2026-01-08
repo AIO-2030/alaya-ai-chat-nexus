@@ -30,6 +30,8 @@ const toastVariants = cva(
         default: "border bg-background text-foreground",
         destructive:
           "destructive group border-destructive bg-destructive text-destructive-foreground",
+        success:
+          "border border-green-500/30 bg-gradient-to-r from-green-500/90 to-emerald-500/90 text-white",
       },
     },
     defaultVariants: {

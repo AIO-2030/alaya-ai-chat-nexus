@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useDeviceManagement } from '../hooks/useDeviceManagement';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
+import { useGlobalDeviceStatus } from '../hooks/useGlobalDeviceStatus';
 import { DeviceRecord } from '../services/api/deviceApi';
 import type { DeviceStatus, DeviceType } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
@@ -47,10 +48,61 @@ const MyDevices = () => {
     sendGifToDevices
   } = useDeviceStatus();
 
+  // Use global device status for unified state management
+  const {
+    ownDevices: globalOwnDevices,
+    getOwnDeviceStatus,
+    refreshOwnDevices
+  } = useGlobalDeviceStatus();
+
   // Load devices on component mount
   useEffect(() => {
     loadDevices();
   }, [loadDevices]);
+
+  // Refresh own device status when page becomes active (only refresh own devices, not friend devices)
+  useEffect(() => {
+    // Check if own devices already have status - if yes, skip refresh
+    const hasDeviceStatus = devices.some(device => {
+      const status = getOwnDeviceStatus(device.id);
+      return status !== undefined; // Has status means already refreshed
+    });
+
+    if (hasDeviceStatus && devices.length > 0) {
+      console.log('[MyDevices] Own devices already have status, skipping refresh');
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Check again if status exists before refreshing
+        const stillHasStatus = devices.some(device => {
+          const status = getOwnDeviceStatus(device.id);
+          return status !== undefined;
+        });
+        
+        if (!stillHasStatus) {
+          console.log('[MyDevices] Page became visible, refreshing own device status...');
+          refreshOwnDevices().catch(error => {
+            console.error('[MyDevices] Failed to refresh own device status on visibility change:', error);
+          });
+        }
+      }
+    };
+
+    // Refresh immediately when component mounts (only if no status yet)
+    console.log('[MyDevices] Refreshing own device status on page active...');
+    refreshOwnDevices().catch(error => {
+      console.error('[MyDevices] Failed to refresh own device status:', error);
+    });
+
+    // Also refresh when page becomes visible (user switches back to tab)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshOwnDevices, devices, getOwnDeviceStatus]);
 
   // Helper function to get device type display name
   const getDeviceTypeName = (deviceType: DeviceType): string => {
@@ -78,6 +130,34 @@ const MyDevices = () => {
     if ('Maintenance' in status) return 'text-yellow-400 bg-yellow-400/20';
     if ('Disabled' in status) return 'text-gray-400 bg-gray-400/20';
     return 'text-white/60 bg-white/10';
+  };
+
+  // Check if device is actually connected in real-time using global status service
+  const isDeviceActuallyOnline = (device: DeviceRecord): boolean => {
+    // First check global device status service (most accurate)
+    const globalStatus = getOwnDeviceStatus(device.id);
+    if (globalStatus) {
+      return globalStatus.isOnline;
+    }
+    
+    // Fallback to legacy deviceStatus hook
+    if (deviceStatus && deviceStatus.deviceList && Array.isArray(deviceStatus.deviceList)) {
+      return deviceStatus.deviceList.some((connectedDevice) => {
+        const deviceIdMatch = connectedDevice.id === device.id;
+        const deviceNameMatch = connectedDevice.name === device.name ||
+                               connectedDevice.name === device.deviceName;
+        return (deviceIdMatch || deviceNameMatch) && connectedDevice.isConnected;
+      });
+    }
+    
+    // Final fallback to device record status
+    return 'Online' in device.status;
+  };
+
+  // Get actual device status (real-time connection status)
+  const getActualDeviceStatus = (device: DeviceRecord): DeviceStatus => {
+    const isOnline = isDeviceActuallyOnline(device);
+    return isOnline ? { Online: null } : { Offline: null };
   };
 
   const handleAddDevice = () => {
@@ -361,13 +441,19 @@ const MyDevices = () => {
                                   </div>
                                 </div>
                                 
-                                {/* Status Badge */}
-                                <div className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusColor(device.status)} backdrop-blur-md border border-white/10 shadow-lg`}>
-                                  <div className="flex items-center gap-1.5">
-                                    <div className={`w-2 h-2 rounded-full ${'Online' in device.status ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-                                    {getDeviceStatusName(device.status)}
-                                  </div>
-                                </div>
+                                {/* Status Badge - Use real-time status */}
+                                {(() => {
+                                  const actualStatus = getActualDeviceStatus(device);
+                                  const isOnline = 'Online' in actualStatus;
+                                  return (
+                                    <div className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusColor(actualStatus)} backdrop-blur-md border border-white/10 shadow-lg`}>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+                                        {getDeviceStatusName(actualStatus)}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
 
                               {/* Action Buttons Grid */}
