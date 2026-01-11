@@ -422,6 +422,11 @@ export type TraceStatus = { 'Ok' : null } |
 export type TransferStatus = { 'Failed' : null } |
   { 'Completed' : null } |
   { 'Pending' : null };
+export interface UserAiConfig {
+  'agent_id' : string,
+  'voice_id' : string,
+  'principal_id' : string,
+}
 export interface UserProfile {
   'updated_at' : bigint,
   'nickname' : string,
@@ -610,6 +615,11 @@ export interface _SERVICE {
   >,
   'delete_recharge_principal_account_api' : ActorMethod<
     [],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'delete_user_ai_config' : ActorMethod<
+    [string],
     { 'Ok' : null } |
       { 'Err' : string }
   >,
@@ -864,6 +874,7 @@ export interface _SERVICE {
     [bigint, bigint],
     Array<AgentItem>
   >,
+  'get_user_ai_config' : ActorMethod<[string], [] | [UserAiConfig]>,
   'get_user_credit_balance_api' : ActorMethod<[string], bigint>,
   'get_user_mcp_items' : ActorMethod<[], Array<McpItem>>,
   'get_user_mcp_items_paginated' : ActorMethod<
@@ -883,6 +894,7 @@ export interface _SERVICE {
       { 'Err' : string }
   >,
   'greet' : ActorMethod<[string], string>,
+  'has_user_ai_config' : ActorMethod<[string], boolean>,
   'init_emission_policy' : ActorMethod<[], undefined>,
   'init_grant_policy' : ActorMethod<[[] | [GrantPolicy]], undefined>,
   'list_pixel_projects_by_owner' : ActorMethod<
@@ -946,6 +958,11 @@ export interface _SERVICE {
   'send_chat_message' : ActorMethod<
     [string, string, string, MessageMode],
     { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
+  'set_user_ai_config' : ActorMethod<
+    [UserAiConfig],
+    { 'Ok' : null } |
       { 'Err' : string }
   >,
   'simulate_credit_from_icp_api' : ActorMethod<[number], bigint>,

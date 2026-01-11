@@ -7,6 +7,8 @@ import './index.css'
 import './lib/test-env'
 // Import environment debug tool
 import './lib/environment-debug'
+// Mobile debug (vConsole) - controlled by flags, safe to disable in production
+import './lib/mobile-debug'
 
 // Initialize PWA service
 import { pwaService } from './services/pwaService'

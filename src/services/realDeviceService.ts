@@ -108,8 +108,8 @@ class RealDeviceService {
   // WiFi scan listening management
   private activeWiFiScanListeners = new Map<string, {
     responseCharacteristic: BluetoothRemoteGATTCharacteristic;
-    timeoutId?: number;
-    readInterval?: number;
+    timeoutId?: ReturnType<typeof setTimeout>;
+    readInterval?: ReturnType<typeof setInterval>;
     isActive: boolean;
     handleResponse?: (event: any) => void; // ✅ Store listener reference for cleanup
   }>();
@@ -779,8 +779,8 @@ class RealDeviceService {
       const allFrames: Uint8Array[] = [];
       let lastSequence = -1;
       let isComplete = false;
-      let timeoutId: number | undefined;
-      let readInterval: number | undefined;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let readInterval: ReturnType<typeof setInterval> | undefined;
       
       // Set up notification listener for multiple frames
       let expectedTotalLength = 0;
@@ -2877,7 +2877,7 @@ class RealDeviceService {
   ): Promise<boolean> {
     return new Promise((resolve) => {
       // eslint-disable-next-line prefer-const
-      let timeoutHandle: number | undefined;
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       let resolved = false;
       
       const handleAck = (responseData: Uint8Array) => {

@@ -1,14 +1,60 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import ElevenLabsVoiceChat from '../components/ElevenLabsVoiceChat';
+import { useAuth } from '../lib/auth';
+import { get_user_ai_config } from '../services/api/aiApi';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const ElevenLabsChat = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  
+  // Default master agent ID
+  const defaultAgentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
+  const [agentId, setAgentId] = useState<string>(defaultAgentId);
+  const [loading, setLoading] = useState(true);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  // Agent ID configuration - use useMemo to prevent recreation
-  const agentId = React.useMemo(() => "agent_01jz8rr062f41tsyt56q8fzbrz", []);
+  // Check for user's custom agent
+  useEffect(() => {
+    const loadAgentId = async () => {
+      try {
+        if (user?.principalId) {
+          console.log('🚀 Checking for user custom agent:', user.principalId);
+          const config = await get_user_ai_config(user.principalId);
+          
+          if (config && config.agent_id) {
+            console.log('✅ Using user custom agent:', config.agent_id);
+            setAgentId(config.agent_id);
+          } else {
+            console.log('ℹ️ No custom agent found, using default:', defaultAgentId);
+            setAgentId(defaultAgentId);
+          }
+        } else {
+          console.log('ℹ️ User not logged in, using default agent:', defaultAgentId);
+          setAgentId(defaultAgentId);
+        }
+      } catch (error) {
+        console.error('❌ Error loading user agent config:', error);
+        setAgentId(defaultAgentId);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAgentId();
+  }, [user?.principalId]);
   
   console.log('🚀 ElevenLabsChat page mounted with agentId:', agentId);
 
@@ -25,6 +71,29 @@ const ElevenLabsChat = () => {
     console.log('🏠 Returning to Index page');
     navigate('/');
   };
+
+  // Handle voice mode change with login check
+  const handleVoiceModeChange = useCallback((isVoice: boolean) => {
+    console.log('Voice mode changed:', isVoice);
+    // If user tries to start voice mode but not logged in, show prompt
+    if (isVoice && !isAuthenticated()) {
+      setShowLoginPrompt(true);
+    }
+  }, [isAuthenticated]);
+
+  // Show loading state while checking for user agent
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin mx-auto"></div>
+          <div className="mt-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+            Loading AI Agent...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isValidAgentId) {
     return (
@@ -129,13 +198,32 @@ const ElevenLabsChat = () => {
             <ElevenLabsVoiceChat 
               agentId={agentId}
               className="h-full"
-              onVoiceModeChange={React.useCallback((isVoice: boolean) => {
-                console.log('Voice mode changed:', isVoice);
-              }, [])}
+              onVoiceModeChange={handleVoiceModeChange}
             />
           </div>
         </div>
       </div>
+
+      {/* Login Prompt Dialog */}
+      <AlertDialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Login Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please login to use voice chat features. You can continue with text chat or login to access all features.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue with Text</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowLoginPrompt(false);
+              navigate('/');
+            }}>
+              Go to Login
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

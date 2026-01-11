@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth';
-import { User, Smartphone, MoreHorizontal, ChevronRight, Edit, Save, X, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Smartphone, MoreHorizontal, ChevronRight, Edit, Save, X, Lock, Eye, EyeOff, Coins, Sparkles, Download } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { PageLayout } from '../components/PageLayout';
@@ -9,6 +9,8 @@ import { upsertNickname, getUserInfoByPrincipal, changeUserPassword } from '../s
 import { useToast } from '../hooks/use-toast';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
+import { useSolanaWallet } from '../lib/solanaWallet';
+import QRCode from 'react-qr-code';
 
 const Profile = () => {
   const { t } = useTranslation();
@@ -28,6 +30,89 @@ const Profile = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+
+  // Solana wallet state
+  const {
+    address: solanaAddress,
+    isConnected: isSolanaConnected,
+    isConnecting: isSolanaConnecting,
+    error: solanaError,
+    uri: walletConnectUri,
+    connect: connectSolanaWallet,
+    disconnect: disconnectSolanaWallet,
+    getTokenBalance,
+  } = useSolanaWallet();
+  const [tokenBalance, setTokenBalance] = useState<{
+    balance: number;
+    decimals: number;
+    symbol?: string;
+    name?: string;
+  } | null>(null);
+  const [isLoadingTokenBalance, setIsLoadingTokenBalance] = useState(false);
+
+  // Debug: Log wallet state changes
+  useEffect(() => {
+    console.log('[Profile] Solana wallet state changed:', {
+      address: solanaAddress,
+      isConnected: isSolanaConnected,
+      isConnecting: isSolanaConnecting,
+      error: solanaError,
+      uri: walletConnectUri ? walletConnectUri.substring(0, 50) + '...' : null,
+    });
+  }, [solanaAddress, isSolanaConnected, isSolanaConnecting, solanaError, walletConnectUri]);
+
+  // Mobile device detection
+  const isMobileDevice = typeof navigator !== 'undefined' && 
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) &&
+    !window.matchMedia('(min-width: 1024px)').matches; // Exclude tablets in desktop mode
+  
+  // Check if Phantom extension is installed (PC) - use same logic as solanaWallet
+  const isPhantomInstalled = typeof window !== 'undefined' && 
+    !!((window as any).phantom?.solana?.isPhantom || (window as any).solana?.isPhantom);
+
+  const handleOpenWalletApp = () => {
+    // Double check: only proceed on mobile devices
+    if (!isMobileDevice) {
+      console.warn('handleOpenWalletApp called on non-mobile device, ignoring');
+      return;
+    }
+    
+    if (!walletConnectUri) return;
+    
+    // On mobile, try multiple deep link strategies for better compatibility
+    try {
+      // Strategy 1: Direct wc:// URI (works for most wallets that support WalletConnect)
+      // This will trigger the system to open registered wallet apps
+      const wcUri = walletConnectUri;
+      
+      // Strategy 2: Try common wallet deep links as fallback
+      // Phantom wallet
+      const phantomDeepLink = `phantom://v1/connect?uri=${encodeURIComponent(wcUri)}`;
+      
+      // Try direct wc:// first (most compatible)
+      const link = document.createElement('a');
+      link.href = wcUri;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // If direct link doesn't work, try Phantom deep link after a short delay
+      setTimeout(() => {
+        // Check if we're still on the same page (link didn't work)
+        if (document.visibilityState === 'visible') {
+          // Try Phantom deep link
+          window.location.href = phantomDeepLink;
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Failed to open wallet app:', error);
+      // Final fallback: direct URI (only on mobile)
+      if (isMobileDevice) {
+        window.location.href = walletConnectUri;
+      }
+    }
+  };
 
   // Use device status hook for real-time device management
   const {
@@ -164,6 +249,92 @@ const Profile = () => {
     setShowPasswordChange(false);
   };
 
+  // Solana wallet handlers
+  const handleConnectPhantom = async () => {
+    console.log('[Profile] handleConnectPhantom called');
+    console.log('[Profile] Current wallet state:', {
+      isConnecting: isSolanaConnecting,
+      isConnected: isSolanaConnected,
+      address: solanaAddress,
+      error: solanaError,
+      uri: walletConnectUri,
+    });
+    
+    try {
+      console.log('[Profile] Calling connectSolanaWallet()...');
+      const address = await connectSolanaWallet();
+      console.log('[Profile] connectSolanaWallet() returned:', address);
+      
+      if (address) {
+        console.log('[Profile] Connection successful, address:', address);
+        toast({
+          title: t('common.walletConnected') || 'Wallet Connected',
+          description: `Connected to Phantom: ${address.slice(0, 6)}...${address.slice(-4)}`,
+        });
+        // Fetch token balance after connection
+        console.log('[Profile] Fetching token balance...');
+        await fetchTokenBalance(address);
+      } else {
+        console.log('[Profile] Connection returned null, checking error state...');
+        // Connection was cancelled or failed, check error state
+        if (solanaError) {
+          console.error('[Profile] Connection failed with error:', solanaError);
+          toast({
+            title: t('common.walletConnectionFailed') || 'Connection Failed',
+            description: solanaError,
+            variant: 'destructive',
+          });
+        } else {
+          console.log('[Profile] Connection cancelled by user (no error)');
+        }
+      }
+    } catch (error: any) {
+      console.error('[Profile] Exception in handleConnectPhantom:', error);
+      console.error('[Profile] Exception details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      toast({
+        title: t('common.walletConnectionFailed') || 'Connection Failed',
+        description: error.message || 'Failed to connect to Phantom wallet. Please make sure Phantom wallet is installed.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDisconnectPhantom = async () => {
+    try {
+      await disconnectSolanaWallet();
+      setTokenBalance(null);
+      toast({
+        title: t('common.walletDisconnected') || 'Wallet Disconnected',
+        description: 'Phantom wallet disconnected',
+      });
+    } catch (error: any) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  };
+
+  const fetchTokenBalance = async (address?: string) => {
+    setIsLoadingTokenBalance(true);
+    try {
+      const balance = await getTokenBalance(address);
+      setTokenBalance(balance);
+    } catch (error) {
+      console.error('Failed to fetch token balance:', error);
+    } finally {
+      setIsLoadingTokenBalance(false);
+    }
+  };
+
+  // Fetch token balance when wallet is connected
+  useEffect(() => {
+    if (isSolanaConnected && solanaAddress) {
+      fetchTokenBalance(solanaAddress);
+    }
+  }, [isSolanaConnected, solanaAddress]);
+
   return (
     <PageLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -246,34 +417,260 @@ const Profile = () => {
         <div className="mb-6">
           <div className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-2xl p-6 border border-white/10 backdrop-blur-xl">
             <h2 className="text-lg font-semibold text-white mb-4">{t('userManagement.accountInfo')}</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-white/80">{t('userManagement.userId')}:</span>
-                <span className="text-white/60 text-sm">{user?.userId || 'N/A'}</span>
-              </div>
+            <div className="space-y-3">     
               <div className="flex justify-between items-center">
                 <span className="text-white/80">{t('userManagement.principalId')}:</span>
                 <span className="text-white/60 text-sm font-mono">
                   {user?.principalId ? `${user.principalId.slice(0, 8)}...${user.principalId.slice(-8)}` : 'N/A'}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-white/80">{t('userManagement.loginMethod')}:</span>
-                <span className="text-white/60 text-sm capitalize">
-                  {user?.loginMethod === 'wallet' ? t('userManagement.wallet') : 
-                   user?.loginMethod === 'google' ? t('userManagement.google') : t('userManagement.ii')}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-white/80">{t('userManagement.status')}:</span>
-                <span className={`text-sm px-2 py-1 rounded-full ${
-                  user?.loginStatus === 'authenticated' 
-                    ? 'bg-green-400/20 text-green-400' 
-                    : 'bg-red-400/20 text-red-400'
-                }`}>
-                  {user?.loginStatus === 'authenticated' ? t('userManagement.authenticated') : t('userManagement.unauthenticated')}
-                </span>
-              </div>
+              {/* Solana Wallet Address */}
+              {isSolanaConnected && solanaAddress && (
+                <div className="flex justify-between items-center">
+                  <span className="text-white/80">{t('common.solanaWallet')}:</span>
+                  <span className="text-white/60 text-sm font-mono">
+                    {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
+                  </span>
+                </div>
+              )}
+              {/* Token Balance */}
+              {isSolanaConnected && (tokenBalance !== null || isLoadingTokenBalance) && (
+                <div className="flex justify-between items-center">
+                  <span className="text-white/80">{t('common.tokenBalance')}:</span>
+                  <span className="text-white/60 text-sm">
+                    {isLoadingTokenBalance ? (
+                      <span className="text-white/40">Loading...</span>
+                    ) : tokenBalance ? (
+                      <span>
+                        {tokenBalance.balance.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 6,
+                        })}{' '}
+                        {tokenBalance.symbol}
+                      </span>
+                    ) : (
+                      <span className="text-white/40">0</span>
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Start to Earn - Wallet Connection Section */}
+            <div className="mt-6 pt-6 border-t border-white/10">
+              {!isSolanaConnected ? (
+                <div className="space-y-4">
+                  {/* Title Section */}
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      {t('common.startToEarn') || 'Start to earn'}
+                      <Sparkles className="h-4 w-4 text-yellow-400 animate-pulse" />
+                    </h3>
+                    <p className="text-white/60 text-sm mt-0.5">
+                      Connect your wallet to start earning rewards
+                    </p>
+                  </div>
+                  
+                  {/* Connection Button */}
+                  <button
+                    onClick={handleConnectPhantom}
+                    disabled={isSolanaConnecting}
+                    className="w-full p-4 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-purple-500/20 hover:from-yellow-500/30 hover:via-orange-500/30 hover:to-purple-500/30 border border-yellow-400/30 rounded-xl transition-all duration-200 flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-yellow-500/20"
+                    style={{
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitFontSmoothing: 'antialiased',
+                      MozOsxFontSmoothing: 'grayscale',
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-br from-yellow-400/30 to-orange-400/30 rounded-lg group-hover:from-yellow-400/40 group-hover:to-orange-400/40 transition-colors">
+                        <Coins className="h-5 w-5 text-yellow-400" />
+                      </div>
+                      <span className="text-white font-semibold">
+                        {isSolanaConnecting ? (t('common.connecting') || 'Connecting...') : (t('common.linkToPhantomWallet') || 'Link to Phantom Wallet')}
+                      </span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-yellow-400 transition-colors" />
+                  </button>
+                  
+                  {/* Connection hint when connecting via Phantom extension */}
+                  {isSolanaConnecting && isPhantomInstalled && !walletConnectUri && (
+                    <div className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30">
+                      <p className="text-sm text-blue-200 text-center">
+                        Please check your browser for a Phantom extension popup. If no popup appears, check if popups are blocked for this site.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* WalletConnect QR Code Display - Show if WalletConnect URI is available and not connected */}
+                  {walletConnectUri && !isSolanaConnected && (
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                      <p className="text-white text-sm font-medium mb-3 text-center">
+                        {isMobileDevice ? 'Open your wallet app to approve' : 'Scan QR code with your wallet app'}
+                      </p>
+                      
+                      {/* QR Code - Always display */}
+                      <div className="flex justify-center p-4 bg-white rounded-lg mb-3" id="walletconnect-qr-code">
+                        <QRCode
+                          value={walletConnectUri}
+                          size={200}
+                          level="M"
+                          style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
+                        />
+                      </div>
+                      
+                      {/* Mobile: Open Wallet button */}
+                      {isMobileDevice && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const isMobile = typeof navigator !== 'undefined' && 
+                              /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) &&
+                              !window.matchMedia('(min-width: 1024px)').matches;
+                            if (isMobile) {
+                              handleOpenWalletApp();
+                            }
+                          }}
+                          className="w-full mb-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white rounded-lg font-medium transition-all duration-200"
+                          style={{ WebkitTapHighlightColor: 'transparent' }}
+                        >
+                          Open Wallet
+                        </button>
+                      )}
+                      
+                      {/* Save QR Code to Gallery */}
+                      <button
+                        onClick={async () => {
+                          try {
+                            const qrContainer = document.getElementById('walletconnect-qr-code');
+                            if (!qrContainer) return;
+                            
+                            const svgElement = qrContainer.querySelector('svg');
+                            if (!svgElement) return;
+                            
+                            // Convert SVG to canvas
+                            const svgData = new XMLSerializer().serializeToString(svgElement);
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+                            
+                            // Set canvas size
+                            const size = 200;
+                            canvas.width = size;
+                            canvas.height = size;
+                            
+                            // Create image from SVG
+                            const img = new Image();
+                            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                            const url = URL.createObjectURL(svgBlob);
+                            
+                            img.onload = () => {
+                              // Draw white background
+                              ctx.fillStyle = '#FFFFFF';
+                              ctx.fillRect(0, 0, size, size);
+                              
+                              // Draw QR code
+                              ctx.drawImage(img, 0, 0, size, size);
+                              
+                              // Convert to blob and download
+                              canvas.toBlob((blob) => {
+                                if (blob) {
+                                  const link = document.createElement('a');
+                                  link.href = URL.createObjectURL(blob);
+                                  link.download = `walletconnect-qr-${Date.now()}.png`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  URL.revokeObjectURL(url);
+                                  
+                                  toast({
+                                    title: t('common.qrCodeSaved') || 'QR Code Saved',
+                                    description: t('common.qrCodeSavedDesc') || 'QR code has been saved to your device',
+                                  });
+                                }
+                              }, 'image/png');
+                            };
+                            
+                            img.onerror = () => {
+                              console.error('Failed to load SVG image');
+                              URL.revokeObjectURL(url);
+                            };
+                            
+                            img.src = url;
+                          } catch (error) {
+                            console.error('Failed to save QR code:', error);
+                            toast({
+                              title: t('common.saveFailed') || 'Save Failed',
+                              description: t('common.qrCodeSaveFailed') || 'Failed to save QR code',
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                        className="w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        {t('common.saveQRCode') || 'Save QR Code'}
+                      </button>
+                      
+                      <p className="text-white/60 text-xs mt-3 text-center">
+                        {isMobileDevice
+                          ? 'Tap "Open Wallet" or save the QR code to scan later.'
+                          : 'Scan this QR code with your wallet app to connect.'}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {solanaError && !isSolanaConnecting && (
+                    <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50">
+                      <p className="text-sm text-red-200">{solanaError}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-green-400/10 border border-green-400/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-400/20 rounded-lg">
+                        <Smartphone className="h-4 w-4 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium">{t('common.phantomWalletConnected')}</p>
+                        <p className="text-white/60 text-xs font-mono">
+                          {solanaAddress?.slice(0, 8)}...{solanaAddress?.slice(-6)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleDisconnectPhantom}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      title="Disconnect wallet"
+                    >
+                      <X className="h-4 w-4 text-white/60" />
+                    </button>
+                  </div>
+                  {tokenBalance !== null && (
+                    <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/80 text-sm">{t('common.tokenBalance')}:</span>
+                        <span className="text-white text-sm font-medium">
+                          {tokenBalance.balance.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 6,
+                          })}{' '}
+                          {tokenBalance.symbol}
+                        </span>
+                      </div>
+                      {tokenBalance.name && (
+                        <p className="text-white/60 text-xs mt-1">{tokenBalance.name}</p>
+                      )}
+                      <p className="text-white/40 text-xs mt-1 font-mono">
+                        Contract: V8tLkyqHdtzzYCGdsVf5CZ55BsLuvu7F4TchiDhJgem
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             {/* Password Change Section */}

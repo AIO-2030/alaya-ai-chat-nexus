@@ -1,30 +1,151 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { AppHeader } from '../components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MessageSquare, Sparkles, Globe, Heart, Infinity } from 'lucide-react';
+import { MessageSquare, Sparkles, Globe, Heart, Infinity, Mic } from 'lucide-react';
 import { PageLayout } from '../components/PageLayout';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation } from '../components/BottomNavigation';
+import { VoiceRecordingDialog } from '../components/VoiceRecordingDialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const Index = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Agent ID configuration
-  const agentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
+  // Agent ID configuration - default master agent
+  const defaultAgentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
   
-  console.log('🚀 Index component mounted with agentId:', agentId);
+  // State for voice creation flow
+  const [showVoiceDialog, setShowVoiceDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  console.log('🚀 Index component mounted with defaultAgentId:', defaultAgentId);
 
   // Agent ID validation
-  const isValidAgentId = agentId && agentId.startsWith('agent_');
+  const isValidAgentId = defaultAgentId && defaultAgentId.startsWith('agent_');
 
   // Handle navigation to ElevenLabs chat page
   const handleStartChat = () => {
     console.log('🚀 Navigating to ElevenLabs chat page');
     navigate('/elevenlabs-chat');
+  };
+
+  // Handle Create My Voice button click
+  const handleCreateMyVoice = async () => {
+    // Check if user is logged in
+    console.log('[Index] Checking authentication:', {
+      isAuthenticated: isAuthenticated(),
+      hasUser: !!user,
+      principalId: user?.principalId,
+      loginStatus: user?.loginStatus,
+    });
+    
+    if (!isAuthenticated() || !user) {
+      alert('Please login first to create your custom voice');
+      return;
+    }
+    
+    if (!user.principalId) {
+      console.error('[Index] User exists but principalId is missing:', user);
+      alert('User authentication incomplete. Please login again.');
+      return;
+    }
+
+    try {
+      // Check if user already has a custom agent
+      const { get_user_ai_config, has_user_ai_config } = await import('../services/api/aiApi');
+      const hasConfig = await has_user_ai_config(user.principalId);
+      
+      if (hasConfig) {
+        // Show delete confirmation dialog
+        setShowDeleteConfirm(true);
+      } else {
+        // No existing config, proceed directly
+        setShowVoiceDialog(true);
+      }
+    } catch (error) {
+      console.error('Error checking user AI config:', error);
+      alert('Failed to check your voice configuration. Please try again.');
+    }
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!user?.principalId) return;
+    
+    setIsProcessing(true);
+    setShowDeleteConfirm(false);
+    
+    try {
+      const { get_user_ai_config, delete_user_ai_config } = await import('../services/api/aiApi');
+      
+      // Get current config to get agent_id
+      const config = await get_user_ai_config(user.principalId);
+      
+      if (config) {
+        // Delete from ElevenLabs
+        const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+        if (apiKey && config.agent_id) {
+          try {
+            const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${config.agent_id}`, {
+              method: 'DELETE',
+              headers: {
+                'xi-api-key': apiKey,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (!response.ok) {
+              console.warn('Failed to delete agent from ElevenLabs:', response.statusText);
+            }
+          } catch (error) {
+            console.error('Error deleting agent from ElevenLabs:', error);
+          }
+        }
+        
+        // Delete from backend
+        await delete_user_ai_config(user.principalId);
+      }
+      
+      // Proceed to voice recording
+      setShowVoiceDialog(true);
+    } catch (error) {
+      console.error('Error deleting user AI config:', error);
+      alert('Failed to delete existing voice. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle voice recording completion
+  const handleVoiceRecorded = async (audioBlob: Blob) => {
+    if (!user || !user.principalId || !user.userId) {
+      alert('User information is incomplete. Please login again.');
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    try {
+      const { createCustomVoiceAgent } = await import('../services/api/aiApi');
+      const result = await createCustomVoiceAgent(user.principalId, audioBlob, defaultAgentId, user.userId);
+      
+      if (result.success) {
+        alert('Your custom voice has been created successfully!');
+        setShowVoiceDialog(false);
+      } else {
+        alert(`Failed to create custom voice: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error creating custom voice:', error);
+      alert('Failed to create custom voice. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Auto-scroll to bottom when new messages arrive
@@ -56,7 +177,7 @@ const Index = () => {
           <div className="space-y-4 text-left bg-slate-800/50 p-6 rounded-lg">
             <p className="text-lg font-semibold">ElevenLabs Agent Configuration Issue:</p>
             <ul className="space-y-2 text-sm">
-              <li>• Current Agent ID: <code className="bg-slate-700 px-2 py-1 rounded">{agentId}</code></li>
+              <li>• Current Agent ID: <code className="bg-slate-700 px-2 py-1 rounded">{defaultAgentId}</code></li>
               <li>• Agent ID must start with 'agent_'</li>
               <li>• Please get a valid Agent ID from ElevenLabs console</li>
             </ul>
@@ -179,10 +300,12 @@ const Index = () => {
               
               <Button
                 variant="outline"
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm px-8 py-4 text-lg font-semibold rounded-2xl border-2 transition-all duration-300 hover:scale-105"
+                onClick={handleCreateMyVoice}
+                disabled={isProcessing}
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm px-8 py-4 text-lg font-semibold rounded-2xl border-2 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Sparkles className="w-6 h-6 mr-3" />
-                Learn More
+                <Mic className="w-6 h-6 mr-3" />
+                {isProcessing ? 'Processing...' : 'Create my voice'}
               </Button>
             </div>
 
@@ -220,6 +343,31 @@ const Index = () => {
         <div className="lg:hidden">
           <BottomNavigation />
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Existing Voice?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You already have a custom voice. Creating a new one will delete your existing voice and agent. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm}>Delete and Continue</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Voice Recording Dialog */}
+        {showVoiceDialog && (
+          <VoiceRecordingDialog
+            open={showVoiceDialog}
+            onClose={() => setShowVoiceDialog(false)}
+            onRecorded={handleVoiceRecorded}
+          />
+        )}
       </div>
     </PageLayout>
   );

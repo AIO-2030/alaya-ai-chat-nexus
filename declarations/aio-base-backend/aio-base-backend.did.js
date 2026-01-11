@@ -439,6 +439,11 @@ export const idlFactory = ({ IDL }) => {
     'from_account' : Account,
     'amount' : IDL.Nat64,
   });
+  const UserAiConfig = IDL.Record({
+    'agent_id' : IDL.Text,
+    'voice_id' : IDL.Text,
+    'principal_id' : IDL.Text,
+  });
   const GrantAction = IDL.Variant({
     'NewUser' : IDL.Null,
     'NewDeveloper' : IDL.Null,
@@ -610,6 +615,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'delete_recharge_principal_account_api' : IDL.Func(
         [],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'delete_user_ai_config' : IDL.Func(
+        [IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
@@ -1048,6 +1058,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(AgentItem)],
         ['query'],
       ),
+    'get_user_ai_config' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(UserAiConfig)],
+        ['query'],
+      ),
     'get_user_credit_balance_api' : IDL.Func(
         [IDL.Text],
         [IDL.Nat64],
@@ -1085,6 +1100,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'greet' : IDL.Func([IDL.Text], [IDL.Text], ['query']),
+    'has_user_ai_config' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'init_emission_policy' : IDL.Func([], [], []),
     'init_grant_policy' : IDL.Func([IDL.Opt(GrantPolicy)], [], []),
     'list_pixel_projects_by_owner' : IDL.Func(
@@ -1173,6 +1189,11 @@ export const idlFactory = ({ IDL }) => {
     'send_chat_message' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, MessageMode],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
+        [],
+      ),
+    'set_user_ai_config' : IDL.Func(
+        [UserAiConfig],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
     'simulate_credit_from_icp_api' : IDL.Func(
