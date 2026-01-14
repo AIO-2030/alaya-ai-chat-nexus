@@ -69,6 +69,10 @@ const Profile = () => {
   // Check if Phantom extension is installed (PC) - use same logic as solanaWallet
   const isPhantomInstalled = typeof window !== 'undefined' && 
     !!((window as any).phantom?.solana?.isPhantom || (window as any).solana?.isPhantom);
+  
+  // PC端检测：如果存在 injected Phantom，不显示 WalletConnect UI
+  const hasInjectedPhantom = typeof window !== 'undefined' &&
+    !!((window as any).phantom?.solana?.isPhantom || (window as any).solana?.isPhantom);
 
   const handleOpenWalletApp = () => {
     // Double check: only proceed on mobile devices
@@ -493,17 +497,17 @@ const Profile = () => {
                     <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-yellow-400 transition-colors" />
                   </button>
                   
-                  {/* Connection hint when connecting via Phantom extension */}
-                  {isSolanaConnecting && isPhantomInstalled && !walletConnectUri && (
+                  {/* Connection hint when connecting via Phantom extension (PC) */}
+                  {isSolanaConnecting && hasInjectedPhantom && !walletConnectUri && (
                     <div className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30">
                       <p className="text-sm text-blue-200 text-center">
-                        Please check your browser for a Phantom extension popup. If no popup appears, check if popups are blocked for this site.
+                        Please open the Phantom extension (top-right) and approve the pending connection request. If Phantom is locked, unlock it first.
                       </p>
                     </div>
                   )}
                   
-                  {/* WalletConnect QR Code Display - Show if WalletConnect URI is available and not connected */}
-                  {walletConnectUri && !isSolanaConnected && (
+                  {/* WalletConnect QR Code Display - 只在移动端且没有 injected Phantom 时显示 */}
+                  {walletConnectUri && !isSolanaConnected && !hasInjectedPhantom && (
                     <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                       <p className="text-white text-sm font-medium mb-3 text-center">
                         {isMobileDevice ? 'Open your wallet app to approve' : 'Scan QR code with your wallet app'}
@@ -521,22 +525,53 @@ const Profile = () => {
                       
                       {/* Mobile: Open Wallet button */}
                       {isMobileDevice && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const isMobile = typeof navigator !== 'undefined' && 
-                              /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) &&
-                              !window.matchMedia('(min-width: 1024px)').matches;
-                            if (isMobile) {
-                              handleOpenWalletApp();
-                            }
-                          }}
-                          className="w-full mb-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white rounded-lg font-medium transition-all duration-200"
-                          style={{ WebkitTapHighlightColor: 'transparent' }}
-                        >
-                          Open Wallet
-                        </button>
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const isMobile = typeof navigator !== 'undefined' && 
+                                /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) &&
+                                !window.matchMedia('(min-width: 1024px)').matches;
+                              if (isMobile) {
+                                handleOpenWalletApp();
+                              }
+                            }}
+                            className="w-full mb-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white rounded-lg font-medium transition-all duration-200"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                          >
+                            Open Wallet
+                          </button>
+                          
+                          {/* Copy WalletConnect URI button for mobile fallback */}
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(walletConnectUri);
+                                toast({
+                                  title: t('common.copied') || 'Copied',
+                                  description: t('common.walletConnectUriCopied') || 'WalletConnect URI copied to clipboard',
+                                });
+                              } catch (error) {
+                                console.error('Failed to copy URI:', error);
+                                toast({
+                                  title: t('common.copyFailed') || 'Copy Failed',
+                                  description: t('common.failedToCopyUri') || 'Failed to copy URI to clipboard',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                            className="w-full mb-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all duration-200"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                          >
+                            Copy WalletConnect URI
+                          </button>
+                          
+                          {/* Mobile fallback hint */}
+                          <p className="text-white/60 text-xs mt-2 text-center">
+                            If the wallet app doesn't open automatically, please manually open your wallet app and paste the URI or connect via WalletConnect.
+                          </p>
+                        </>
                       )}
                       
                       {/* Save QR Code to Gallery */}

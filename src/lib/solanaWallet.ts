@@ -257,17 +257,16 @@ class SolanaWalletManager {
       
       try {
         // Direct interactive connect (single attempt only)
-        // DO NOT use onlyIfTrusted:true as it can cause pending state and block the connection
+        // 只允许 provider.connect()（无参数）或 provider.request({ method: 'connect' }) 作为 fallback
+        // 避免 Phantom 某些版本对带参数 connect 产生 pending request
         let connectResult: any;
         try {
-          console.log('[SolanaWallet] Calling provider.connect() without onlyIfTrusted...');
+          console.log('[SolanaWallet] Calling provider.connect() without parameters...');
           connectResult = provider.connect();
         } catch (e: any) {
-          console.log('[SolanaWallet] connect() failed, trying with explicit options:', e);
-          if (typeof provider.connect === 'function') {
-            connectResult = provider.connect({ onlyIfTrusted: false });
-          } else if (typeof provider.request === 'function') {
-            console.log('[SolanaWallet] Using provider.request() method...');
+          console.log('[SolanaWallet] connect() failed, trying provider.request() method:', e);
+          if (typeof provider.request === 'function') {
+            console.log('[SolanaWallet] Using provider.request() method as fallback...');
             connectResult = provider.request({ method: 'connect' });
           } else {
             throw new Error('No connect method available on provider');
@@ -412,7 +411,7 @@ class SolanaWalletManager {
             if (!resolved) {
               console.error('[SolanaWallet] Connection timeout after 30 seconds');
               provider.removeListener('connect', eventConnectHandler);
-              markRejected(new Error('Phantom connection timeout. Please check if the Phantom extension popup was blocked by your browser.'));
+              markRejected(new Error('Phantom connection timeout. Please open the Phantom extension (top-right) and approve the pending connection request (unlock Phantom if needed). If nothing is pending, disconnect this site in Phantom → Settings → Connected Apps, then retry.'));
             }
           }, 30000);
         });
@@ -462,16 +461,17 @@ class SolanaWalletManager {
         return null;
       }
       
-      // For timeout errors, return null (don't auto-fallback if Phantom is installed)
+      // For timeout errors, 保留错误状态让 UI 显示，不要清 error
       if (error.message?.includes('timeout') || error.message?.includes('blocked')) {
         console.log('[SolanaWallet] Phantom connection timeout or blocked');
         console.log('[SolanaWallet] 💡 This usually means:');
         console.log('[SolanaWallet] 1. Phantom extension is locked - unlock it by clicking the extension icon');
         console.log('[SolanaWallet] 2. Phantom needs to be activated - click the Phantom icon in browser toolbar');
         console.log('[SolanaWallet] 3. Try disabling and re-enabling the Phantom extension');
+        // 保留错误信息，不要清 error
         this.updateState({
           isConnecting: false,
-          error: 'Phantom connection timeout. Please unlock Phantom extension and try again.',
+          error: error.message || 'Phantom connection timeout. Please open the Phantom extension (top-right) and approve the pending connection request (unlock Phantom if needed). If nothing is pending, disconnect this site in Phantom → Settings → Connected Apps, then retry.',
         });
         return null;
       }
@@ -498,33 +498,22 @@ class SolanaWalletManager {
     console.log('[SolanaWallet] Set isConnecting = true');
 
     try {
-      // Strategy 1: Try Phantom browser extension first (PC)
-      const phantomInstalled = this.isPhantomInstalled();
-      console.log('[SolanaWallet] Phantom extension check:', { phantomInstalled });
+      // Hard constraint: PC端强制只走 Phantom 插件，不走 WalletConnect
+      const hasInjectedPhantom = typeof window !== 'undefined' &&
+        !!((window as any).phantom?.solana?.isPhantom || (window as any).solana?.isPhantom);
       
-      if (phantomInstalled) {
-        console.log('[SolanaWallet] Attempting to connect via Phantom extension...');
-        try {
-          const address = await this.connectPhantomExtension();
-          if (address) {
-            console.log('[SolanaWallet] Successfully connected via Phantom extension:', address);
-            return address;
-          }
-          console.log('[SolanaWallet] Phantom extension connection returned null (user rejected/timeout). Not falling back to WalletConnect automatically.');
-          this.updateState({ isConnecting: false });
-          return null;
-        } catch (error: any) {
-          console.error('[SolanaWallet] Phantom extension connection error (no auto fallback):', error);
-          this.updateState({
-            isConnecting: false,
-            error: error?.message || 'Phantom connection failed. Please retry.',
-          });
-          return null;
-        }
+      console.log('[SolanaWallet] Injected Phantom check:', { hasInjectedPhantom });
+      
+      if (hasInjectedPhantom) {
+        console.log('[SolanaWallet] PC端检测到 Phantom 插件，强制只使用 Phantom，不走 WalletConnect');
+        const address = await this.connectPhantomExtension();
+        // 不要清 error，保留错误状态让 UI 显示
+        this.updateState({ isConnecting: false });
+        return address; // address 可能为 null
       }
 
-      // Strategy 2: Use WalletConnect (only when Phantom not present)
-      console.log('[SolanaWallet] Using WalletConnect strategy (Phantom not detected)');
+      // Strategy 2: Use WalletConnect (only when Phantom not present - Mobile端)
+      console.log('[SolanaWallet] Using WalletConnect strategy (Phantom not detected - Mobile端)');
       
       if (!this.signClient) {
         console.log('[SolanaWallet] SignClient not initialized, initializing...');
@@ -560,12 +549,12 @@ class SolanaWalletManager {
         }
       }
 
-      // Request connection
+      // Request connection - 使用 requiredNamespaces 提升移动端批准率
       console.log('[SolanaWallet] Requesting WalletConnect connection...');
       const { uri, approval } = await this.signClient.connect({
-        optionalNamespaces: {
+        requiredNamespaces: {
           solana: {
-            // Include account methods as some wallets won't approve a session without them
+            chains: [SOLANA_CAIP2_CHAIN_ID],
             methods: [
               'solana_getAccounts',
               'solana_requestAccounts',
@@ -574,9 +563,6 @@ class SolanaWalletManager {
               'solana_signAllTransactions',
               'solana_signAndSendTransaction',
             ],
-            // Use CAIP-2 chain id (genesis hash) instead of a friendly alias
-            chains: [SOLANA_CAIP2_CHAIN_ID],
-            // Keep empty to avoid wallet-side schema mismatch (many wallets ignore custom events)
             events: [],
           },
         },

@@ -185,7 +185,11 @@ const resources = {
         qrCodeSaved: 'QR Code Saved',
         qrCodeSavedDesc: 'QR code has been saved to your device',
         saveFailed: 'Save Failed',
-        qrCodeSaveFailed: 'Failed to save QR code'
+        qrCodeSaveFailed: 'Failed to save QR code',
+        copied: 'Copied',
+        walletConnectUriCopied: 'WalletConnect URI copied to clipboard',
+        copyFailed: 'Copy Failed',
+        failedToCopyUri: 'Failed to copy URI to clipboard'
       },
       login: {
         welcome: 'Welcome to Univoice',
@@ -709,7 +713,11 @@ const resources = {
         qrCodeSaved: '二维码已保存',
         qrCodeSavedDesc: '二维码已保存到您的设备',
         saveFailed: '保存失败',
-        qrCodeSaveFailed: '保存二维码失败'
+        qrCodeSaveFailed: '保存二维码失败',
+        copied: '已复制',
+        walletConnectUriCopied: 'WalletConnect URI 已复制到剪贴板',
+        copyFailed: '复制失败',
+        failedToCopyUri: '复制 URI 到剪贴板失败'
       },
       login: {
         welcome: '欢迎来到 Univoice',
