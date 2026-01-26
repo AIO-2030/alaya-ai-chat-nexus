@@ -11,11 +11,14 @@ import { useDeviceStatus } from '../hooks/useDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 import { useSolanaWallet } from '../lib/solanaWallet';
 import QRCode from 'react-qr-code';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Profile = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -684,8 +687,37 @@ const Profile = () => {
                       <X className="h-4 w-4 text-white/60" />
                     </button>
                   </div>
+                  {/* Start to Earn Button - Navigate to Task Rewards Page */}
+                  {isSolanaConnected && solanaAddress && (
+                    <button
+                      onClick={() => navigate({ pathname: '/task-rewards', search: location.search })}
+                      className="w-full p-4 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-purple-500/20 hover:from-yellow-500/30 hover:via-orange-500/30 hover:to-purple-500/30 border border-yellow-400/30 rounded-xl transition-all duration-200 flex items-center justify-between group shadow-lg hover:shadow-yellow-500/20"
+                      style={{
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale',
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-br from-yellow-400/30 to-orange-400/30 rounded-lg group-hover:from-yellow-400/40 group-hover:to-orange-400/40 transition-colors">
+                          <Sparkles className="h-5 w-5 text-yellow-400" />
+                        </div>
+                        <div className="text-left">
+                          <span className="text-white font-semibold block">
+                            {t('common.startToEarn') || 'Start to Earn'}
+                          </span>
+                          <span className="text-white/60 text-xs">
+                            {t('common.viewTasksAndRewards') || 'View tasks and claim rewards'}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-yellow-400 transition-colors" />
+                    </button>
+                  )}
+                  
+                  {/* Token Balance Display (if available) */}
                   {tokenBalance !== null && (
-                    <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                    <div className="p-3 bg-white/5 border border-white/10 rounded-lg mt-3">
                       <div className="flex justify-between items-center">
                         <span className="text-white/80 text-sm">{t('common.tokenBalance')}:</span>
                         <span className="text-white text-sm font-medium">

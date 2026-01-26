@@ -62,6 +62,16 @@ export interface ChatMessage {
   'timestamp' : bigint,
   'send_by' : string,
 }
+export type ClaimResultStatus = { 'Failed' : null } |
+  { 'Success' : null };
+export interface ClaimTicket {
+  'root' : Uint8Array | number[],
+  'epoch' : bigint,
+  'wallet' : string,
+  'index' : bigint,
+  'proof' : Array<Uint8Array | number[]>,
+  'amount' : bigint,
+}
 export interface Contact {
   'id' : bigint,
   'status' : ContactStatus,
@@ -220,6 +230,12 @@ export interface McpStackRecord {
   'stack_status' : StackStatus,
   'principal_id' : string,
 }
+export interface MerkleSnapshotMeta {
+  'leaves_count' : bigint,
+  'root' : Uint8Array | number[],
+  'locked' : boolean,
+  'epoch' : bigint,
+}
 export type MessageMode = { 'Gif' : null } |
   { 'Emoji' : null } |
   { 'Text' : null } |
@@ -359,6 +375,17 @@ export type SubscriptionPlan = { 'Premium' : null } |
   { 'Enterprise' : null } |
   { 'Free' : null } |
   { 'Basic' : null };
+export interface TaskContractItem {
+  'reward' : bigint,
+  'taskid' : string,
+  'payfor' : [] | [string],
+}
+export type TaskStatus = { 'TicketIssued' : null } |
+  { 'Claimed' : null } |
+  { 'RewardPrepared' : null } |
+  { 'InProgress' : null } |
+  { 'Completed' : null } |
+  { 'NotStarted' : null };
 export interface TokenActivity {
   'to' : string,
   'status' : TransferStatus,
@@ -443,6 +470,18 @@ export interface UserProfile {
   'devices' : Array<string>,
   'passwd' : [] | [string],
 }
+export interface UserTaskDetail {
+  'status' : TaskStatus,
+  'reward_amount' : bigint,
+  'taskid' : string,
+  'evidence' : [] | [string],
+  'completed_at' : bigint,
+}
+export interface UserTaskState {
+  'tasks' : Array<UserTaskDetail>,
+  'total_unclaimed' : bigint,
+  'wallet' : string,
+}
 export interface Version {
   'version_id' : VersionId,
   'source' : PixelArtSource,
@@ -509,6 +548,11 @@ export interface _SERVICE {
     { 'Ok' : string } |
       { 'Err' : string }
   >,
+  'build_epoch_snapshot' : ActorMethod<
+    [bigint],
+    { 'Ok' : MerkleSnapshotMeta } |
+      { 'Err' : string }
+  >,
   'cal_unclaim_rewards' : ActorMethod<[string], bigint>,
   'calculate_emission' : ActorMethod<
     [string],
@@ -535,6 +579,11 @@ export interface _SERVICE {
   'clear_notifications_for_pair' : ActorMethod<
     [string, string],
     { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
+  'complete_task' : ActorMethod<
+    [string, string, [] | [string], bigint],
+    { 'Ok' : null } |
       { 'Err' : string }
   >,
   'convert_aio_to_credits' : ActorMethod<
@@ -689,6 +738,11 @@ export interface _SERVICE {
     [string, string, bigint, bigint],
     Array<ChatMessage>
   >,
+  'get_claim_ticket' : ActorMethod<
+    [string],
+    { 'Ok' : ClaimTicket } |
+      { 'Err' : string }
+  >,
   'get_contact_by_id' : ActorMethod<[bigint], [] | [Contact]>,
   'get_contact_by_principal_ids' : ActorMethod<
     [string, string],
@@ -728,6 +782,7 @@ export interface _SERVICE {
     { 'Ok' : EmissionPolicy } |
       { 'Err' : string }
   >,
+  'get_epoch_meta' : ActorMethod<[bigint], [] | [MerkleSnapshotMeta]>,
   'get_kappa' : ActorMethod<[string], { 'Ok' : number } | { 'Err' : string }>,
   'get_mcp_grant' : ActorMethod<[string, string], [] | [NewMcpGrant]>,
   'get_mcp_grants_by_mcp' : ActorMethod<[string], Array<NewMcpGrant>>,
@@ -756,6 +811,7 @@ export interface _SERVICE {
     [string],
     Array<NotificationItem>
   >,
+  'get_or_init_user_tasks' : ActorMethod<[string], UserTaskState>,
   'get_order_by_id' : ActorMethod<[string], [] | [Order]>,
   'get_pixel_current_source' : ActorMethod<[ProjectId], [] | [PixelArtSource]>,
   'get_pixel_project' : ActorMethod<[ProjectId], [] | [Project]>,
@@ -781,6 +837,7 @@ export interface _SERVICE {
     [],
     Array<StackPositionRecord>
   >,
+  'get_task_contract' : ActorMethod<[], Array<TaskContractItem>>,
   'get_token_activities' : ActorMethod<[string], Array<TokenActivity>>,
   'get_token_activities_by_time_period' : ActorMethod<
     [string, bigint, bigint],
@@ -897,6 +954,12 @@ export interface _SERVICE {
   'has_user_ai_config' : ActorMethod<[string], boolean>,
   'init_emission_policy' : ActorMethod<[], undefined>,
   'init_grant_policy' : ActorMethod<[[] | [GrantPolicy]], undefined>,
+  'init_task_contract' : ActorMethod<
+    [Array<TaskContractItem>],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'list_all_epochs' : ActorMethod<[], Array<MerkleSnapshotMeta>>,
   'list_pixel_projects_by_owner' : ActorMethod<
     [Principal, number, number],
     Array<Project>
@@ -910,6 +973,11 @@ export interface _SERVICE {
     { 'Ok' : null } |
       { 'Err' : string }
   >,
+  'mark_claim_result' : ActorMethod<
+    [string, bigint, ClaimResultStatus, [] | [string]],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
   'perdic_mining' : ActorMethod<
     [boolean],
     { 'Ok' : Array<RewardEntry> } |
@@ -917,6 +985,11 @@ export interface _SERVICE {
   >,
   'pop_notification' : ActorMethod<[string], [] | [NotificationItem]>,
   'recharge_and_convert_credits_api' : ActorMethod<[number], bigint>,
+  'record_payment' : ActorMethod<
+    [string, bigint, string, bigint, [] | [string]],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
   'record_trace_call' : ActorMethod<
     [
       string,

@@ -117,6 +117,12 @@ export const idlFactory = ({ IDL }) => {
     'devices' : IDL.Vec(IDL.Text),
     'passwd' : IDL.Opt(IDL.Text),
   });
+  const MerkleSnapshotMeta = IDL.Record({
+    'leaves_count' : IDL.Nat64,
+    'root' : IDL.Vec(IDL.Nat8),
+    'locked' : IDL.Bool,
+    'epoch' : IDL.Nat64,
+  });
   const TokenGrantStatus = IDL.Variant({
     'Active' : IDL.Null,
     'Cancelled' : IDL.Null,
@@ -257,6 +263,14 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Nat64,
     'send_by' : IDL.Text,
   });
+  const ClaimTicket = IDL.Record({
+    'root' : IDL.Vec(IDL.Nat8),
+    'epoch' : IDL.Nat64,
+    'wallet' : IDL.Text,
+    'index' : IDL.Nat64,
+    'proof' : IDL.Vec(IDL.Vec(IDL.Nat8)),
+    'amount' : IDL.Nat64,
+  });
   const ContactStatus = IDL.Variant({
     'Blocked' : IDL.Null,
     'Active' : IDL.Null,
@@ -343,6 +357,26 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Nat64,
     'message_id' : IDL.Nat64,
   });
+  const TaskStatus = IDL.Variant({
+    'TicketIssued' : IDL.Null,
+    'Claimed' : IDL.Null,
+    'RewardPrepared' : IDL.Null,
+    'InProgress' : IDL.Null,
+    'Completed' : IDL.Null,
+    'NotStarted' : IDL.Null,
+  });
+  const UserTaskDetail = IDL.Record({
+    'status' : TaskStatus,
+    'reward_amount' : IDL.Nat64,
+    'taskid' : IDL.Text,
+    'evidence' : IDL.Opt(IDL.Text),
+    'completed_at' : IDL.Nat64,
+  });
+  const UserTaskState = IDL.Record({
+    'tasks' : IDL.Vec(UserTaskDetail),
+    'total_unclaimed' : IDL.Nat64,
+    'wallet' : IDL.Text,
+  });
   const OrderStatus = IDL.Variant({
     'New' : IDL.Null,
     'Invalid' : IDL.Null,
@@ -392,6 +426,11 @@ export const idlFactory = ({ IDL }) => {
     'id' : IDL.Nat64,
     'mcp_name' : IDL.Text,
     'stack_amount' : IDL.Nat64,
+  });
+  const TaskContractItem = IDL.Record({
+    'reward' : IDL.Nat64,
+    'taskid' : IDL.Text,
+    'payfor' : IDL.Opt(IDL.Text),
   });
   const TokenActivityType = IDL.Variant({
     'Stack' : IDL.Null,
@@ -453,6 +492,10 @@ export const idlFactory = ({ IDL }) => {
     'grant_amount' : IDL.Nat64,
     'grant_action' : GrantAction,
   });
+  const ClaimResultStatus = IDL.Variant({
+    'Failed' : IDL.Null,
+    'Success' : IDL.Null,
+  });
   const DeviceFilter = IDL.Record({
     'status' : IDL.Opt(DeviceStatus),
     'owner' : IDL.Opt(IDL.Principal),
@@ -501,6 +544,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
         [],
       ),
+    'build_epoch_snapshot' : IDL.Func(
+        [IDL.Nat64],
+        [IDL.Variant({ 'Ok' : MerkleSnapshotMeta, 'Err' : IDL.Text })],
+        [],
+      ),
     'cal_unclaim_rewards' : IDL.Func([IDL.Text], [IDL.Nat64], ['query']),
     'calculate_emission' : IDL.Func(
         [IDL.Text],
@@ -531,6 +579,11 @@ export const idlFactory = ({ IDL }) => {
     'clear_notifications_for_pair' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
+        [],
+      ),
+    'complete_task' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Opt(IDL.Text), IDL.Nat64],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
     'convert_aio_to_credits' : IDL.Func(
@@ -735,6 +788,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ChatMessage)],
         ['query'],
       ),
+    'get_claim_ticket' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'Ok' : ClaimTicket, 'Err' : IDL.Text })],
+        ['query'],
+      ),
     'get_contact_by_id' : IDL.Func([IDL.Nat64], [IDL.Opt(Contact)], ['query']),
     'get_contact_by_principal_ids' : IDL.Func(
         [IDL.Text, IDL.Text],
@@ -794,6 +852,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : EmissionPolicy, 'Err' : IDL.Text })],
         ['query'],
       ),
+    'get_epoch_meta' : IDL.Func(
+        [IDL.Nat64],
+        [IDL.Opt(MerkleSnapshotMeta)],
+        ['query'],
+      ),
     'get_kappa' : IDL.Func(
         [IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Float64, 'Err' : IDL.Text })],
@@ -851,6 +914,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(NotificationItem)],
         ['query'],
       ),
+    'get_or_init_user_tasks' : IDL.Func([IDL.Text], [UserTaskState], []),
     'get_order_by_id' : IDL.Func([IDL.Text], [IDL.Opt(Order)], ['query']),
     'get_pixel_current_source' : IDL.Func(
         [ProjectId],
@@ -893,6 +957,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(StackPositionRecord)],
         ['query'],
       ),
+    'get_task_contract' : IDL.Func([], [IDL.Vec(TaskContractItem)], ['query']),
     'get_token_activities' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(TokenActivity)],
@@ -1103,6 +1168,12 @@ export const idlFactory = ({ IDL }) => {
     'has_user_ai_config' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'init_emission_policy' : IDL.Func([], [], []),
     'init_grant_policy' : IDL.Func([IDL.Opt(GrantPolicy)], [], []),
+    'init_task_contract' : IDL.Func(
+        [IDL.Vec(TaskContractItem)],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'list_all_epochs' : IDL.Func([], [IDL.Vec(MerkleSnapshotMeta)], ['query']),
     'list_pixel_projects_by_owner' : IDL.Func(
         [IDL.Principal, IDL.Nat32, IDL.Nat32],
         [IDL.Vec(Project)],
@@ -1118,6 +1189,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
+    'mark_claim_result' : IDL.Func(
+        [IDL.Text, IDL.Nat64, ClaimResultStatus, IDL.Opt(IDL.Text)],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
     'perdic_mining' : IDL.Func(
         [IDL.Bool],
         [IDL.Variant({ 'Ok' : IDL.Vec(RewardEntry), 'Err' : IDL.Text })],
@@ -1127,6 +1203,11 @@ export const idlFactory = ({ IDL }) => {
     'recharge_and_convert_credits_api' : IDL.Func(
         [IDL.Float64],
         [IDL.Nat64],
+        [],
+      ),
+    'record_payment' : IDL.Func(
+        [IDL.Text, IDL.Nat64, IDL.Text, IDL.Nat64, IDL.Opt(IDL.Text)],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
         [],
       ),
     'record_trace_call' : IDL.Func(
