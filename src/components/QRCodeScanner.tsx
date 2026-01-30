@@ -264,14 +264,14 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
             <div className="flex flex-col gap-3">
               <Button
                 onClick={() => setScanMode('file')}
-                className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 h-12 flex items-center justify-center gap-2"
+                className="w-full bg-[#1E3A5F] hover:bg-[#4A2C5A] text-white border-2 border-white/20 hover:border-white/30 h-12 flex items-center justify-center gap-2 transition-all duration-200 shadow-[0_4px_16px_rgba(30,58,95,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_24px_rgba(30,58,95,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]"
               >
                 <ImageIcon className="h-5 w-5" />
                 <span>{t('common.selectFromGallery')}</span>
               </Button>
               <Button
                 onClick={() => setScanMode('camera')}
-                className="w-full bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 text-white border-0 h-12 flex items-center justify-center gap-2"
+                className="w-full bg-[#4A2C5A] hover:bg-[#1E3A5F] text-white border-2 border-white/20 hover:border-white/30 h-12 flex items-center justify-center gap-2 transition-all duration-200 shadow-[0_4px_16px_rgba(74,44,90,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_24px_rgba(74,44,90,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]"
               >
                 <Camera className="h-5 w-5" />
                 <span>{t('common.useCameraScan')}</span>
@@ -339,7 +339,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
             <div className="mb-4">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 h-12 flex items-center justify-center gap-2"
+                className="w-full bg-[#1E3A5F] hover:bg-[#4A2C5A] text-white border-2 border-white/20 hover:border-white/30 h-12 flex items-center justify-center gap-2 transition-all duration-200 shadow-[0_4px_16px_rgba(30,58,95,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_24px_rgba(30,58,95,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]"
               >
                 <ImageIcon className="h-5 w-5" />
                 <span>{t('common.selectImage')}</span>
@@ -404,7 +404,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
               <Button
                 onClick={onClose}
                 variant="outline"
-                className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20 font-medium"
+                className="flex-1 bg-[#1a1a1a] border-white/15 text-white hover:bg-[#252525] hover:border-white/25 font-medium transition-all duration-200"
                 style={{ WebkitFontSmoothing: 'antialiased' }}
               >
                 {t('common.cancel')}
@@ -412,7 +412,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
               {!isScanning && !success && (
                 <Button
                   onClick={startScanning}
-                  className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 font-medium shadow-lg"
+                  className="flex-1 bg-[#4A2C5A] hover:bg-[#1E3A5F] text-white border-2 border-white/20 hover:border-white/30 font-medium transition-all duration-200 shadow-[0_4px_16px_rgba(74,44,90,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_24px_rgba(74,44,90,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]"
                   style={{ WebkitFontSmoothing: 'antialiased' }}
                 >
                   {error ? t('common.retryCamera') : t('common.scanQRCode')}
@@ -515,7 +515,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
                   }
                 }}
                 variant="outline"
-                className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20 font-medium"
+                className="flex-1 bg-[#1a1a1a] border-white/15 text-white hover:bg-[#252525] hover:border-white/25 font-medium transition-all duration-200"
                 style={{ WebkitFontSmoothing: 'antialiased' }}
               >
                 {t('common.goBack')}
@@ -523,7 +523,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
               {scanMode === 'camera' && !isScanning && !success && (
                 <Button
                   onClick={startScanning}
-                  className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 font-medium shadow-lg"
+                  className="flex-1 bg-[#4A2C5A] hover:bg-[#1E3A5F] text-white border-2 border-white/20 hover:border-white/30 font-medium transition-all duration-200 shadow-[0_4px_16px_rgba(74,44,90,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_24px_rgba(74,44,90,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]"
                   style={{ WebkitFontSmoothing: 'antialiased' }}
                 >
                   {error ? t('common.retryCamera') : t('common.scanQRCode')}
@@ -532,7 +532,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onClose, isOpen }
               {scanMode === 'file' && !isScanning && !success && (
                 <Button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 font-medium shadow-lg"
+                  className="flex-1 bg-[#1E3A5F] hover:bg-[#4A2C5A] text-white border-2 border-white/20 hover:border-white/30 font-medium transition-all duration-200 shadow-[0_4px_16px_rgba(30,58,95,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_24px_rgba(30,58,95,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]"
                   style={{ WebkitFontSmoothing: 'antialiased' }}
                 >
                   {selectedFile ? t('common.reselect') : t('common.selectImage')}

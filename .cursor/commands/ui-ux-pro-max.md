@@ -286,3 +286,148 @@ Before delivering UI code, verify these items:
 - [ ] Form inputs have labels
 - [ ] Color is not the only indicator
 - [ ] `prefers-reduced-motion` respected
+
+---
+
+## Alaya Chat Nexus Design System Rules
+
+These rules define the standard layout, styling patterns, and design principles for all pages in the application, ensuring consistency across the entire UI.
+
+### Layout & Container Rules
+
+| Rule | Value | Application |
+|------|-------|-------------|
+| **Page container max-width** | `600px` | All content containers should be centered with `margin: 0 auto` |
+| **Container padding** | `24px 16px` (mobile), `var(--spacing-2xl) var(--spacing-lg)` (desktop) | Use `!important` to override theme defaults when needed |
+| **Vertical gap between sections** | `24px` (mobile), `var(--spacing-2xl)` (desktop) | Consistent spacing between major content sections |
+| **Section margin-bottom** | `24px` | Standard spacing between sections |
+| **Layout direction** | `flex-direction: column` | Default for page containers and vertical content stacks |
+
+### Color System
+
+| Element Type | Color | Usage Context |
+|--------------|-------|----------------|
+| **Page background** | `#000000` | Pure black background for all pages - **MUST use `!important`** to override theme defaults |
+| **Primary panel/button** | `#1E3A5F` | Deep blue for primary content and main actions |
+| **Secondary panel/button** | `#4A2C5A` | Purple-blue for secondary actions |
+| **Accent panel** | `#CC6600` | Orange for special emphasis or secondary content |
+| **Subtle button/card** | `#1a1a1a` | Dark gray for less prominent interactive elements |
+| **Accent icon** | `#D4A5FF` | Light purple for icons and decorative elements |
+| **Muted text** | `#9ca3af` | Gray for secondary text and labels |
+| **Border (light mode)** | `rgba(255, 255, 255, 0.15)` | Standard border for panels |
+| **Border (subtle)** | `rgba(255, 255, 255, 0.08)` | Subtle borders for feature buttons/cards |
+
+### Typography Scale
+
+| Element Type | Mobile Size | Desktop Size | Weight | Letter Spacing | Transform |
+|--------------|------------|--------------|--------|----------------|-----------|
+| **Page title** | `36px` | `48px` | `700` | `-0.03em` to `-0.04em` | None |
+| **Section subtitle** | `20px` | `24px` | `600` | `0.05em` | lowercase, small-caps (if serif) |
+| **Primary button text** | `var(--text-base)` | `var(--text-lg)` | `700` | `0.03em` | uppercase |
+| **Secondary button text** | `11px` | `var(--text-base)` | `500` | `0.01em` | capitalize |
+| **Body text** | `var(--text-sm)` | `var(--text-base)` | `400` | `0.01em` | None |
+
+### Button Component Rules
+
+#### Primary Action Buttons
+- **Layout**: Vertical stack when multiple buttons (`flex-direction: column`, `gap: 16px`)
+- **Padding**: `20px var(--spacing-xl)` (mobile), `24px var(--spacing-2xl)` (desktop)
+- **Min-height**: `64px` (mobile), `72px` (desktop) - Ensures touch-friendly targets
+- **Border radius**: `16px` - Consistent rounded corners
+- **Border**: `2px solid rgba(255, 255, 255, 0.2)` - Visible but subtle
+- **Box shadow**: Multi-layer pattern: outer shadow + inset highlight for depth
+  - Example: `0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)`
+- **Hover state**: `translateY(-2px)` with enhanced shadow
+- **Icon size**: `22px` (mobile), `24px` (desktop)
+- **Icon hover effect**: `scale(1.15) rotate(5deg)` - Subtle animation
+- **Text transform**: `uppercase` with letter-spacing `0.03em`
+
+#### Secondary Feature Buttons
+- **Layout**: Horizontal when multiple (`flex-direction: row`, `justify-content: space-between`)
+- **Gap**: `12px` (desktop), `8px` (mobile) - Between buttons
+- **Padding**: `12px 12px` (mobile), `var(--spacing-xl) var(--spacing-lg)` (desktop)
+- **Border radius**: `16px` - Same as primary buttons
+- **Border**: `1px solid rgba(255, 255, 255, 0.08)` - More subtle than primary
+- **Icon size**: `24px` (mobile), `40px` (desktop) - Larger for visual balance
+- **Icon color**: `#D4A5FF` (light purple accent)
+- **Hover state**: Background `#252525`, icon `scale(1.1)`, text color `#d1d5db`
+- **Text transform**: `capitalize` with letter-spacing `0.01em`
+
+### Panel/Card Component Rules
+
+#### Primary Panel
+- **Background**: `#1E3A5F` (deep blue) or theme primary color
+- **Border**: `2px solid rgba(255, 255, 255, 0.15)`
+- **Border radius**: `16px` - Consistent with buttons
+- **Padding**: `20px 32px` - Comfortable content spacing
+- **Max-width**: `500px` - Prevents over-wide panels
+- **Box shadow**: `0 4px 16px rgba(30, 58, 95, 0.4)` + inset highlight
+- **Text color**: `#ffffff` - High contrast on dark background
+
+#### Secondary/Accent Panel
+- **Background**: `#CC6600` (orange) or theme accent color
+- **Border**: `2px solid rgba(0, 0, 0, 0.1)` - Darker border for light backgrounds
+- **Border radius**: `16px` - Consistent
+- **Padding**: `16px 28px` - Slightly less than primary
+- **Max-width**: `500px` - Same constraint
+- **Text color**: `#000000` - High contrast on light background
+- **Font style**: Can use serif (Georgia/Times New Roman), italic, lowercase, small-caps for distinction
+
+### Responsive Breakpoints
+
+| Breakpoint | Type | Usage |
+|-----------|------|-------|
+| **640px** | `max-width` | Mobile-specific adjustments: smaller gaps, reduced padding, compact layouts |
+| **768px** | `min-width` | Desktop enhancements: larger fonts, increased padding, taller buttons, more spacing |
+
+### CSS Module Naming Convention
+
+Use BEM-like naming with double underscore pattern: `{page}__{component}__{element}--{modifier}`
+
+**Examples:**
+- `.page__container` - Page-level container
+- `.page__section` - Major section wrapper
+- `.page__button` - Button base class
+- `.page__button--primary` - Primary button variant
+- `.page__button--secondary` - Secondary button variant
+- `.page__panel` - Panel/card base
+- `.page__panel__title` - Title element within panel
+- `.page__icon` - Icon base class
+
+**Rules:**
+- Use page prefix (e.g., `index__`, `chat__`, `profile__`) for page-specific styles
+- Use double underscore `__` for element separation
+- Use double dash `--` for modifiers
+- Keep names descriptive but concise
+
+### Universal Design Rules
+
+1. **Page Background**: Always use pure black `#000000` with `!important` for all page backgrounds - ensures consistent dark theme across the application
+2. **Color Overrides**: Use `!important` for color overrides when theme variables conflict with design system
+3. **Border Radius**: Always `16px` for panels, buttons, and cards - creates consistent rounded aesthetic
+4. **Shadow Pattern**: Multi-layer shadows (outer + inset) for depth and visual hierarchy
+5. **Transitions**: Always `0.2s ease` for hover and state changes - smooth but not sluggish
+6. **Icon Sizing**: Use fixed pixel values (not relative units) for consistent icon appearance
+7. **Text Transforms**: 
+   - Primary buttons: `uppercase` for emphasis
+   - Secondary buttons: `capitalize` for readability
+   - Body text: None (natural case)
+8. **Vertical Spacing**: Use `margin-bottom: 24px` consistently between major sections
+9. **Touch Targets**: Minimum `64px` height for interactive elements on mobile
+10. **Hover Feedback**: Always provide visual feedback (color change, shadow, transform) for interactive elements
+11. **Accessibility**: Maintain 4.5:1 contrast ratio for text, ensure focus states are visible
+
+### Component Hierarchy Rules
+
+**When designing a new page, follow this structure:**
+1. **Page Container** - Full-width wrapper with background
+2. **Content Container** - Max-width constrained, centered content area
+3. **Sections** - Major content blocks with consistent spacing
+4. **Panels/Cards** - Content containers with defined styling
+5. **Buttons** - Primary actions first, secondary features below
+6. **Interactive Elements** - Icons, links, inputs with consistent styling
+
+**Priority Order for Actions:**
+- Primary actions (vertical stack, prominent)
+- Secondary features (horizontal layout, subtle)
+- Tertiary elements (minimal styling, less prominent)

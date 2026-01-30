@@ -1,0 +1,37 @@
+/**
+ * Univoice Global Styles Entry Point
+ * Import order is critical for proper CSS cascading
+ */
+
+/* 1. Theme System (CSS Variables) */
+@import './theme.css';
+
+/* 2. Base Resets and Utilities (if needed) */
+/* Add any additional global utilities here */
+
+/**
+ * Component-specific styles are imported via CSS Modules
+ * Do NOT import them here
+ * 
+ * Example:
+ * import styles from '../styles/components/ComponentName.module.css';
+ */
+
+/**
+ * Migration Notes:
+ * - All new components should use CSS Modules
+ * - Gradually migrate existing inline styles to CSS Modules
+ * - Follow BEM naming convention in CSS Modules
+ * - Use theme variables for consistency
+ */
+
+/* Additional global utilities for Tailwind compatibility */
+@layer utilities {
+  .pointer-events-none {
+    pointer-events: none;
+  }
+  
+  .pointer-events-auto {
+    pointer-events: auto;
+  }
+}

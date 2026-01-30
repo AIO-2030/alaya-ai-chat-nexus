@@ -1,0 +1,1102 @@
+/**
+ * Profile Page Styles
+ * Modern gradient design with glassmorphism effects
+ */
+
+/* Header Section */
+.profile__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.profile__header__content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.profile__avatar__container {
+  width: 4rem;
+  height: 4rem;
+  background: linear-gradient(to right, #22d3ee, #a855f7);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.profile__avatar__image {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.profile__avatar__icon {
+  width: 2rem;
+  height: 2rem;
+  color: white;
+}
+
+.profile__info {
+  flex: 1;
+}
+
+.profile__name__container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile__name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+}
+
+.profile__edit__button {
+  padding: 0.25rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.profile__edit__button:hover {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+.profile__edit__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
+}
+
+.profile__email {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.profile__wallet__address {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+}
+
+/* Nickname Editor */
+.profile__nickname__editor {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile__nickname__input {
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  color: #ffffff;
+  font-size: 1rem;
+  outline: none;
+}
+
+.profile__nickname__input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.profile__nickname__input:focus {
+  outline: 2px solid #22d3ee;
+  outline-offset: 0;
+  border-color: #22d3ee;
+  background-color: #262626;
+}
+
+.profile__nickname__button {
+  padding: 0.25rem;
+  background-color: rgba(34, 211, 238, 0.2);
+  border: none;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.profile__nickname__button:hover:not(:disabled) {
+  background-color: rgba(34, 211, 238, 0.3);
+}
+
+.profile__nickname__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile__nickname__button__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #22d3ee;
+}
+
+.profile__nickname__cancel__button {
+  padding: 0.25rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.profile__nickname__cancel__button:hover {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+.profile__nickname__cancel__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
+}
+
+/* Account Info Section */
+.profile__account__info {
+  margin-bottom: 1.5rem;
+}
+
+.profile__account__card {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #333333;
+}
+
+.profile__account__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.profile__account__info__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile__account__info__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile__account__info__label {
+  color: #ffffff;
+}
+
+.profile__account__info__value {
+  color: #b3b3b3;
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* Wallet Connection Section */
+.profile__wallet__section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #333333;
+}
+
+.profile__wallet__title__section {
+  margin-bottom: 1rem;
+}
+
+.profile__wallet__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile__wallet__title__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #fbbf24;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.profile__wallet__subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  margin-top: 0.125rem;
+}
+
+/* Connect Button */
+.profile__wallet__connect__button {
+  width: 100%;
+  padding: 1rem;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.profile__wallet__connect__button:hover:not(:disabled) {
+  background: #262626;
+  border-color: #fbbf24;
+  box-shadow: 0 6px 12px rgba(251, 191, 36, 0.2);
+}
+
+.profile__wallet__connect__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile__wallet__connect__button__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile__wallet__connect__button__icon__container {
+  padding: 0.5rem;
+  background: #262626;
+  border-radius: 0.5rem;
+  transition: background 0.2s;
+}
+
+.profile__wallet__connect__button:hover .profile__wallet__connect__button__icon__container {
+  background: #333333;
+}
+
+.profile__wallet__connect__button__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #fbbf24;
+}
+
+.profile__wallet__connect__button__text {
+  color: white;
+  font-weight: 600;
+}
+
+.profile__wallet__connect__button__chevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s;
+}
+
+.profile__wallet__connect__button:hover .profile__wallet__connect__button__chevron {
+  color: #fbbf24;
+}
+
+/* Connection Hint */
+.profile__wallet__connection__hint {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.profile__wallet__connection__hint__text {
+  font-size: 0.875rem;
+  color: #bfdbfe;
+  text-align: center;
+}
+
+/* QR Code Section */
+.profile__wallet__qr__section {
+  padding: 1rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.75rem;
+}
+
+.profile__wallet__qr__title {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.profile__wallet__qr__code__container {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.profile__wallet__qr__code {
+  height: auto;
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Mobile Wallet Buttons */
+.profile__wallet__open__button {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(to right, #06b6d4, #a855f7);
+  border: none;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.profile__wallet__open__button:hover {
+  background: linear-gradient(to right, #22d3ee, #c084fc);
+}
+
+.profile__wallet__copy__button {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.625rem 1rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.profile__wallet__copy__button:hover {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+.profile__wallet__mobile__hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+/* Save QR Code Button */
+.profile__wallet__save__qr__button {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.profile__wallet__save__qr__button:hover {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+.profile__wallet__save__qr__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.profile__wallet__qr__hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+/* Error Message */
+.profile__wallet__error {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background-color: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.profile__wallet__error__text {
+  font-size: 0.875rem;
+  color: #fecaca;
+}
+
+/* Connected State */
+.profile__wallet__connected__container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile__wallet__connected__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background-color: #1a1a1a;
+  border: 1px solid #22c55e;
+  border-radius: 0.5rem;
+}
+
+.profile__wallet__connected__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile__wallet__connected__icon__container {
+  padding: 0.5rem;
+  background-color: #262626;
+  border-radius: 0.5rem;
+}
+
+.profile__wallet__connected__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #4ade80;
+}
+
+.profile__wallet__connected__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile__wallet__connected__text {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.profile__wallet__connected__address {
+  color: #b3b3b3;
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.profile__wallet__disconnect__button {
+  padding: 0.5rem;
+  background-color: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.profile__wallet__disconnect__button:hover {
+  background-color: #262626;
+}
+
+.profile__wallet__disconnect__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
+}
+
+/* Start to Earn Button */
+.profile__wallet__earn__button {
+  width: 100%;
+  padding: 1rem;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.profile__wallet__earn__button:hover {
+  background: #262626;
+  border-color: #fbbf24;
+  box-shadow: 0 6px 12px rgba(251, 191, 36, 0.2);
+}
+
+.profile__wallet__earn__button__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile__wallet__earn__button__icon__container {
+  padding: 0.5rem;
+  background: #262626;
+  border-radius: 0.5rem;
+  transition: background 0.2s;
+}
+
+.profile__wallet__earn__button:hover .profile__wallet__earn__button__icon__container {
+  background: #333333;
+}
+
+.profile__wallet__earn__button__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #fbbf24;
+}
+
+.profile__wallet__earn__button__text__container {
+  text-align: left;
+}
+
+.profile__wallet__earn__button__text {
+  color: white;
+  font-weight: 600;
+  display: block;
+}
+
+.profile__wallet__earn__button__subtext {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.profile__wallet__earn__button__chevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s;
+}
+
+.profile__wallet__earn__button:hover .profile__wallet__earn__button__chevron {
+  color: #fbbf24;
+}
+
+/* Token Balance Display */
+.profile__wallet__token__balance {
+  padding: 0.75rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.profile__wallet__token__balance__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile__wallet__token__balance__label {
+  color: #ffffff;
+  font-size: 0.875rem;
+}
+
+.profile__wallet__token__balance__value {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.profile__wallet__token__balance__name {
+  color: #b3b3b3;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.profile__wallet__token__balance__contract {
+  color: #808080;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* Password Change Section */
+.profile__password__section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #333333;
+}
+
+.profile__password__toggle__button {
+  width: 100%;
+  padding: 1rem;
+  background: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.profile__password__toggle__button:hover {
+  background: #262626;
+  border-color: #22d3ee;
+}
+
+.profile__password__toggle__button__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile__password__toggle__button__icon__container {
+  padding: 0.5rem;
+  background-color: #262626;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.profile__password__toggle__button:hover .profile__password__toggle__button__icon__container {
+  background-color: #333333;
+}
+
+.profile__password__toggle__button__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #22d3ee;
+}
+
+.profile__password__toggle__button__text {
+  color: white;
+  font-weight: 500;
+}
+
+.profile__password__toggle__button__chevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s;
+}
+
+.profile__password__toggle__button:hover .profile__password__toggle__button__chevron {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Password Form */
+.profile__password__form {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile__password__form__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.profile__password__form__header__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile__password__form__header__icon__container {
+  padding: 0.5rem;
+  background-color: rgba(34, 211, 238, 0.2);
+  border-radius: 0.5rem;
+}
+
+.profile__password__form__header__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #22d3ee;
+}
+
+.profile__password__form__header__text {
+  color: white;
+  font-weight: 500;
+}
+
+.profile__password__form__close__button {
+  padding: 0.5rem;
+  background-color: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.profile__password__form__close__button:hover {
+  background-color: #262626;
+}
+
+.profile__password__form__close__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
+}
+
+.profile__password__form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profile__password__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile__password__field__label {
+  font-size: 0.875rem;
+  color: #ffffff;
+}
+
+.profile__password__field__input__wrapper {
+  position: relative;
+}
+
+.profile__password__field__input {
+  width: 100%;
+  padding-left: 2.5rem;
+  padding-right: 2.5rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  font-size: 1rem;
+  outline: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.profile__password__field__input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.profile__password__field__input:focus {
+  outline: 2px solid #22d3ee;
+  outline-offset: 0;
+  border-color: #22d3ee;
+  background-color: #262626;
+}
+
+.profile__password__field__input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile__password__field__icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #808080;
+}
+
+.profile__password__field__toggle__button {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: transparent;
+  border: none;
+  color: #808080;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+
+.profile__password__field__toggle__button:hover {
+  color: #ffffff;
+}
+
+.profile__password__field__toggle__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.profile__password__error {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background-color: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.profile__password__error__text {
+  font-size: 0.875rem;
+  color: #fecaca;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.profile__password__actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.profile__password__save__button {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(to right, #06b6d4, #a855f7);
+  border: none;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.profile__password__save__button:hover:not(:disabled) {
+  background: linear-gradient(to right, #22d3ee, #c084fc);
+}
+
+.profile__password__save__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile__password__cancel__button {
+  padding: 0.625rem 1rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  border-radius: 0.5rem;
+  color: white;
+  transition: all 0.2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.profile__password__cancel__button:hover:not(:disabled) {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+.profile__password__cancel__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile__password__cancel__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Devices Section */
+.profile__devices__section {
+  margin-bottom: 1.5rem;
+  background-color: #1a1a1a;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #333333;
+}
+
+.profile__devices__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.profile__devices__header__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile__devices__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #22d3ee;
+}
+
+.profile__devices__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile__devices__title {
+  color: white;
+  font-weight: 500;
+}
+
+.profile__devices__iot__status {
+  font-size: 0.75rem;
+  color: #60a5fa;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.profile__devices__iot__status__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: #60a5fa;
+  border-radius: 9999px;
+}
+
+.profile__devices__refresh__button {
+  padding: 0.5rem;
+  background-color: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.profile__devices__refresh__button:hover {
+  background-color: #262626;
+}
+
+.profile__devices__refresh__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
+}
+
+/* More Button */
+.profile__more__button {
+  text-align: center;
+}
+
+.profile__more__button__inner {
+  background-color: #1a1a1a;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #333333;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.profile__more__button__inner:hover {
+  background-color: #262626;
+  border-color: #404040;
+}
+
+.profile__more__button__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.profile__more__button__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ffffff;
+}
+
+.profile__more__button__text {
+  color: white;
+  font-weight: 500;
+}
+
+/* Loading State */
+.profile__loading {
+  color: #808080;
+}
+
+/* Utility Classes */
+.profile__flex {
+  display: flex;
+}
+
+.profile__items__center {
+  align-items: center;
+}
+
+.profile__justify__between {
+  justify-content: space-between;
+}
+
+.profile__gap__2 {
+  gap: 0.5rem;
+}
+
+.profile__gap__3 {
+  gap: 0.75rem;
+}
+
+.profile__gap__4 {
+  gap: 1rem;
+}
+
+.profile__mb__4 {
+  margin-bottom: 1rem;
+}
+
+.profile__mb__6 {
+  margin-bottom: 1.5rem;
+}
+
+.profile__text__white {
+  color: white;
+}
+
+.profile__text__white__60 {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.profile__text__white__80 {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.profile__text__sm {
+  font-size: 0.875rem;
+}
+
+.profile__text__xs {
+  font-size: 0.75rem;
+}
+
+.profile__font__medium {
+  font-weight: 500;
+}
+
+.profile__font__semibold {
+  font-weight: 600;
+}
+
+.profile__font__bold {
+  font-weight: 700;
+}

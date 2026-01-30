@@ -31,6 +31,8 @@ import { useGlobalDeviceStatus } from '../hooks/useGlobalDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 import { deviceApiService, DeviceRecord } from '../services/api/deviceApi';
 import { convertPixelToGif, GifResult } from '../lib/pixelToGifConverter';
+import { cn } from '../lib/utils';
+import styles from '../styles/pages/Chat.module.css';
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -1208,12 +1210,12 @@ const Chat = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
-          <div className="mt-4 text-center">
-            <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+      <div className={styles.chat__loading}>
+        <div className={styles.chat__loading__spinner}>
+          <div className={styles.chat__loading__spinner__outer}></div>
+          <div className={styles.chat__loading__spinner__inner}></div>
+          <div className={styles.chat__loading__text}>
+            <div className={styles.chat__loading__text__gradient}>
               {t('common.initializingAI')}
             </div>
           </div>
@@ -1227,95 +1229,62 @@ const Chat = () => {
 
   return (
     <PageLayout>
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-300"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
-        </div>
-
-        {/* Neural network pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full"></div>
-          <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-purple-400 rounded-full"></div>
-          <div className="absolute top-1/2 left-3/4 w-2 h-2 bg-blue-400 rounded-full"></div>
-          <svg className="absolute inset-0 w-full h-full">
-            <line x1="25%" y1="25%" x2="75%" y2="50%" stroke="url(#gradient1)" strokeWidth="1" opacity="0.3"/>
-            <line x1="75%" y1="50%" x2="75%" y2="75%" stroke="url(#gradient2)" strokeWidth="1" opacity="0.3"/>
-            <line x1="25%" y1="25%" x2="75%" y2="75%" stroke="url(#gradient3)" strokeWidth="1" opacity="0.3"/>
-            <defs>
-              <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="100%" stopColor="#8b5cf6" />
-              </linearGradient>
-              <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#8b5cf6" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-              <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-
+      <div className={styles.chat__page}>
         {/* Header */}
         <AppHeader />
 
-        <div className="flex h-[calc(100vh-65px)] w-full">
+        <div className={styles.chat__container}>
           {/* Sidebar for desktop only */}
-          <div className="hidden lg:block">
+          <div className={styles.chat__sidebar}>
             <AppSidebar />
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            <div className="h-full p-2 md:p-4">
-              <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col">
-                    {/* Chat Header */}
-                    <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-white/10 bg-white/5">
-                      <div className="flex items-center gap-3 sm:gap-4">
+          <div className={styles.chat__main}>
+            <div className={styles.chat__main__inner}>
+              <div className={styles.chat__main__content}>
+                {/* Chat Header */}
+                    <div className={styles.chat__header}>
+                      <div className={styles.chat__header__content}>
                         {/* Back Button */}
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-2 sm:p-3"
+                          className={styles.chat__back__button}
                           onClick={handleBackToContracts}
                         >
-                          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                          <ArrowLeft className={styles.chat__back__button__icon} />
                         </Button>
                         
                         {/* Contact Info */}
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="relative">
+                        <div className={styles.chat__contact__info}>
+                          <div className={styles.chat__contact__avatar}>
                             <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
                               <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white font-semibold text-xs sm:text-sm">
                                 {currentContact.avatar}
                               </AvatarFallback>
                             </Avatar>
                             {currentContact.isOnline && (
-                              <div className="absolute -bottom-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full border-2 border-slate-900 animate-pulse"></div>
+                              <div className={styles.chat__contact__avatar__badge}></div>
                             )}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-1 sm:gap-2">
-                              <h1 className="text-lg sm:text-xl font-bold text-white">{currentContact.name}</h1>
+                          <div className={styles.chat__contact__details}>
+                            <div className={styles.chat__contact__name__row}>
+                              <h1 className={styles.chat__contact__name}>{currentContact.name}</h1>
                               {currentContact.nickname && (
-                                <span className="text-sm text-cyan-400/70">({currentContact.nickname})</span>
+                                <span className={styles.chat__contact__nickname}>({currentContact.nickname})</span>
                               )}
                               {notifications.length > 0 && (
-                                <div className="px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full min-w-[16px] text-center">
+                                <div className={styles.chat__contact__notification}>
                                   {notifications.length}
                                 </div>
                               )}
                             </div>
-                            <p className="text-xs sm:text-sm text-white/60">
+                            <p className={styles.chat__contact__status}>
                               {currentContact.isOnline ? 'Online' : 'Offline'}
                               {currentContact.devices.length > 0 && ` • ${currentContact.devices.join(', ')}`}
                               {socialPairKey && (
-                                <span className="block text-xs text-cyan-400/50 mt-1">
+                                <span className={styles.chat__contact__status__id}>
                                   Chat ID: {socialPairKey.substring(0, 12)}...
                                 </span>
                               )}
@@ -1327,12 +1296,12 @@ const Chat = () => {
 
                 {/* Contact Details */}
                 {showContactDetails && (
-                  <div className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-white/3">
-                    <div className="relative p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
+                  <div className={styles.chat__contact__details__section}>
+                    <div className={styles.chat__contact__details__card}>
                       {/* Close Button */}
                       <button
                         onClick={() => setShowContactDetails(false)}
-                        className="absolute top-2 right-2 p-1 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all duration-200 backdrop-blur-sm"
+                        className={styles.chat__contact__details__close}
                         style={{
                           WebkitTapHighlightColor: 'transparent',
                           WebkitFontSmoothing: 'antialiased',
@@ -1340,13 +1309,13 @@ const Chat = () => {
                         }}
                         aria-label="Close contact details"
                       >
-                        <X className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <X className={styles.chat__contact__details__close__icon} />
                       </button>
-                      <div className="text-xs sm:text-sm text-white/80 space-y-1 pr-6">
-                        <p><span className="text-cyan-400">Devices:</span> {contactDeviceList.length > 0 ? `${contactDeviceList.length} device(s)` : 'None'}</p>
-                        <p><span className="text-cyan-400">Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
+                      <div className={styles.chat__contact__details__content}>
+                        <p><span className={styles.chat__contact__details__label}>Devices:</span> {contactDeviceList.length > 0 ? `${contactDeviceList.length} device(s)` : 'None'}</p>
+                        <p><span className={styles.chat__contact__details__label}>Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
                         {currentContact.contactPrincipalId && (
-                          <p><span className="text-cyan-400">Principal ID:</span> <code className="text-cyan-300 text-xs">{currentContact.contactPrincipalId}</code></p>
+                          <p><span className={styles.chat__contact__details__label}>Principal ID:</span> <code className={styles.chat__contact__details__code}>{currentContact.contactPrincipalId}</code></p>
                         )}
                       </div>
                     </div>
@@ -1356,26 +1325,26 @@ const Chat = () => {
                 {/* Messages Area */}
                 <div 
                   ref={messagesContainerRef}
-                  className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-slate-900/20"
+                  className={styles.chat__messages__container}
                 >
                   {isLoadingChat ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-white/60 text-sm">Loading chat history...</div>
+                    <div className={styles.chat__messages__loading}>
+                      <div className={styles.chat__messages__loading__text}>Loading chat history...</div>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-white/60 text-sm text-center">
+                    <div className={styles.chat__messages__empty}>
+                      <div className={styles.chat__messages__empty__content}>
                         <p>No messages yet</p>
-                        <p className="text-xs mt-1">Start the conversation!</p>
+                        <p className={styles.chat__messages__empty__subtext}>Start the conversation!</p>
                       </div>
                     </div>
                   ) : (
                     <>
                       {/* Loading indicator when loading more messages */}
                       {isLoadingMore && (
-                        <div className="flex items-center justify-center py-4">
-                          <div className="text-white/60 text-sm flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className={styles.chat__messages__loading__more}>
+                          <div className={styles.chat__messages__loading__more__content}>
+                            <div className={styles.chat__messages__loading__more__spinner}></div>
                             <span>加载历史消息...</span>
                           </div>
                         </div>
@@ -1397,36 +1366,38 @@ const Chat = () => {
                       .map((message, index) => (
                       <div 
                         key={`${message.sendBy}-${message.timestamp}-${index}`}
-                        className={`flex mb-3 ${isMyMessage(message) ? 'justify-end' : 'justify-start'}`}
+                        className={cn(
+                          styles.chat__message__wrapper,
+                          isMyMessage(message) ? styles['chat__message__wrapper--sent'] : styles['chat__message__wrapper--received']
+                        )}
                       >
-                        <div className={`max-w-[80%] p-2 sm:p-3 rounded-lg ${
-                          isMyMessage(message)
-                            ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white' 
-                            : 'bg-white/10 text-white backdrop-blur-sm'
-                        }`}>
+                        <div className={cn(
+                          styles.chat__message__bubble,
+                          isMyMessage(message) ? styles['chat__message__bubble--sent'] : styles['chat__message__bubble--received']
+                        )}>
                           {message.mode === 'Gif' && message.gifInfo ? (
-                            <div className="space-y-2">
+                            <div className={styles.chat__message__gif}>
                               {failedImages.has(`${message.sendBy}-${message.timestamp}`) ? (
-                                <div className="flex flex-col items-center justify-center bg-white/5 rounded p-4 text-center border border-white/10" style={{ minHeight: '100px' }}>
-                                  <div className="text-white/40 text-xs">
-                                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className={styles.chat__message__gif__failed} style={{ minHeight: '100px' }}>
+                                  <div className={styles.chat__message__gif__failed__content}>
+                                    <svg className={styles.chat__message__gif__failed__icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
-                                    <p className="font-medium">{message.gifInfo.title}</p>
+                                    <p className={styles.chat__message__gif__failed__title}>{message.gifInfo.title}</p>
                                     {unrecoverableGifs.has(`${message.sendBy}-${message.timestamp}`) && (
-                                      <p className="text-white/30 text-xs mt-1">⚠️ 此GIF无法恢复</p>
+                                      <p className={styles.chat__message__gif__failed__warning}>⚠️ 此GIF无法恢复</p>
                                     )}
-                                    <p className="text-white/30 text-xs mt-1">
+                                    <p className={styles.chat__message__gif__failed__size}>
                                       {message.gifInfo.width}x{message.gifInfo.height}
                                     </p>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-center p-2">
+                                <div className={styles.chat__message__gif__container}>
                                   <img 
                                     src={message.gifInfo.gifUrl} 
                                     alt={message.gifInfo.title}
-                                    className="rounded"
+                                    className={styles.chat__message__gif__image}
                                     style={{ 
                                       width: `${message.gifInfo.width * 4}px`,
                                       height: `${message.gifInfo.height * 4}px`,
@@ -1466,18 +1437,12 @@ const Chat = () => {
                                 />
                                 </div>
                               )}
-                              <p className="text-xs opacity-70">{message.gifInfo.title}</p>
                             </div>
                           ) : (
-                            <p className="text-xs sm:text-sm">{message.content}</p>
+                            <p className={styles.chat__message__text}>{message.content}</p>
                           )}
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-xs opacity-70">{formatTimestamp(message.timestamp)}</p>
-                            {message.mode !== 'Text' && (
-                              <span className="text-xs opacity-70 ml-2 px-1 bg-white/20 rounded">
-                                {message.mode}
-                              </span>
-                            )}
+                          <div className={styles.chat__message__meta}>
+                            <p className={styles.chat__message__time}>{formatTimestamp(message.timestamp)}</p>
                           </div>
                         </div>
                       </div>
@@ -1489,35 +1454,35 @@ const Chat = () => {
                 </div>
 
                 {/* Input Area */}
-                <div className="flex-shrink-0 p-3 sm:p-4 border-t border-white/10 bg-white/5 space-y-3 sm:space-y-4">
+                <div className={styles.chat__input__area}>
                       {/* 像素图现在通过GIF格式处理，不再需要单独的预览 */}
 
                       {/* Pending GIF Preview */}
                       {pendingGif && (
-                        <div className="bg-white/10 rounded-lg p-3 border border-white/20">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-white text-sm font-medium">{t('chat.readyToSend')}:</span>
+                        <div className={styles.chat__pending__gif}>
+                          <div className={styles.chat__pending__gif__header}>
+                            <span className={styles.chat__pending__gif__title}>{t('chat.readyToSend')}:</span>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => setPendingGif(null)}
-                              className="text-white/60 hover:text-white hover:bg-white/10 p-1"
+                              className={styles.chat__pending__gif__close}
                             >
                               ✕
                             </Button>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className={styles.chat__pending__gif__content}>
                             <img 
                               src={pendingGif.thumbnailUrl} 
                               alt="GIF Preview"
-                              className="w-12 h-12 rounded border border-white/20 object-cover"
+                              className={styles.chat__pending__gif__thumbnail}
                               onError={(e) => {
                                 console.error('[Chat] GIF preview image failed to load:', e);
                               }}
                             />
-                            <div className="flex-1 text-white/80 text-xs">
-                              <div className="font-medium">{pendingGif.title}</div>
-                              <div className="text-white/60">GIF • {pendingGif.width}x{pendingGif.height}</div>
+                            <div className={styles.chat__pending__gif__info}>
+                              <div className={styles.chat__pending__gif__info__title}>{pendingGif.title}</div>
+                              <div className={styles.chat__pending__gif__info__meta}>GIF • {pendingGif.width}x{pendingGif.height}</div>
                             </div>
                           </div>
                         </div>
@@ -1525,22 +1490,23 @@ const Chat = () => {
 
                       {/* Send to Device Section - Only show when contact has devices */}
                       {hasContactDevices && (pendingGif || newMessage.trim()) && (
-                        <div className="bg-white/10 rounded-lg p-3 border border-white/20">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Smartphone className="h-4 w-4 text-cyan-400" />
-                              <div className="flex flex-col">
-                                <span className="text-white text-sm font-medium">
+                        <div className={styles.chat__device__section}>
+                          <div className={styles.chat__device__section__header}>
+                            <div className={styles.chat__device__section__left}>
+                              <Smartphone className={styles.chat__device__section__icon} />
+                              <div className={styles.chat__device__section__info}>
+                                <span className={styles.chat__device__section__title}>
                                   {t('chat.sendToDevice') || 'Send to Device'}
                                 </span>
                                 {contactDeviceList.length > 0 && (
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                  <div className={styles.chat__device__section__status}>
+                                    <div className={cn(
+                                      styles.chat__device__section__status__dot,
                                       contactDeviceList.some(device => isContactDeviceOnline(device))
-                                        ? 'bg-green-400 animate-pulse'
-                                        : 'bg-red-400'
-                                    }`} />
-                                    <span className={`text-xs ${getContactDeviceStatusColor()}`}>
+                                        ? styles['chat__device__section__status__dot--online']
+                                        : styles['chat__device__section__status__dot--offline']
+                                    )} />
+                                    <span className={cn(styles.chat__device__section__status__text, getContactDeviceStatusColor())}>
                                       {getContactDeviceStatusText()}
                                     </span>
                                   </div>
@@ -1699,7 +1665,7 @@ const Chat = () => {
                                 }
                               }}
                               disabled={(!newMessage.trim() && !pendingGif) || isSendingToDevice}
-                              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              className={styles.chat__device__section__button}
                             >
                               {isSendingToDevice ? (t('chat.sending') || '发送中...') : (t('chat.send') || 'Send')}
                             </Button>
@@ -1707,14 +1673,14 @@ const Chat = () => {
                           </div>
                           {/* Progress Bar */}
                           {isSendingToDevice && (
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-center justify-between text-xs text-white/70">
+                            <div className={styles.chat__device__section__progress}>
+                              <div className={styles.chat__device__section__progress__info}>
                                 <span>{sendProgressText}</span>
                                 <span>{sendProgress}%</span>
                               </div>
-                              <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
+                              <div className={styles.chat__device__section__progress__bar}>
                                 <div 
-                                  className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 transition-all duration-300 ease-out"
+                                  className={styles.chat__device__section__progress__fill}
                                   style={{ width: `${sendProgress}%` }}
                                 />
                               </div>
@@ -1724,8 +1690,8 @@ const Chat = () => {
                       )}
 
                       {/* Message Input Row */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
+                      <div className={styles.chat__input__row}>
+                        <div className={styles.chat__input__field}>
                           <Input
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
@@ -1744,26 +1710,26 @@ const Chat = () => {
                         <Button
                           onClick={handleSendMessage}
                           disabled={loading || (!newMessage.trim() && !pendingGif)}
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 p-2 sm:p-3 min-w-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={styles.chat__input__send__button}
                           title="Send message to chat"
                         >
                           {loading ? (
-                            <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <div className={styles.chat__input__send__button__spinner} />
                           ) : (
-                            <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <Send className={styles.chat__input__send__button__icon} />
                           )}
                         </Button>
                       </div>
                       
                       {/* Function Buttons Row */}
-                      <div className="flex gap-2">
+                      <div className={styles.chat__function__buttons}>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm text-xs px-3 py-2 flex-1"
+                          className={styles.chat__function__button}
                           onClick={handleEmojiClick}
                         >
-                          <Smile className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                          <Smile className={styles.chat__function__button__icon} />
                           {t('common.emoji')}
                         </Button>
                         
@@ -1778,7 +1744,7 @@ const Chat = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-yellow-500/20 border-yellow-400/30 text-yellow-300 hover:bg-yellow-500/30 text-xs px-2 py-1"
+                            className={styles['chat__function__button--dev']}
                             onClick={() => {
                               if (deviceSimulator.isCurrentlySimulating()) {
                                 deviceSimulator.stopSimulation();

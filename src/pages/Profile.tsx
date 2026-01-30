@@ -12,6 +12,8 @@ import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 import { useSolanaWallet } from '../lib/solanaWallet';
 import QRCode from 'react-qr-code';
 import { useLocation, useNavigate } from 'react-router-dom';
+import pageBaseStyles from '../styles/pages/PageBase.module.css';
+import styles from '../styles/pages/Profile.module.css';
 
 const Profile = () => {
   const { t } = useTranslation();
@@ -344,75 +346,68 @@ const Profile = () => {
 
   return (
     <PageLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      <div className={pageBaseStyles.page__base}>
         {/* App Header */}
         <AppHeader />
         
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-1000"></div>
-        </div>
-
-        <div className="relative z-10 p-4 pb-20 pt-24">
+        <div className={pageBaseStyles.page__base__container}>
         {/* Header with User Avatar and Nickname */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full flex items-center justify-center shadow-lg">
+        <div className={`${styles.profile__header}`}>
+          <div className={`${styles.profile__header__content}`}>
+            <div className={styles.profile__avatar__container}>
               {user?.picture ? (
                 <img 
                   src={user.picture} 
                   alt="Profile" 
-                  className="w-16 h-16 rounded-full object-cover"
+                  className={styles.profile__avatar__image}
                 />
               ) : (
-                <User className="h-8 w-8 text-white" />
+                <User className={styles.profile__avatar__icon} />
               )}
             </div>
-            <div className="flex-1">
+            <div className={styles.profile__info}>
               {isEditing ? (
-                <div className="flex items-center gap-2">
+                <div className={styles.profile__nickname__editor}>
                   <input
                     type="text"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
-                    className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    className={styles.profile__nickname__input}
                     placeholder={t('userManagement.inputNickname')}
                     maxLength={20}
                   />
                   <button
                     onClick={handleUpdateNickname}
                     disabled={isUpdating || !nickname.trim()}
-                    className="p-1 bg-cyan-400/20 hover:bg-cyan-400/30 rounded-lg transition-colors disabled:opacity-50"
+                    className={styles.profile__nickname__button}
                   >
-                    <Save className="h-4 w-4 text-cyan-400" />
+                    <Save className={styles.profile__nickname__button__icon} />
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="p-1 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                    className={styles.profile__nickname__cancel__button}
                   >
-                    <X className="h-4 w-4 text-white/60" />
+                    <X className={styles.profile__nickname__cancel__icon} />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-white">
+                <div className={styles.profile__name__container}>
+                  <h1 className={styles.profile__name}>
                     {user?.nickname || t('userManagement.nicknameNotSet')}
                   </h1>
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="p-1 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                    className={styles.profile__edit__button}
                   >
-                    <Edit className="h-4 w-4 text-white/60" />
+                    <Edit className={styles.profile__edit__icon} />
                   </button>
                 </div>
               )}
-              <p className="text-white/60 text-sm">
+              <p className={styles.profile__email}>
                 {user?.email || t('userManagement.emailNotSet')}
               </p>
               {user?.walletAddress && (
-                <p className="text-white/40 text-xs">
+                <p className={styles.profile__wallet__address}>
                   {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
                 </p>
               )}
@@ -421,32 +416,32 @@ const Profile = () => {
         </div>
 
         {/* User Info Section */}
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-2xl p-6 border border-white/10 backdrop-blur-xl">
-            <h2 className="text-lg font-semibold text-white mb-4">{t('userManagement.accountInfo')}</h2>
-            <div className="space-y-3">     
-              <div className="flex justify-between items-center">
-                <span className="text-white/80">{t('userManagement.principalId')}:</span>
-                <span className="text-white/60 text-sm font-mono">
+        <div className={styles.profile__account__info}>
+          <div className={styles.profile__account__card}>
+            <h2 className={styles.profile__account__title}>{t('userManagement.accountInfo')}</h2>
+            <div className={styles.profile__account__info__list}>     
+              <div className={styles.profile__account__info__item}>
+                <span className={styles.profile__account__info__label}>{t('userManagement.principalId')}:</span>
+                <span className={styles.profile__account__info__value}>
                   {user?.principalId ? `${user.principalId.slice(0, 8)}...${user.principalId.slice(-8)}` : 'N/A'}
                 </span>
               </div>
               {/* Solana Wallet Address */}
               {isSolanaConnected && solanaAddress && (
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">{t('common.solanaWallet')}:</span>
-                  <span className="text-white/60 text-sm font-mono">
+                <div className={styles.profile__account__info__item}>
+                  <span className={styles.profile__account__info__label}>{t('common.solanaWallet')}:</span>
+                  <span className={styles.profile__account__info__value}>
                     {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
                   </span>
                 </div>
               )}
               {/* Token Balance */}
               {isSolanaConnected && (tokenBalance !== null || isLoadingTokenBalance) && (
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">{t('common.tokenBalance')}:</span>
-                  <span className="text-white/60 text-sm">
+                <div className={styles.profile__account__info__item}>
+                  <span className={styles.profile__account__info__label}>{t('common.tokenBalance')}:</span>
+                  <span className={styles.profile__account__info__value}>
                     {isLoadingTokenBalance ? (
-                      <span className="text-white/40">Loading...</span>
+                      <span className={styles.profile__loading}>Loading...</span>
                     ) : tokenBalance ? (
                       <span>
                         {tokenBalance.balance.toLocaleString(undefined, {
@@ -456,7 +451,7 @@ const Profile = () => {
                         {tokenBalance.symbol}
                       </span>
                     ) : (
-                      <span className="text-white/40">0</span>
+                      <span className={styles.profile__loading}>0</span>
                     )}
                   </span>
                 </div>
@@ -464,16 +459,16 @@ const Profile = () => {
             </div>
             
             {/* Start to Earn - Wallet Connection Section */}
-            <div className="mt-6 pt-6 border-t border-white/10">
+            <div className={styles.profile__wallet__section}>
               {!isSolanaConnected ? (
-                <div className="space-y-4">
+                <div className={styles.profile__wallet__connected__container}>
                   {/* Title Section */}
-                  <div className="mb-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <div className={styles.profile__wallet__title__section}>
+                    <h3 className={styles.profile__wallet__title}>
                       {t('common.startToEarn') || 'Start to earn'}
-                      <Sparkles className="h-4 w-4 text-yellow-400 animate-pulse" />
+                      <Sparkles className={styles.profile__wallet__title__icon} />
                     </h3>
-                    <p className="text-white/60 text-sm mt-0.5">
+                    <p className={styles.profile__wallet__subtitle}>
                       Connect your wallet to start earning rewards
                     </p>
                   </div>
@@ -482,28 +477,23 @@ const Profile = () => {
                   <button
                     onClick={handleConnectPhantom}
                     disabled={isSolanaConnecting}
-                    className="w-full p-4 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-purple-500/20 hover:from-yellow-500/30 hover:via-orange-500/30 hover:to-purple-500/30 border border-yellow-400/30 rounded-xl transition-all duration-200 flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-yellow-500/20"
-                    style={{
-                      WebkitTapHighlightColor: 'transparent',
-                      WebkitFontSmoothing: 'antialiased',
-                      MozOsxFontSmoothing: 'grayscale',
-                    }}
+                    className={styles.profile__wallet__connect__button}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-br from-yellow-400/30 to-orange-400/30 rounded-lg group-hover:from-yellow-400/40 group-hover:to-orange-400/40 transition-colors">
-                        <Coins className="h-5 w-5 text-yellow-400" />
+                    <div className={styles.profile__wallet__connect__button__content}>
+                      <div className={styles.profile__wallet__connect__button__icon__container}>
+                        <Coins className={styles.profile__wallet__connect__button__icon} />
                       </div>
-                      <span className="text-white font-semibold">
+                      <span className={styles.profile__wallet__connect__button__text}>
                         {isSolanaConnecting ? (t('common.connecting') || 'Connecting...') : (t('common.linkToPhantomWallet') || 'Link to Phantom Wallet')}
                       </span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-yellow-400 transition-colors" />
+                    <ChevronRight className={styles.profile__wallet__connect__button__chevron} />
                   </button>
                   
                   {/* Connection hint when connecting via Phantom extension (PC) */}
                   {isSolanaConnecting && hasInjectedPhantom && !walletConnectUri && (
-                    <div className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30">
-                      <p className="text-sm text-blue-200 text-center">
+                    <div className={styles.profile__wallet__connection__hint}>
+                      <p className={styles.profile__wallet__connection__hint__text}>
                         Please open the Phantom extension (top-right) and approve the pending connection request. If Phantom is locked, unlock it first.
                       </p>
                     </div>
@@ -511,18 +501,18 @@ const Profile = () => {
                   
                   {/* WalletConnect QR Code Display - 只在移动端且没有 injected Phantom 时显示 */}
                   {walletConnectUri && !isSolanaConnected && !hasInjectedPhantom && (
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                      <p className="text-white text-sm font-medium mb-3 text-center">
+                    <div className={styles.profile__wallet__qr__section}>
+                      <p className={styles.profile__wallet__qr__title}>
                         {isMobileDevice ? 'Open your wallet app to approve' : 'Scan QR code with your wallet app'}
                       </p>
                       
                       {/* QR Code - Always display */}
-                      <div className="flex justify-center p-4 bg-white rounded-lg mb-3" id="walletconnect-qr-code">
+                      <div className={styles.profile__wallet__qr__code__container} id="walletconnect-qr-code">
                         <QRCode
                           value={walletConnectUri}
                           size={200}
                           level="M"
-                          style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
+                          className={styles.profile__wallet__qr__code}
                         />
                       </div>
                       
@@ -540,8 +530,7 @@ const Profile = () => {
                                 handleOpenWalletApp();
                               }
                             }}
-                            className="w-full mb-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white rounded-lg font-medium transition-all duration-200"
-                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                            className={styles.profile__wallet__open__button}
                           >
                             Open Wallet
                           </button>
@@ -564,14 +553,13 @@ const Profile = () => {
                                 });
                               }
                             }}
-                            className="w-full mb-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all duration-200"
-                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                            className={styles.profile__wallet__copy__button}
                           >
                             Copy WalletConnect URI
                           </button>
                           
                           {/* Mobile fallback hint */}
-                          <p className="text-white/60 text-xs mt-2 text-center">
+                          <p className={styles.profile__wallet__mobile__hint}>
                             If the wallet app doesn't open automatically, please manually open your wallet app and paste the URI or connect via WalletConnect.
                           </p>
                         </>
@@ -645,13 +633,13 @@ const Profile = () => {
                             });
                           }
                         }}
-                        className="w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                        className={styles.profile__wallet__save__qr__button}
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className={styles.profile__wallet__save__qr__icon} />
                         {t('common.saveQRCode') || 'Save QR Code'}
                       </button>
                       
-                      <p className="text-white/60 text-xs mt-3 text-center">
+                      <p className={styles.profile__wallet__qr__hint}>
                         {isMobileDevice
                           ? 'Tap "Open Wallet" or save the QR code to scan later.'
                           : 'Scan this QR code with your wallet app to connect.'}
@@ -660,67 +648,62 @@ const Profile = () => {
                   )}
                   
                   {solanaError && !isSolanaConnecting && (
-                    <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50">
-                      <p className="text-sm text-red-200">{solanaError}</p>
+                    <div className={styles.profile__wallet__error}>
+                      <p className={styles.profile__wallet__error__text}>{solanaError}</p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-green-400/10 border border-green-400/20 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-400/20 rounded-lg">
-                        <Smartphone className="h-4 w-4 text-green-400" />
+                <div className={styles.profile__wallet__connected__container}>
+                  <div className={styles.profile__wallet__connected__card}>
+                    <div className={styles.profile__wallet__connected__content}>
+                      <div className={styles.profile__wallet__connected__icon__container}>
+                        <Smartphone className={styles.profile__wallet__connected__icon} />
                       </div>
-                      <div>
-                        <p className="text-white text-sm font-medium">{t('common.phantomWalletConnected')}</p>
-                        <p className="text-white/60 text-xs font-mono">
+                      <div className={styles.profile__wallet__connected__info}>
+                        <p className={styles.profile__wallet__connected__text}>{t('common.phantomWalletConnected')}</p>
+                        <p className={styles.profile__wallet__connected__address}>
                           {solanaAddress?.slice(0, 8)}...{solanaAddress?.slice(-6)}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={handleDisconnectPhantom}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      className={styles.profile__wallet__disconnect__button}
                       title="Disconnect wallet"
                     >
-                      <X className="h-4 w-4 text-white/60" />
+                      <X className={styles.profile__wallet__disconnect__icon} />
                     </button>
                   </div>
                   {/* Start to Earn Button - Navigate to Task Rewards Page */}
                   {isSolanaConnected && solanaAddress && (
                     <button
                       onClick={() => navigate({ pathname: '/task-rewards', search: location.search })}
-                      className="w-full p-4 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-purple-500/20 hover:from-yellow-500/30 hover:via-orange-500/30 hover:to-purple-500/30 border border-yellow-400/30 rounded-xl transition-all duration-200 flex items-center justify-between group shadow-lg hover:shadow-yellow-500/20"
-                      style={{
-                        WebkitTapHighlightColor: 'transparent',
-                        WebkitFontSmoothing: 'antialiased',
-                        MozOsxFontSmoothing: 'grayscale',
-                      }}
+                      className={styles.profile__wallet__earn__button}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-yellow-400/30 to-orange-400/30 rounded-lg group-hover:from-yellow-400/40 group-hover:to-orange-400/40 transition-colors">
-                          <Sparkles className="h-5 w-5 text-yellow-400" />
+                      <div className={styles.profile__wallet__earn__button__content}>
+                        <div className={styles.profile__wallet__earn__button__icon__container}>
+                          <Sparkles className={styles.profile__wallet__earn__button__icon} />
                         </div>
-                        <div className="text-left">
-                          <span className="text-white font-semibold block">
+                        <div className={styles.profile__wallet__earn__button__text__container}>
+                          <span className={styles.profile__wallet__earn__button__text}>
                             {t('common.startToEarn') || 'Start to Earn'}
                           </span>
-                          <span className="text-white/60 text-xs">
+                          <span className={styles.profile__wallet__earn__button__subtext}>
                             {t('common.viewTasksAndRewards') || 'View tasks and claim rewards'}
                           </span>
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-yellow-400 transition-colors" />
+                      <ChevronRight className={styles.profile__wallet__earn__button__chevron} />
                     </button>
                   )}
                   
                   {/* Token Balance Display (if available) */}
                   {tokenBalance !== null && (
-                    <div className="p-3 bg-white/5 border border-white/10 rounded-lg mt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white/80 text-sm">{t('common.tokenBalance')}:</span>
-                        <span className="text-white text-sm font-medium">
+                    <div className={styles.profile__wallet__token__balance}>
+                      <div className={styles.profile__wallet__token__balance__row}>
+                        <span className={styles.profile__wallet__token__balance__label}>{t('common.tokenBalance')}:</span>
+                        <span className={styles.profile__wallet__token__balance__value}>
                           {tokenBalance.balance.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 6,
@@ -729,9 +712,9 @@ const Profile = () => {
                         </span>
                       </div>
                       {tokenBalance.name && (
-                        <p className="text-white/60 text-xs mt-1">{tokenBalance.name}</p>
+                        <p className={styles.profile__wallet__token__balance__name}>{tokenBalance.name}</p>
                       )}
-                      <p className="text-white/40 text-xs mt-1 font-mono">
+                      <p className={styles.profile__wallet__token__balance__contract}>
                         Contract: V8tLkyqHdtzzYCGdsVf5CZ55BsLuvu7F4TchiDhJgem
                       </p>
                     </div>
@@ -742,162 +725,134 @@ const Profile = () => {
             
             {/* Password Change Section */}
             {user?.loginMethod === 'ii' && user?.email && (
-              <div className="mt-6 pt-6 border-t border-white/10">
+              <div className={styles.profile__password__section}>
                 {!showPasswordChange ? (
                   <button
                     onClick={() => setShowPasswordChange(true)}
-                    className="w-full p-4 bg-gradient-to-r from-cyan-400/10 to-purple-400/10 hover:from-cyan-400/20 hover:to-purple-400/20 border border-white/10 rounded-xl transition-all duration-200 flex items-center justify-between group"
-                    style={{
-                      WebkitTapHighlightColor: 'transparent',
-                      WebkitFontSmoothing: 'antialiased',
-                      MozOsxFontSmoothing: 'grayscale',
-                    }}
+                    className={styles.profile__password__toggle__button}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-cyan-400/20 rounded-lg group-hover:bg-cyan-400/30 transition-colors">
-                        <Lock className="h-5 w-5 text-cyan-400" />
+                    <div className={styles.profile__password__toggle__button__content}>
+                      <div className={styles.profile__password__toggle__button__icon__container}>
+                        <Lock className={styles.profile__password__toggle__button__icon} />
                       </div>
-                      <span className="text-white font-medium">
+                      <span className={styles.profile__password__toggle__button__text}>
                         {t('passwordChange.title') || 'Change Password'}
                       </span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-white/40 group-hover:text-white/60 transition-colors" />
+                    <ChevronRight className={styles.profile__password__toggle__button__chevron} />
                   </button>
                 ) : (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className={styles.profile__password__form}>
                     {/* Header with back button */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-cyan-400/20 rounded-lg">
-                          <Lock className="h-5 w-5 text-cyan-400" />
+                    <div className={styles.profile__password__form__header}>
+                      <div className={styles.profile__password__form__header__content}>
+                        <div className={styles.profile__password__form__header__icon__container}>
+                          <Lock className={styles.profile__password__form__header__icon} />
                         </div>
-                        <span className="text-white font-medium">
+                        <span className={styles.profile__password__form__header__text}>
                           {t('passwordChange.title') || 'Change Password'}
                         </span>
                       </div>
                       <button
                         onClick={handleCancelPasswordChange}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        className={styles.profile__password__form__close__button}
                       >
-                        <X className="h-4 w-4 text-white/60" />
+                        <X className={styles.profile__password__form__close__icon} />
                       </button>
                     </div>
                     
-                    {/* Old Password */}
-                    <div className="space-y-2">
-                      <label className="text-sm text-white/80">
-                        {t('passwordChange.oldPassword') || 'Old Password'}
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
-                        <input
-                          type={showOldPassword ? "text" : "password"}
-                          value={oldPassword}
-                          onChange={(e) => setOldPassword(e.target.value)}
-                          placeholder={t('passwordChange.oldPasswordPlaceholder') || 'Enter your current password'}
-                          className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400"
-                          disabled={isChangingPassword}
-                          style={{
-                            WebkitFontSmoothing: 'antialiased',
-                            MozOsxFontSmoothing: 'grayscale',
-                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowOldPassword(!showOldPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
-                        >
-                          {showOldPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
+                    <div className={styles.profile__password__form__fields}>
+                      {/* Old Password */}
+                      <div className={styles.profile__password__field}>
+                        <label className={styles.profile__password__field__label}>
+                          {t('passwordChange.oldPassword') || 'Old Password'}
+                        </label>
+                        <div className={styles.profile__password__field__input__wrapper}>
+                          <Lock className={styles.profile__password__field__icon} />
+                          <input
+                            type={showOldPassword ? "text" : "password"}
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                            placeholder={t('passwordChange.oldPasswordPlaceholder') || 'Enter your current password'}
+                            className={styles.profile__password__field__input}
+                            disabled={isChangingPassword}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOldPassword(!showOldPassword)}
+                            className={styles.profile__password__field__toggle__button}
+                          >
+                            {showOldPassword ? <EyeOff className={styles.profile__password__field__toggle__icon} /> : <Eye className={styles.profile__password__field__toggle__icon} />}
+                          </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* New Password */}
-                    <div className="space-y-2">
-                      <label className="text-sm text-white/80">
-                        {t('passwordChange.newPassword') || 'New Password'}
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
-                        <input
-                          type={showNewPassword ? "text" : "password"}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder={t('passwordChange.newPasswordPlaceholder') || 'Enter your new password (min 6 characters)'}
-                          className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400"
-                          disabled={isChangingPassword}
-                          style={{
-                            WebkitFontSmoothing: 'antialiased',
-                            MozOsxFontSmoothing: 'grayscale',
-                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowNewPassword(!showNewPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
-                        >
-                          {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
+                      {/* New Password */}
+                      <div className={styles.profile__password__field}>
+                        <label className={styles.profile__password__field__label}>
+                          {t('passwordChange.newPassword') || 'New Password'}
+                        </label>
+                        <div className={styles.profile__password__field__input__wrapper}>
+                          <Lock className={styles.profile__password__field__icon} />
+                          <input
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder={t('passwordChange.newPasswordPlaceholder') || 'Enter your new password (min 6 characters)'}
+                            className={styles.profile__password__field__input}
+                            disabled={isChangingPassword}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className={styles.profile__password__field__toggle__button}
+                          >
+                            {showNewPassword ? <EyeOff className={styles.profile__password__field__toggle__icon} /> : <Eye className={styles.profile__password__field__toggle__icon} />}
+                          </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Confirm Password */}
-                    <div className="space-y-2">
-                      <label className="text-sm text-white/80">
-                        {t('passwordChange.confirmPassword') || 'Confirm New Password'}
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
-                        <input
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder={t('passwordChange.confirmPasswordPlaceholder') || 'Re-enter your new password'}
-                          className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400"
-                          disabled={isChangingPassword}
-                          style={{
-                            WebkitFontSmoothing: 'antialiased',
-                            MozOsxFontSmoothing: 'grayscale',
-                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
+                      {/* Confirm Password */}
+                      <div className={styles.profile__password__field}>
+                        <label className={styles.profile__password__field__label}>
+                          {t('passwordChange.confirmPassword') || 'Confirm New Password'}
+                        </label>
+                        <div className={styles.profile__password__field__input__wrapper}>
+                          <Lock className={styles.profile__password__field__icon} />
+                          <input
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder={t('passwordChange.confirmPasswordPlaceholder') || 'Re-enter your new password'}
+                            className={styles.profile__password__field__input}
+                            disabled={isChangingPassword}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className={styles.profile__password__field__toggle__button}
+                          >
+                            {showConfirmPassword ? <EyeOff className={styles.profile__password__field__toggle__icon} /> : <Eye className={styles.profile__password__field__toggle__icon} />}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                     {/* Error Message */}
                     {passwordError && (
-                      <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50">
-                        <p className="text-sm text-red-200" style={{
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                        }}>
+                      <div className={styles.profile__password__error}>
+                        <p className={styles.profile__password__error__text}>
                           {passwordError}
                         </p>
                       </div>
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3 pt-2">
+                    <div className={styles.profile__password__actions}>
                       <button
                         onClick={handleChangePassword}
                         disabled={isChangingPassword || !oldPassword || !newPassword || !confirmPassword}
-                        className="flex-1 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          WebkitTapHighlightColor: 'transparent',
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                        }}
+                        className={styles.profile__password__save__button}
                       >
                         {isChangingPassword 
                           ? (t('passwordChange.changing') || 'Changing...') 
@@ -906,15 +861,9 @@ const Profile = () => {
                       <button
                         onClick={handleCancelPasswordChange}
                         disabled={isChangingPassword}
-                        className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50"
-                        style={{
-                          WebkitTapHighlightColor: 'transparent',
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                        }}
+                        className={styles.profile__password__cancel__button}
                       >
-                        <X className="h-4 w-4" />
+                        <X className={styles.profile__password__cancel__icon} />
                       </button>
                     </div>
                   </div>
@@ -925,15 +874,15 @@ const Profile = () => {
         </div>
 
         {/* My Devices Section */}
-        <div className="mb-6 bg-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Smartphone className="h-5 w-5 text-cyan-400" />
-              <div>
-                <span className="text-white font-medium">{t('common.myDevices')}</span>
+        <div className={styles.profile__devices__section}>
+          <div className={styles.profile__devices__header}>
+            <div className={styles.profile__devices__header__content}>
+              <Smartphone className={styles.profile__devices__icon} />
+              <div className={styles.profile__devices__info}>
+                <span className={styles.profile__devices__title}>{t('common.myDevices')}</span>
                 {isTencentIoTEnabled && (
-                  <div className="text-xs text-blue-400 flex items-center gap-1">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  <div className={styles.profile__devices__iot__status}>
+                    <div className={styles.profile__devices__iot__status__dot}></div>
                     {t('deviceStatus.iotCloudConnected')}
                   </div>
                 )}
@@ -941,10 +890,10 @@ const Profile = () => {
             </div>
             <button
               onClick={refreshDeviceStatus}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              className={styles.profile__devices__refresh__button}
               title="Refresh device status"
             >
-              <MoreHorizontal className="h-4 w-4 text-white/40" />
+              <MoreHorizontal className={styles.profile__devices__refresh__icon} />
             </button>
           </div>
 
@@ -961,11 +910,11 @@ const Profile = () => {
 
 
         {/* More Button */}
-        <div className="text-center">
-          <button className="bg-white/5 backdrop-blur-xl rounded-xl px-6 py-3 border border-white/10 hover:bg-white/10 transition-all duration-200">
-            <div className="flex items-center justify-center gap-2">
-              <MoreHorizontal className="h-4 w-4 text-white/60" />
-              <span className="text-white font-medium">More...</span>
+        <div className={styles.profile__more__button}>
+          <button className={styles.profile__more__button__inner}>
+            <div className={styles.profile__more__button__content}>
+              <MoreHorizontal className={styles.profile__more__button__icon} />
+              <span className={styles.profile__more__button__text}>More...</span>
             </div>
           </button>
         </div>

@@ -1,0 +1,365 @@
+/**
+ * AppHeader Component Styles
+ * Black & White Design - Inspired by X (Twitter)
+ */
+
+.header {
+  position: relative;
+  z-index: var(--z-fixed);
+  background-color: var(--bg-header);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: box-shadow var(--transition-base);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.header__container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  height: var(--header-height);
+}
+
+/* Left Section - Logo & Brand */
+.header__left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex: 1;
+  min-width: 0; /* Allow flex item to shrink */
+}
+
+.sidebar__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--text-inverse);
+  transition: background-color var(--transition-fast);
+}
+
+.sidebar__trigger:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar__trigger:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Logo Container */
+.logo__container {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.logo__image {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+}
+
+.logo__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-black);
+  border: 2px solid var(--bg-primary);
+  border-radius: var(--radius-full);
+}
+
+/* Brand Name */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.brand__name {
+  font-size: var(--text-xl);
+  font-weight: 700 !important;
+  color: #9ca3af !important;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.brand__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 16px !important;
+}
+
+.brand__badge__icon {
+  width: 12px;
+  height: 12px;
+  color: #D4A5FF !important;
+}
+
+.brand__badge__text {
+  font-size: var(--text-xs);
+  font-weight: 500 !important;
+  color: #9ca3af !important;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+}
+
+/* Right Section - Actions */
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+/* Language Switcher */
+.language__switcher {
+  /* Styled by child component */
+}
+
+/* User Profile Button */
+.user__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px 16px !important;
+  background-color: #1a1a1a !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 16px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.user__profile:hover {
+  background-color: #252525 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.user__profile:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.user__avatar {
+  width: 32px;
+  height: 32px;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 16px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff !important;
+  font-size: var(--text-sm);
+  font-weight: 500 !important;
+  flex-shrink: 0;
+}
+
+.user__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.user__name {
+  font-size: var(--text-sm);
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.user__wallet {
+  font-size: var(--text-xs);
+  color: #9ca3af !important;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* Mobile User Avatar (Icon Only) */
+.user__avatar--mobile {
+  width: 40px;
+  height: 40px;
+  background-color: #1a1a1a !important;
+  border-radius: 16px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.user__avatar--mobile:hover {
+  background-color: #252525 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.user__avatar--mobile:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Login/Logout Button */
+.auth__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: 12px 20px !important;
+  font-size: var(--text-sm);
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  background-color: #1a1a1a !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 16px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.auth__button:hover {
+  background-color: #252525 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.auth__button:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.auth__button--logout {
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.auth__button--logout:hover {
+  background-color: #1a1a1a !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Modal Overlay */
+.modal__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999 !important;
+  animation: fadeIn var(--transition-base);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal__content {
+  position: relative;
+  z-index: 10000 !important;
+  animation: slideUp var(--transition-base);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header__container {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .logo__image {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .brand__name {
+    font-size: var(--text-lg);
+  }
+  
+  .user__profile {
+    display: none; /* Hide on mobile, show avatar icon instead */
+  }
+  
+  .auth__button {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--text-xs);
+  }
+}
+
+@media (min-width: 1024px) {
+  .sidebar__trigger {
+    display: none; /* Hide sidebar trigger on desktop */
+  }
+  
+  .user__avatar--mobile {
+    display: none; /* Hide mobile avatar on desktop */
+  }
+}
+
+/* Prevent interaction issues from z-index and pointer-events */
+.header * {
+  pointer-events: auto;
+}
+
+/* Ensure clickable elements are above decorative elements */
+button,
+a,
+[role="button"] {
+  position: relative;
+  z-index: 1;
+}

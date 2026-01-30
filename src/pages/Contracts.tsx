@@ -23,6 +23,8 @@ import {
 } from '../services/api/userApi';
 import { copyWithFeedback } from '../utils/clipboard.js';
 import QRCodeScanner from '../components/QRCodeScanner';
+import { cn } from '../lib/utils';
+import styles from '../styles/pages/Contracts.module.css';
 
 const Contracts = () => {
   const { user, loading: authLoading } = useAuth();
@@ -195,11 +197,11 @@ const Contracts = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active': return 'text-green-400 bg-green-400/20';
-      case 'Pending': return 'text-yellow-400 bg-yellow-400/20';
-      case 'Blocked': return 'text-red-400 bg-red-400/20';
-      case 'Deleted': return 'text-gray-400 bg-gray-400/20';
-      default: return 'text-white/60 bg-white/10';
+      case 'Active': return styles['contracts__status--active'];
+      case 'Pending': return styles['contracts__status--pending'];
+      case 'Blocked': return styles['contracts__status--blocked'];
+      case 'Deleted': return styles['contracts__status--deleted'];
+      default: return styles['contracts__status--default'];
     }
   };
 
@@ -246,12 +248,12 @@ const Contracts = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
-          <div className="mt-4 text-center">
-              <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+      <div className={styles.contracts__loading}>
+        <div className={styles.contracts__loading__spinner}>
+          <div className={styles.contracts__loading__spinner__outer}></div>
+          <div className={styles.contracts__loading__spinner__inner}></div>
+          <div className={styles.contracts__loading__text}>
+            <div className={styles.contracts__loading__text__gradient}>
               {t('common.initializingAI')}
             </div>
           </div>
@@ -262,71 +264,38 @@ const Contracts = () => {
 
   return (
     <PageLayout>
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-300"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
-        </div>
-
-        {/* Neural network pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full"></div>
-          <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-purple-400 rounded-full"></div>
-          <div className="absolute top-1/2 left-3/4 w-2 h-2 bg-blue-400 rounded-full"></div>
-          <svg className="absolute inset-0 w-full h-full">
-            <line x1="25%" y1="25%" x2="75%" y2="50%" stroke="url(#gradient1)" strokeWidth="1" opacity="0.3"/>
-            <line x1="75%" y1="50%" x2="75%" y2="75%" stroke="url(#gradient2)" strokeWidth="1" opacity="0.3"/>
-            <line x1="25%" y1="25%" x2="75%" y2="75%" stroke="url(#gradient3)" strokeWidth="1" opacity="0.3"/>
-            <defs>
-              <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="100%" stopColor="#8b5cf6" />
-              </linearGradient>
-              <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#8b5cf6" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-              <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-
+      <div className={styles.contracts__page}>
         {/* Header */}
         <AppHeader />
 
-        <div className="flex h-[calc(100vh-65px)] w-full">
+        <div className={styles.contracts__layout}>
           {/* Sidebar for desktop only */}
-          <div className="hidden lg:block">
+          <div className={styles.contracts__sidebar}>
             <AppSidebar />
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="h-full flex flex-col">
+          <div className={styles.contracts__main}>
+            <div className={styles.contracts__content}>
               {/* Contracts Content */}
-              <div className="flex-1 min-w-0 flex">
-                <div className="flex-1 m-2 md:m-4 mb-20 lg:mb-4 rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 overflow-hidden">
-                  <div className="p-3 sm:p-4 md:p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
-                      <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-lg flex items-center justify-center">
-                          <FileText className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className={styles.contracts__content__inner}>
+                <div className={styles.contracts__container}>
+                  <div className={styles.contracts__container__inner}>
+                    <div className={styles.contracts__header}>
+                      <div className={styles.contracts__header__left}>
+                        <div className={styles.contracts__header__icon}>
+                          <FileText className={styles.contracts__header__icon__svg} />
                         </div>
                         <div>
-                          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400">
+                          <h1 className={styles.contracts__header__title}>
                             {t('common.contracts')}
                           </h1>
-                          <p className="text-xs sm:text-sm text-white/60">{t('common.contractsSubtitle')}</p>
+                          <p className={styles.contracts__header__subtitle}>{t('common.contractsSubtitle')}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className={styles.contracts__header__actions}>
                         <Button 
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                          className={styles.contracts__button}
                           onClick={() => {
                             setSelectedFriendForSharing(null);
                             setQrDialogType('share-self');
@@ -334,15 +303,15 @@ const Contracts = () => {
                           }}
                           disabled={loading || !user}
                         >
-                          <QrCode className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <QrCode className={styles.contracts__button__icon} />
                           {t('common.shareSelf')}
                         </Button>
                         <Button 
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 shadow-lg transition-all duration-200 hover:shadow-xl text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                          className={styles.contracts__button}
                           onClick={() => setShowAddContactDialog(true)}
                           disabled={loading || !user}
                         >
-                          <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <Plus className={styles.contracts__button__icon} />
                           {t('common.newContract')}
                         </Button>
                       </div>
@@ -350,67 +319,67 @@ const Contracts = () => {
 
                     {/* Loading state */}
                     {loading && (
-                      <div className="flex items-center justify-center py-6 sm:py-8">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
-                        <span className="ml-2 sm:ml-3 text-white/60 text-sm sm:text-base">Loading contacts...</span>
+                      <div className={styles.contracts__loading__state}>
+                        <div className={styles.contracts__loading__spinner__small}></div>
+                        <span className={styles.contracts__loading__text__small}>Loading contacts...</span>
                       </div>
                     )}
 
                     {/* Empty state for unauthenticated users */}
                     {!loading && !user && (
-                      <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full flex items-center justify-center mb-4">
-                          <User className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-400" />
+                      <div className={styles.contracts__empty}>
+                        <div className={styles.contracts__empty__icon}>
+                          <User className={styles.contracts__empty__icon__svg} />
                         </div>
-                        <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
+                        <h3 className={styles.contracts__empty__title}>
                           {t('common.loginRequired')}
                         </h3>
-                        <p className="text-sm sm:text-base text-white/60 mb-6 max-w-md">
+                        <p className={styles.contracts__empty__text}>
                           {t('common.loginToViewContacts')}
                         </p>
                         
                         {/* Login Tips */}
-                        <div className="w-full max-w-md mb-6">
-                          <div className="bg-slate-800/90 backdrop-blur-sm border border-cyan-400/30 rounded-lg p-4 mb-4 shadow-xl">
-                            <h4 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2">
-                              <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                        <div className={styles.contracts__tips}>
+                          <div className={styles.contracts__tips__card}>
+                            <h4 className={styles.contracts__tips__title}>
+                              <div className={styles.contracts__tips__dot}></div>
                               {t('contracts.howToLogin')}
                             </h4>
-                            <div className="space-y-2 text-xs text-white/90 text-left">
-                              <div className="flex items-start gap-2">
-                                <span className="text-cyan-400 font-semibold">1.</span>
-                                <span className="text-white/90">{t('contracts.loginStep1')}</span>
+                            <div className={styles.contracts__tips__list}>
+                              <div className={styles.contracts__tips__item}>
+                                <span className={styles.contracts__tips__item__number}>1.</span>
+                                <span>{t('contracts.loginStep1')}</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-cyan-400 font-semibold">2.</span>
-                                <span className="text-white/90">{t('contracts.loginStep2')}</span>
+                              <div className={styles.contracts__tips__item}>
+                                <span className={styles.contracts__tips__item__number}>2.</span>
+                                <span>{t('contracts.loginStep2')}</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-cyan-400 font-semibold">3.</span>
-                                <span className="text-white/90">{t('contracts.loginStep3')}</span>
+                              <div className={styles.contracts__tips__item}>
+                                <span className={styles.contracts__tips__item__number}>3.</span>
+                                <span>{t('contracts.loginStep3')}</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-cyan-400 font-semibold">4.</span>
-                                <span className="text-white/90">{t('contracts.loginStep4')}</span>
+                              <div className={styles.contracts__tips__item}>
+                                <span className={styles.contracts__tips__item__number}>4.</span>
+                                <span>{t('contracts.loginStep4')}</span>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="bg-slate-800/90 backdrop-blur-sm border border-purple-400/30 rounded-lg p-3 shadow-xl">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                              <span className="text-xs font-semibold text-purple-400 text-left">{t('contracts.benefitsOfLogin')}</span>
+                          <div className={styles.contracts__tips__benefits}>
+                            <div className={styles.contracts__tips__benefits__header}>
+                              <div className={styles.contracts__tips__benefits__dot}></div>
+                              <span className={styles.contracts__tips__benefits__title}>{t('contracts.benefitsOfLogin')}</span>
                             </div>
-                            <div className="text-xs text-white/90 space-y-1 text-left">
-                              <div className="text-left">• {t('contracts.benefit1')}</div>
-                              <div className="text-left">• {t('contracts.benefit2')}</div>
-                              <div className="text-left">• {t('contracts.benefit3')}</div>
-                              <div className="text-left">• {t('contracts.benefit4')}</div>
+                            <div className={styles.contracts__tips__benefits__list}>
+                              <div>• {t('contracts.benefit1')}</div>
+                              <div>• {t('contracts.benefit2')}</div>
+                              <div>• {t('contracts.benefit3')}</div>
+                              <div>• {t('contracts.benefit4')}</div>
                             </div>
                           </div>
                         </div>
                         
-                        <p className="text-xs text-white/50 mt-2">
+                        <p className={styles.contracts__tips__footer}>
                           {t('contracts.noAccountTip')}
                         </p>
                       </div>
@@ -418,18 +387,18 @@ const Contracts = () => {
 
                     {/* Empty state for authenticated users with no contacts */}
                     {!loading && user && contracts.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full flex items-center justify-center mb-4">
-                          <User className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-400" />
+                      <div className={styles.contracts__empty}>
+                        <div className={styles.contracts__empty__icon}>
+                          <User className={styles.contracts__empty__icon__svg} />
                         </div>
-                        <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
+                        <h3 className={styles.contracts__empty__title}>
                           {t('common.noContacts')}
                         </h3>
-                        <p className="text-sm sm:text-base text-white/60 mb-6 max-w-md">
+                        <p className={styles.contracts__empty__text}>
                           {t('common.addFirstContact')}
                         </p>
                         <Button 
-                          className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white shadow-lg transition-all duration-200 hover:shadow-xl px-6 py-3"
+                          className={styles.contracts__button__action}
                           onClick={() => setShowAddContactDialog(true)}
                         >
                           <Plus className="w-4 h-4 mr-2" />
@@ -440,12 +409,12 @@ const Contracts = () => {
 
                     {/* Error state */}
                     {error && (
-                      <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                        <p className="text-red-400 text-xs sm:text-sm">{error}</p>
+                      <div className={styles.contracts__error}>
+                        <p className={styles.contracts__error__text}>{error}</p>
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="mt-2 text-red-400 border-red-400/30 hover:bg-red-500/20 text-xs px-2 py-1"
+                          className={cn(styles['contracts__button--outline'], styles['contracts__button--error'], "mt-2 text-xs px-2 py-1")}
                           onClick={() => setError(null)}
                         >
                           Dismiss
@@ -454,48 +423,48 @@ const Contracts = () => {
                     )}
 
                     {/* Contacts list */}
-                    <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                    <div className={styles.contracts__list}>
                       {contracts.map((contract) => (
                         <div 
                           key={contract.id} 
-                          className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-200 cursor-pointer backdrop-blur-sm hover:shadow-lg"
+                          className={styles.contracts__item}
                           onClick={() => handleContractClick(contract)}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-                              <div className="relative">
+                          <div className={styles.contracts__item__content}>
+                            <div className={styles.contracts__item__left}>
+                              <div className={styles.contracts__item__avatar}>
                                 <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
                                   <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white font-semibold text-xs sm:text-sm">
                                     {contract.avatar}
                                   </AvatarFallback>
                                 </Avatar>
                                 {contract.isOnline && (
-                                  <div className="absolute -bottom-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full border-2 border-slate-900 animate-pulse"></div>
+                                  <div className={styles.contracts__item__avatar__badge}></div>
                                 )}
                               </div>
                               <div>
-                                <div className="flex items-center gap-1 sm:gap-2">
-                                  <h3 className="text-white font-medium text-sm sm:text-base">{contract.name}</h3>
-                                  {contract.type === 'friend' && <User className="h-3 w-3 sm:h-4 sm:w-4 text-cyan-400" />}
-                                  {contract.type === 'system' && <div className="w-2 h-2 bg-purple-400 rounded-full"></div>}
+                                <div className={styles.contracts__item__info}>
+                                  <h3 className={styles.contracts__item__name}>{contract.name}</h3>
+                                  {contract.type === 'friend' && <User className={styles.contracts__item__type__icon} />}
+                                  {contract.type === 'system' && <div className={styles.contracts__item__type__dot}></div>}
                                 </div>
-                                <p className="text-xs sm:text-sm text-white/60">
+                                <p className={styles.contracts__item__devices}>
                                   {contract.devices.length > 0 ? `${contract.devices.join(', ')}` : t('common.systemContract')}
                                 </p>
                                 {contract.nickname && (
-                                  <p className="text-xs text-cyan-400/70">{contract.nickname}</p>
+                                  <p className={styles.contracts__item__nickname}>{contract.nickname}</p>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <span className={`px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs font-medium ${getStatusColor(contract.status)} backdrop-blur-sm`}>
+                            <div className={styles.contracts__item__right}>
+                              <span className={cn(styles.contracts__status, getStatusColor(contract.status))}>
                                 {getStatusLabel(contract.status)}
                               </span>
-                              <div className="flex gap-1 sm:gap-2">
+                              <div className={styles.contracts__item__actions}>
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-1 sm:p-2"
+                                  className={cn(styles['contracts__button--outline'], styles['contracts__button--outline--small'])}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleContractClick(contract);
@@ -506,7 +475,7 @@ const Contracts = () => {
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-1 sm:p-2"
+                                  className={cn(styles['contracts__button--outline'], styles['contracts__button--outline--small'])}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedFriendForSharing(contract);
@@ -530,7 +499,7 @@ const Contracts = () => {
         </div>
 
         {/* Bottom Navigation - Mobile only */}
-        <div className="lg:hidden">
+        <div className={styles.contracts__bottom__nav}>
           <BottomNavigation />
         </div>
 
@@ -538,17 +507,17 @@ const Contracts = () => {
 
         {/* Share QR Dialog */}
         <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
-          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-sm mx-auto shadow-2xl">
-            <DialogHeader className="pb-2">
-              <DialogTitle className="text-white flex items-center gap-2">
-                <QrCode className="h-5 w-5 text-cyan-400" />
+          <DialogContent className={styles.contracts__dialog}>
+            <DialogHeader className={styles.contracts__dialog__header}>
+              <DialogTitle className={styles.contracts__dialog__title}>
+                <QrCode className={styles.contracts__dialog__title__icon} />
                 {qrDialogType === 'share-self' 
                   ? 'Share Your QR Code'
                   : `Share ${selectedFriendForSharing?.name || 'Contact'} QR Code`
                 }
               </DialogTitle>
             </DialogHeader>
-            <div className="flex flex-col items-center gap-4 py-2">
+            <div className={styles.contracts__dialog__content}>
               {(() => {
                 let qrValue = '';
                 let displayPrincipalId = '';
@@ -569,26 +538,26 @@ const Contracts = () => {
                 if (!qrValue) return null;
                 
                 return (
-                  <div className="p-4 bg-slate-800/90 rounded-lg border border-white/20 shadow-xl">
+                  <div className={styles.contracts__dialog__qr}>
                     <QRCode value={qrValue} size={200} level="M" />
                   </div>
                 );
               })()}
               
               {/* Principal ID Display and Copy */}
-              <div className="w-full space-y-3">
-                <div className="text-center">
-                  <p className="text-sm text-white/70 mb-2">
+              <div className={styles.contracts__dialog__principal}>
+                <div>
+                  <p className={styles.contracts__dialog__principal__label}>
                     {qrDialogType === 'share-self' ? 'Your Principal ID:' : `${selectedFriendForSharing?.name || 'Contact'} ID:`}
                   </p>
-                  <div className="flex items-center gap-2 justify-center">
-                    <code className="text-xs text-cyan-300 bg-slate-800/50 px-3 py-2 rounded-lg font-mono break-all">
+                  <div className={styles.contracts__dialog__principal__input}>
+                    <code className={styles.contracts__dialog__principal__code}>
                       {qrDialogType === 'share-self' ? getUserPrincipalId() : (selectedFriendForSharing?.contactPrincipalId || selectedFriendForSharing?.id || '')}
                     </code>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-cyan-500/20 border-cyan-400/30 text-cyan-400 hover:bg-cyan-500/30 hover:border-cyan-400/50"
+                      className={styles['contracts__button--copy']}
                       onClick={async () => {
                         const textToCopy = qrDialogType === 'share-self' ? getUserPrincipalId() : (selectedFriendForSharing?.contactPrincipalId || String(selectedFriendForSharing?.id || ''));
                         await copyWithFeedback(
@@ -616,7 +585,7 @@ const Contracts = () => {
                 </div>
               </div>
               
-              <div className="text-xs text-white/70 text-center">
+              <div className={styles.contracts__dialog__footer}>
                 {qrDialogType === 'share-self' 
                   ? 'Share your QR code to let others add you as a friend'
                   : `Share ${selectedFriendForSharing?.name || 'contact'} QR code to add them as a friend`
@@ -628,9 +597,9 @@ const Contracts = () => {
 
         {/* Add New Contact Dialog */}
         <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-          <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-sm mx-auto shadow-2xl">
-            <DialogHeader className="pb-3 sm:pb-4">
-              <DialogTitle className="text-white flex items-center gap-2 sm:gap-3 text-base sm:text-lg">
+          <DialogContent className={styles.contracts__dialog}>
+            <DialogHeader className={styles.contracts__dialog__add__header}>
+              <DialogTitle className={styles.contracts__dialog__add__title}>
                 <Avatar className="w-6 h-6 sm:w-8 sm:h-8">
                   <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white text-xs sm:text-sm">
                     U
@@ -639,12 +608,12 @@ const Contracts = () => {
                 Add New Contact
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 sm:space-y-4">
-              <div className="p-2 sm:p-3 bg-white/5 rounded-lg backdrop-blur-sm">
-                <div className="text-xs sm:text-sm text-white/80 space-y-2 sm:space-y-3">
-                  <div>
-                    <p className="text-cyan-400 mb-1 sm:mb-2 text-xs sm:text-sm">Principal ID:</p>
-                    <div className="flex gap-2">
+            <div className={styles.contracts__dialog__add__form}>
+              <div className={styles.contracts__dialog__add__form__card}>
+                <div className={styles.contracts__dialog__add__form__fields}>
+                  <div className={styles.contracts__dialog__add__form__field}>
+                    <p className={styles.contracts__dialog__add__form__label}>Principal ID:</p>
+                    <div className={styles.contracts__dialog__add__form__input__group}>
                       <Input
                         value={newContactPrincipalId}
                         onChange={(e) => setNewContactPrincipalId(e.target.value)}
@@ -656,7 +625,7 @@ const Contracts = () => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm px-2 sm:px-3"
+                        className={cn(styles['contracts__button--outline'], "px-2 sm:px-3")}
                         onClick={() => setShowQRScanner(true)}
                         disabled={addingContact}
                         title={t('common.scanQRCode')}
@@ -665,8 +634,8 @@ const Contracts = () => {
                       </Button>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-cyan-400 mb-1 sm:mb-2 text-xs sm:text-sm">Nickname (optional):</p>
+                  <div className={styles.contracts__dialog__add__form__field}>
+                    <p className={styles.contracts__dialog__add__form__label}>Nickname (optional):</p>
                     <Input
                       value={newContactNickname}
                       onChange={(e) => setNewContactNickname(e.target.value)}
@@ -680,16 +649,16 @@ const Contracts = () => {
               
               {/* Error display */}
               {error && (
-                <div className="p-2 sm:p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-red-400 text-xs sm:text-sm">{error}</p>
+                <div className={styles.contracts__error}>
+                  <p className={styles.contracts__error__text}>{error}</p>
                 </div>
               )}
               
-              <div className="flex justify-end gap-2">
+              <div className={styles.contracts__dialog__add__form__actions}>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm text-xs px-2 py-1"
+                  className={cn(styles['contracts__button--outline'], "text-xs px-2 py-1")}
                   onClick={() => {
                     setShowAddContactDialog(false);
                     setNewContactPrincipalId('');
@@ -701,7 +670,7 @@ const Contracts = () => {
                   Cancel
                 </Button>
                 <Button
-                  className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white border-0 text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2"
+                  className={styles.contracts__button}
                   onClick={async () => {
                     if (!newContactPrincipalId.trim()) {
                       setError('Principal ID is required');
@@ -741,7 +710,7 @@ const Contracts = () => {
                   disabled={addingContact || !newContactPrincipalId.trim()}
                 >
                   {addingContact ? (
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
+                    <div className={styles.contracts__dialog__add__form__spinner}></div>
                   ) : (
                     'Add Contact'
                   )}
