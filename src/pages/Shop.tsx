@@ -11,6 +11,7 @@ import { PageLayout } from '../components/PageLayout';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
 import { bitPayApiService } from '@/services/api/bitpayApi';
+import styles from '../styles/pages/Shop.module.css';
 
 const Shop = () => {
   const { user, loading: authLoading } = useAuth();
@@ -51,7 +52,42 @@ const Shop = () => {
       category: "Smart Drinkware",
       brand: "Univoice AI",
       warranty: "1 Year Limited Warranty",
-      shipping: "Free Shipping Worldwide"
+      shipping: "Free Shipping Worldwide",
+      sku: "PIXELMUG-CLASSIC",
+      type: "physical"
+    },
+    {
+      id: 2,
+      name: "Univoice AI Subscription",
+      description: "Unlock the full power of Univoice AI with our premium subscription. Get unlimited access to advanced AI features, voice cloning, and exclusive content.",
+      fullDescription: "Transform your digital experience with Univoice AI Subscription - the ultimate AI companion for your daily needs. Enjoy unlimited access to advanced AI features including voice cloning, intelligent conversations, creative content generation, and much more. Perfect for professionals, creators, and anyone who wants to leverage cutting-edge AI technology.",
+      price: 9.99,
+      originalPrice: 14.99,
+      image: "🤖",
+      rating: 4.8,
+      sales: 3500,
+      reviews: 287,
+      popular: true,
+      features: [
+        "Unlimited AI Conversations",
+        "Advanced Voice Cloning",
+        "Priority Support",
+        "Exclusive Content Access",
+        "Monthly Updates"
+      ],
+      specifications: {
+        plan: "Monthly Subscription",
+        billing: "Recurring Monthly",
+        cancellation: "Cancel Anytime",
+        access: "Full Platform Access"
+      },
+      stock: null,
+      category: "Digital Subscription",
+      brand: "Univoice AI",
+      warranty: "30-Day Money Back Guarantee",
+      shipping: "Instant Digital Access",
+      sku: "UNIVOICE-AI-SUBSCRIPTION",
+      type: "subscription"
     }
   ];
 
@@ -124,11 +160,11 @@ const Shop = () => {
       // After platform connection, proceed with purchase
       const orderId =
           (globalThis.crypto as any)?.randomUUID?.() ??
-          `pm-${Date.now()}-${Math.floor(Math.random()*1e6)}`;
+          `${selectedProduct.type || 'product'}-${Date.now()}-${Math.floor(Math.random()*1e6)}`;
 
       const buyerEmail = (user as any)?.email ?? null;
-      const shippingAddress = 'TODO: collect from user form';
-      const sku = 'PIXELMUG-CLASSIC';
+      const shippingAddress = selectedProduct.type === 'subscription' ? 'N/A - Digital Product' : 'TODO: collect from user form';
+      const sku = selectedProduct.sku || `PRODUCT-${selectedProduct.id}`;
       const currency = 'USD';
 
       const response = await bitPayApiService.createOrderAndGetInvoiceUrl({
@@ -164,12 +200,12 @@ const Shop = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
-          <div className="mt-4 text-center">
-            <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-xl font-semibold">
+      <div className={styles.loadingContainer}>
+        <div className={styles.loadingSpinner}>
+          <div className={styles.loadingSpinner__outer}></div>
+          <div className={styles.loadingSpinner__inner}></div>
+          <div className={styles.loadingText}>
+            <div className={styles.loadingText__content}>
               Initializing AI...
             </div>
           </div>
@@ -180,20 +216,20 @@ const Shop = () => {
 
   return (
     <PageLayout>
-      <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      <div className={styles.pageContainer}>
         {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-300"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
+        <div className={styles.backgroundElements}>
+          <div className={styles.backgroundBlob1}></div>
+          <div className={styles.backgroundBlob2}></div>
+          <div className={styles.backgroundBlob3}></div>
         </div>
 
         {/* Neural network pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full"></div>
-          <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-purple-400 rounded-full"></div>
-          <div className="absolute top-1/2 left-3/4 w-2 h-2 bg-blue-400 rounded-full"></div>
-          <svg className="absolute inset-0 w-full h-full">
+        <div className={styles.neuralPattern}>
+          <div className={styles.neuralDot1}></div>
+          <div className={styles.neuralDot2}></div>
+          <div className={styles.neuralDot3}></div>
+          <svg className={styles.neuralSvg}>
             <line x1="25%" y1="25%" x2="75%" y2="50%" stroke="url(#gradient1)" strokeWidth="1" opacity="0.3"/>
             <line x1="75%" y1="50%" x2="75%" y2="75%" stroke="url(#gradient2)" strokeWidth="1" opacity="0.3"/>
             <line x1="25%" y1="25%" x2="75%" y2="75%" stroke="url(#gradient3)" strokeWidth="1" opacity="0.3"/>
@@ -217,45 +253,45 @@ const Shop = () => {
         {/* Header */}
         <AppHeader />
 
-        <div className="flex h-[calc(100vh-65px)] w-full">
+        <div className={styles.layoutContainer}>
           {/* Sidebar for desktop only */}
-          <div className="hidden lg:block">
+          <div className={styles.sidebarContainer}>
             <AppSidebar />
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 min-w-0 flex flex-col">
+          <div className={styles.mainContent}>
             {/* Shop Content */}
-            <div className="flex-1 m-1 md:m-2 mb-20 lg:mb-4 rounded-xl bg-slate-800/90 backdrop-blur-xl shadow-2xl border border-white/20 overflow-hidden">
+            <div className={styles.shopContent}>
               {/* Header */}
-              <div className="flex-shrink-0 p-3 md:p-4 border-b border-white/20">
-                <div className="flex items-center gap-2">
-                  <Cpu className="h-4 w-4 md:h-5 md:w-5 text-cyan-400 flex-shrink-0" />
-                  <h2 className="text-base md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 truncate">
+              <div className={styles.shopHeader}>
+                <div className={styles.shopHeader__content}>
+                  <Cpu className={styles.shopHeader__icon} />
+                  <h2 className={styles.shopHeader__title}>
                     {t('shop.aiMarketplace')}
                   </h2>
                 </div>
               </div>
 
               {/* Content Area */}
-              <div className="overflow-y-auto p-2 md:p-4 max-h-[calc(100vh-200px)]">
-                <div className="space-y-3 md:space-y-4">
+              <div className={styles.contentArea}>
+                <div className={styles.productsList}>
                   {products.map((product) => (
                     <div 
                       key={product.id} 
-                      className="rounded-xl border border-cyan-400/30 hover:border-cyan-400/50 transition-all duration-300 shadow-2xl overflow-hidden bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl w-full"
+                      className={styles.productCard}
                     >
                       {/* Product Card */}
-                      <div className="p-3 md:p-4">
-                        <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+                      <div className={styles.productCard__inner}>
+                        <div className={styles.productCard__layout}>
                           {/* Product Image */}
-                          <div className="flex-shrink-0 mx-auto sm:mx-0">
-                            <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-gradient-to-br from-cyan-400/20 via-purple-400/20 to-pink-400/20 rounded-xl flex items-center justify-center overflow-hidden border border-cyan-400/30 shadow-lg">
+                          <div className={styles.productImageContainer}>
+                            <div className={styles.productImageWrapper}>
                               {product.image.startsWith('/') ? (
                                 <img 
                                   src={product.image} 
                                   alt={product.name}
-                                  className="w-full h-full object-cover"
+                                  className={styles.productImage}
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     const fallback = e.currentTarget.nextElementSibling as HTMLElement;
@@ -265,69 +301,69 @@ const Shop = () => {
                                   }}
                                 />
                               ) : null}
-                              <div className={`w-full h-full flex items-center justify-center text-3xl sm:text-4xl ${product.image.startsWith('/') ? 'hidden' : ''}`}>
+                              <div className={`${styles.productImageFallback} ${product.image.startsWith('/') ? styles.hidden : ''}`}>
                                 {product.image}
                               </div>
                             </div>
                           </div>
 
                           {/* Product Info */}
-                          <div className="flex-1 min-w-0 w-full">
+                          <div className={styles.productInfo}>
                             {/* Title and Rating */}
-                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-white break-words">{product.name}</h3>
+                            <div className={styles.productTitleRow}>
+                              <div className={styles.productTitleSection}>
+                                <div className={styles.productTitleWrapper}>
+                                  <h3 className={styles.productTitle}>{product.name}</h3>
                                   {product.popular && (
-                                    <Badge className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white border-0 text-xs flex-shrink-0">
-                                      <Sparkles className="h-2 w-2 mr-1" />
+                                    <Badge className={styles.popularBadge}>
+                                      <Sparkles className={styles.popularBadgeIcon} />
                                       {t('shop.popular')}
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 break-words">{product.description}</p>
+                                <p className={styles.productDescription}>{product.description}</p>
                                 
                                 {/* Rating and Stats */}
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-2">
-                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                <div className={styles.ratingStats}>
+                                  <div className={styles.ratingContainer}>
                                     {[...Array(5)].map((_, i) => (
                                       <Star
                                         key={i}
-                                        className={`h-3 w-3 flex-shrink-0 ${
-                                          i < Math.floor(product.rating) ? 'text-yellow-400 fill-current' : 'text-white/30'
+                                        className={`${styles.ratingStars} ${
+                                          i < Math.floor(product.rating) ? styles.filled : styles.empty
                                         }`}
                                       />
                                     ))}
-                                    <span className="text-white/70 text-xs ml-1 whitespace-nowrap">({product.rating})</span>
+                                    <span className={styles.ratingText}>({product.rating})</span>
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-white/60">
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                      <BarChart3 className="h-3 w-3 flex-shrink-0" />
-                                      <span className="whitespace-nowrap">{product.sales} {t('shop.sold')}</span>
+                                  <div className={styles.statsContainer}>
+                                    <div className={styles.statItem}>
+                                      <BarChart3 className={styles.statIcon} />
+                                      <span className={styles.statText}>{product.sales} {t('shop.sold')}</span>
                                     </div>
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                      <Heart className="h-3 w-3 flex-shrink-0" />
-                                      <span className="whitespace-nowrap">{product.reviews} {t('shop.reviews')}</span>
+                                    <div className={styles.statItem}>
+                                      <Heart className={styles.statIcon} />
+                                      <span className={styles.statText}>{product.reviews} {t('shop.reviews')}</span>
                                     </div>
                                   </div>
                                 </div>
                               </div>
 
                               {/* Price */}
-                              <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
-                                <div className="flex flex-col sm:items-end gap-1 mb-1">
+                              <div className={styles.priceSection}>
+                                <div className={styles.priceContainer}>
                                   {product.originalPrice && (
-                                    <span className="text-xs sm:text-sm text-white/50 line-through">
+                                    <span className={styles.originalPrice}>
                                       ${product.originalPrice.toFixed(2)}
                                     </span>
                                   )}
-                                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 whitespace-nowrap">
+                                  <div className={styles.currentPrice}>
                                     ${product.price.toFixed(2)}
                                   </div>
                                 </div>
-                                <div className="text-xs text-white/60">USDT</div>
+                                <div className={styles.priceLabel}>USDT</div>
                                 {product.originalPrice && (
-                                  <Badge className="mt-1 bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                  <Badge className={styles.discountBadge}>
                                     {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
                                   </Badge>
                                 )}
@@ -335,19 +371,19 @@ const Shop = () => {
                             </div>
 
                             {/* Features */}
-                            <div className="mb-3">
-                              <div className="flex flex-wrap gap-1">
+                            <div className={styles.featuresContainer}>
+                              <div className={styles.featuresList}>
                                 {product.features?.slice(0, 3).map((feature: string, index: number) => (
                                   <Badge 
                                     key={index} 
-                                    className="bg-slate-700/80 text-white/90 border border-cyan-400/30 text-xs px-1.5 sm:px-2 py-0.5 break-words"
+                                    className={styles.featureBadge}
                                   >
-                                    <Check className="h-2 w-2 mr-1 flex-shrink-0" />
-                                    <span className="break-words">{feature}</span>
+                                    <Check className={styles.featureBadge__icon} />
+                                    <span className={styles.featureBadge__text}>{feature}</span>
                                   </Badge>
                                 ))}
                                 {product.features && product.features.length > 3 && (
-                                  <Badge className="bg-slate-700/80 text-white/90 border border-cyan-400/30 text-xs px-1.5 sm:px-2 py-0.5 whitespace-nowrap">
+                                  <Badge className={styles.featureBadgeMore}>
                                     +{product.features.length - 3} more
                                   </Badge>
                                 )}
@@ -356,12 +392,12 @@ const Shop = () => {
 
                             {/* Specifications */}
                             {product.specifications && (
-                              <div className="mb-3 p-2 bg-slate-700/50 rounded-lg border border-white/10 overflow-hidden">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                              <div className={styles.specificationsContainer}>
+                                <div className={styles.specificationsGrid}>
                                   {Object.entries(product.specifications).map(([key, value]: [string, any]) => (
-                                    <div key={key} className="text-white/70 break-words min-w-0">
-                                      <span className="text-white/50 capitalize">{key}:</span>{' '}
-                                      <span className="text-white/90 break-words">{value}</span>
+                                    <div key={key} className={styles.specificationItem}>
+                                      <span className={styles.specificationKey}>{key}:</span>{' '}
+                                      <span className={styles.specificationValue}>{value}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -369,29 +405,29 @@ const Shop = () => {
                             )}
 
                             {/* Additional Info */}
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-white/60 mb-3">
+                            <div className={styles.additionalInfo}>
                               {product.stock && (
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Package className="h-3 w-3 flex-shrink-0" />
-                                  <span className="whitespace-nowrap">{product.stock} {t('shop.inStock')}</span>
+                                <div className={styles.additionalInfoItem}>
+                                  <Package className={styles.additionalInfoIcon} />
+                                  <span className={styles.additionalInfoText}>{product.stock} {t('shop.inStock')}</span>
                                 </div>
                               )}
                               {product.brand && (
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Award className="h-3 w-3 flex-shrink-0" />
-                                  <span className="break-words">{product.brand}</span>
+                                <div className={styles.additionalInfoItem}>
+                                  <Award className={styles.additionalInfoIcon} />
+                                  <span className={styles.additionalInfoTextBreak}>{product.brand}</span>
                                 </div>
                               )}
                               {product.warranty && (
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Shield className="h-3 w-3 flex-shrink-0" />
-                                  <span className="break-words">{product.warranty}</span>
+                                <div className={styles.additionalInfoItem}>
+                                  <Shield className={styles.additionalInfoIcon} />
+                                  <span className={styles.additionalInfoTextBreak}>{product.warranty}</span>
                                 </div>
                               )}
                               {product.shipping && (
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <ShoppingBag className="h-3 w-3 flex-shrink-0" />
-                                  <span className="break-words">{product.shipping}</span>
+                                <div className={styles.additionalInfoItem}>
+                                  <ShoppingBag className={styles.additionalInfoIcon} />
+                                  <span className={styles.additionalInfoTextBreak}>{product.shipping}</span>
                                 </div>
                               )}
                             </div>
@@ -400,20 +436,20 @@ const Shop = () => {
                             <Button 
                               onClick={() => handleBuyNow(product)}
                               disabled={processingPayment === product.id}
-                              className={`w-full ${
+                              className={`${styles.buyNowButton} ${
                                 processingPayment === product.id
-                                  ? 'bg-yellow-500 hover:bg-yellow-600' 
-                                  : 'bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:from-cyan-600 hover:via-purple-600 hover:to-pink-600'
-                              } text-white border-0 shadow-lg hover:shadow-cyan-500/50 transition-all duration-300`}
+                                  ? styles.processing 
+                                  : styles.normal
+                              }`}
                             >
                               {processingPayment === product.id ? (
                                 <>
-                                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                                  <div className={styles.buyNowButton__spinner}></div>
                                   {t('shop.processing')}
                                 </>
                               ) : (
                                 <>
-                                  <ShoppingCart className="h-4 w-4 mr-2" />
+                                  <ShoppingCart className={styles.buyNowButton__icon} />
                                   {t('shop.buyNow')}
                                 </>
                               )}
@@ -430,44 +466,44 @@ const Shop = () => {
         </div>
 
         {/* Bottom Navigation - Mobile only */}
-        <div className="lg:hidden">
+        <div className={styles.bottomNavContainer}>
           <BottomNavigation />
         </div>
 
         {/* E-commerce Platform Selection Dialog */}
         <Dialog open={showPlatformDialog} onOpenChange={setShowPlatformDialog}>
-          <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[500px] bg-slate-800 border-cyan-400/30 max-h-[90vh] overflow-y-auto">
+          <DialogContent className={styles.dialogContent}>
             <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+              <DialogTitle className={styles.dialogTitle}>
                 {t('shop.selectPlatform')}
               </DialogTitle>
-              <DialogDescription className="text-white/70 text-sm break-words">
+              <DialogDescription className={styles.dialogDescription}>
                 {t('shop.selectPlatformDesc', { product: selectedProduct?.name })}
               </DialogDescription>
             </DialogHeader>
             
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-4">
+            <div className={styles.platformsGrid}>
               {ecommercePlatforms.map((platform) => (
                 <button
                   key={platform.id}
                   onClick={() => handlePlatformSelect(platform)}
                   disabled={!platform.available}
-                  className={`relative p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 w-full ${
+                  className={`${styles.platformButton} ${
                     platform.available
-                      ? `border-cyan-400/30 hover:border-cyan-400/60 bg-gradient-to-br from-slate-700/80 to-slate-800/80 hover:from-slate-700 hover:to-slate-800 cursor-pointer transform hover:scale-105`
-                      : 'border-gray-600/30 bg-slate-900/50 opacity-50 cursor-not-allowed'
+                      ? styles.available
+                      : styles.disabled
                   }`}
                 >
-                  <div className="flex flex-col items-center gap-1 sm:gap-2">
-                    <div className={`text-3xl sm:text-4xl mb-1 ${!platform.available ? 'grayscale' : ''}`}>
+                  <div className={styles.platformButtonContent}>
+                    <div className={`${styles.platformIcon} ${!platform.available ? styles.grayscale : ''}`}>
                       {platform.icon}
                     </div>
-                    <div className="text-xs sm:text-sm font-semibold text-white text-center break-words">{platform.name}</div>
-                    <div className="text-[10px] sm:text-xs text-white/60 text-center break-words">{platform.description}</div>
+                    <div className={styles.platformName}>{platform.name}</div>
+                    <div className={styles.platformDescription}>{platform.description}</div>
                   </div>
                   {!platform.available && (
-                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2">
-                      <Badge className="bg-gray-600 text-[10px] sm:text-xs">Coming Soon</Badge>
+                    <div className={styles.platformBadgeContainer}>
+                      <Badge className={styles.platformBadge}>Coming Soon</Badge>
                     </div>
                   )}
                 </button>

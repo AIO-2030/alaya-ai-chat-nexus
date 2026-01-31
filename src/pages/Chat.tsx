@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Send, Smile, Smartphone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
 import { useToast } from '../hooks/use-toast';
@@ -465,6 +465,18 @@ const Chat = () => {
     isOnline: actualContactIsOnline, // Use actual device presence instead of URL parameter
     nickname: contactNickname || undefined,
     contactPrincipalId: contactPrincipalId || undefined,
+  };
+
+  // Get avatar image URL for a contact
+  // Returns null if no image should be displayed (will use text fallback with gradient background)
+  const getAvatarImageUrl = (contact: ContactInfo): string | null => {
+    // Only Univoice should display image logo, all other contacts use text fallback
+    if (contact.name === 'Univoice' || contact.id === 999) {
+      return '/univoice_avatar_logo.png';
+    }
+    // For all other contacts, return null to use AvatarFallback with text and gradient background
+    // This preserves the original logo display mode for non-Univoice contacts
+    return null;
   };
 
   // Scroll to latest message
@@ -1259,8 +1271,16 @@ const Chat = () => {
                         {/* Contact Info */}
                         <div className={styles.chat__contact__info}>
                           <div className={styles.chat__contact__avatar}>
-                            <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
-                              <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white font-semibold text-xs sm:text-sm">
+                            <Avatar className="w-12 h-12 sm:w-14 sm:h-14">
+                              {/* Show image if available (Univoice or URL-based avatar) */}
+                              {getAvatarImageUrl(currentContact) ? (
+                                <AvatarImage 
+                                  src={getAvatarImageUrl(currentContact)!} 
+                                  alt={currentContact.name}
+                                />
+                              ) : null}
+                              {/* Fallback: Show text with gradient background for contacts without image */}
+                              <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white font-semibold text-sm sm:text-base">
                                 {currentContact.avatar}
                               </AvatarFallback>
                             </Avatar>

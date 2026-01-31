@@ -3,7 +3,7 @@ import { FileText, Plus, MessageCircle, User, QrCode, CheckCircle } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
@@ -12,11 +12,9 @@ import { PageLayout } from '../components/PageLayout';
 import QRCode from 'react-qr-code';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import LanguageSwitcher from '../components/LanguageSwitcher';
 import { 
   getContactsByOwner, 
   upsertContact, 
-  updateContactStatus, 
   updateContactOnlineStatus,
   createContactFromPrincipalId,
   ContactInfo 
@@ -30,7 +28,6 @@ const Contracts = () => {
   const { user, loading: authLoading } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [selectedContract, setSelectedContract] = useState<ContactInfo | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [contracts, setContracts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +103,7 @@ const Contracts = () => {
           devices: [],
           isOnline: true,
           contactPrincipalId: "univoice_ai_principal_id"
-        },
+        }
       ]);
     } finally {
       setLoading(false);
@@ -220,6 +217,22 @@ const Contracts = () => {
       default:
         return status;
     }
+  };
+
+  // Get avatar image URL for a contact
+  // Returns null if no image should be displayed (will use text fallback with gradient background)
+  const getAvatarImageUrl = (contract: ContactInfo): string | null => {
+    // For Univoice, use the specific logo
+    if (contract.name === 'Univoice' || contract.id === 999) {
+      return '/univoice_avatar_logo.png';
+    }
+    // If avatar field contains a URL (http://, https://, or /), use it as image
+    if (contract.avatar && (contract.avatar.startsWith('http://') || contract.avatar.startsWith('https://') || contract.avatar.startsWith('/'))) {
+      return contract.avatar;
+    }
+    // For contacts without image URL (avatar is just text like "F1", "F2", etc.),
+    // return null to use AvatarFallback with text and gradient background
+    return null;
   };
 
   const handleContractClick = (contract: ContactInfo) => {
@@ -433,8 +446,16 @@ const Contracts = () => {
                           <div className={styles.contracts__item__content}>
                             <div className={styles.contracts__item__left}>
                               <div className={styles.contracts__item__avatar}>
-                                <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
-                                  <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white font-semibold text-xs sm:text-sm">
+                                <Avatar className="w-12 h-12 sm:w-14 sm:h-14">
+                                  {/* Show image if available (Univoice or URL-based avatar) */}
+                                  {getAvatarImageUrl(contract) ? (
+                                    <AvatarImage 
+                                      src={getAvatarImageUrl(contract)!} 
+                                      alt={contract.name}
+                                    />
+                                  ) : null}
+                                  {/* Fallback: Show text with gradient background for contacts without image */}
+                                  <AvatarFallback className="bg-gradient-to-r from-cyan-400 to-purple-400 text-white font-semibold text-sm sm:text-base">
                                     {contract.avatar}
                                   </AvatarFallback>
                                 </Avatar>

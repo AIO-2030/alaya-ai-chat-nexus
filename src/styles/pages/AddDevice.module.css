@@ -1,0 +1,1746 @@
+/**
+ * AddDevice Page Styles
+ * Pure Black Background with Gray-scale Design
+ */
+
+/* ===== Container & Layout ===== */
+.addDevice__container {
+  min-height: 100vh;
+  width: 100%;
+  background: #000000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Global Button Overrides - Ensure all buttons have dark background and white text */
+.addDevice__container button,
+.addDevice__container .addDevice__init__step__button__inner,
+.addDevice__container .addDevice__wifi__scan__manual__button,
+.addDevice__container .addDevice__wifi__manual__button,
+.addDevice__container .addDevice__wifi__select__manual__button,
+.addDevice__container .addDevice__wifi__item__edit__button,
+.addDevice__container .addDevice__success__button,
+.addDevice__container .addDevice__error__button,
+.addDevice__container .addDevice__dialog__button {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.addDevice__container button:hover:not(:disabled),
+.addDevice__container .addDevice__init__step__button__inner:hover,
+.addDevice__container .addDevice__wifi__scan__manual__button:hover,
+.addDevice__container .addDevice__wifi__manual__button:hover:not(:disabled),
+.addDevice__container .addDevice__wifi__select__manual__button:hover,
+.addDevice__container .addDevice__wifi__item__edit__button:hover:not(:disabled),
+.addDevice__container .addDevice__success__button:hover:not(:disabled),
+.addDevice__container .addDevice__error__button:hover,
+.addDevice__container .addDevice__dialog__button:hover:not(:disabled) {
+  background-color: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__background {
+  display: none;
+}
+
+.addDevice__background__element {
+  display: none;
+}
+
+.addDevice__background__element--top {
+  display: none;
+}
+
+.addDevice__background__element--bottom {
+  display: none;
+}
+
+.addDevice__background__element--center {
+  display: none;
+}
+
+.addDevice__background__element--delay-300 {
+  display: none;
+}
+
+.addDevice__background__element--delay-700 {
+  display: none;
+}
+
+/* Neural Network Pattern - Hidden */
+.addDevice__neural__pattern {
+  display: none;
+}
+
+.addDevice__neural__dot {
+  display: none;
+}
+
+.addDevice__neural__dot--cyan {
+  display: none;
+}
+
+.addDevice__neural__dot--purple {
+  display: none;
+}
+
+.addDevice__neural__dot--blue {
+  display: none;
+}
+
+.addDevice__neural__svg {
+  display: none;
+}
+
+.addDevice__neural__line {
+  display: none;
+}
+
+/* Header Section */
+.addDevice__header {
+  position: relative;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+}
+
+.addDevice__back__button {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  padding: 0.5rem;
+}
+
+.addDevice__back__button:hover {
+  background-color: #1a1a1a !important;
+}
+
+.addDevice__back__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Main Content */
+.addDevice__content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding-bottom: 5rem;
+}
+
+.addDevice__page__header {
+  margin: 0.5rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 768px) {
+  .addDevice__page__header {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+}
+
+.addDevice__page__header__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__page__header__content {
+    gap: 1rem;
+  }
+}
+
+.addDevice__page__header__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: #2a2a2a;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+@media (min-width: 768px) {
+  .addDevice__page__header__icon {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+.addDevice__page__header__icon__svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .addDevice__page__header__icon__svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.addDevice__page__header__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .addDevice__page__header__title {
+    font-size: 1.5rem;
+  }
+}
+
+.addDevice__page__header__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__page__header__description {
+    font-size: 1rem;
+  }
+}
+
+/* Device Initialization Container */
+.addDevice__init__container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.addDevice__init__card {
+  flex: 1;
+  margin: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  background: #1a1a1a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__card {
+    margin: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .addDevice__init__card {
+    margin-bottom: 1rem;
+  }
+}
+
+.addDevice__init__content {
+  padding: 1.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Step Progress */
+.addDevice__progress {
+  margin-bottom: 1.5rem;
+  flex-shrink: 0;
+}
+
+.addDevice__progress__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.addDevice__progress__step {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.addDevice__progress__description {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.addDevice__progress__bar {
+  width: 100%;
+  background-color: #2a2a2a;
+  border-radius: 9999px;
+  height: 0.5rem;
+}
+
+.addDevice__progress__bar__fill {
+  height: 0.5rem;
+  background: #404040;
+  border-radius: 9999px;
+  transition: width 500ms;
+}
+
+/* Initialization Step */
+.addDevice__init__step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step {
+    gap: 1.5rem;
+  }
+}
+
+.addDevice__init__step__icon {
+  width: 5rem;
+  height: 5rem;
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__icon {
+    width: 6rem;
+    height: 6rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.addDevice__init__step__icon__svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__icon__svg {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+.addDevice__init__step__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+}
+
+.addDevice__init__step__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__description {
+    font-size: 1.125rem;
+  }
+}
+
+.addDevice__init__step__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__list {
+    gap: 1rem;
+  }
+}
+
+.addDevice__init__step__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__item {
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+
+.addDevice__init__step__item__icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__item__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+.addDevice__init__step__item__icon--purple {
+  background-color: #3a3a3a;
+}
+
+.addDevice__init__step__item__icon--cyan {
+  background-color: #3a3a3a;
+}
+
+.addDevice__init__step__item__icon--green {
+  background-color: #3a3a3a;
+}
+
+.addDevice__init__step__item__icon__svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__item__icon__svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.addDevice__init__step__item__icon__svg--purple {
+  color: #ffffff;
+}
+
+.addDevice__init__step__item__icon__svg--cyan {
+  color: #ffffff;
+}
+
+.addDevice__init__step__item__icon__svg--green {
+  color: #ffffff;
+}
+
+.addDevice__init__step__item__text {
+  flex: 1;
+}
+
+.addDevice__init__step__item__title {
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__item__title {
+    font-size: 1rem;
+  }
+}
+
+.addDevice__init__step__item__subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__item__subtitle {
+    font-size: 0.875rem;
+  }
+}
+
+.addDevice__init__step__button {
+  text-align: center;
+}
+
+.addDevice__init__step__button__inner {
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 0.5rem;
+  transition: all 200ms ease;
+}
+
+@media (min-width: 768px) {
+  .addDevice__init__step__button__inner {
+    padding: 0.75rem 2rem;
+    font-size: 1.125rem;
+  }
+}
+
+.addDevice__init__step__button__inner:hover {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* WiFi Scanning */
+.addDevice__wifi__scan {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.addDevice__wifi__scan__content {
+  padding: 3rem 0;
+}
+
+.addDevice__wifi__scan__loader {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+  margin-bottom: 1.5rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.addDevice__wifi__scan__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.addDevice__wifi__scan__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+.addDevice__wifi__scan__manual {
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.addDevice__wifi__scan__manual__button {
+  background: #2a2a2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__wifi__scan__manual__button:hover {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__wifi__scan__manual__icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
+/* Manual WiFi Input */
+.addDevice__wifi__manual {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.addDevice__wifi__manual__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.addDevice__wifi__manual__icon {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+}
+
+.addDevice__wifi__manual__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.addDevice__wifi__manual__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+.addDevice__wifi__manual__form {
+  max-width: 28rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.addDevice__wifi__manual__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.addDevice__wifi__manual__label {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.addDevice__wifi__manual__input {
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.addDevice__wifi__manual__input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.addDevice__wifi__manual__select {
+  width: 100%;
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.addDevice__wifi__manual__actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 1rem;
+}
+
+.addDevice__wifi__manual__button {
+  flex: 1;
+}
+
+.addDevice__wifi__manual__button--cancel {
+  background: #2a2a2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__wifi__manual__button--cancel:hover {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__wifi__manual__button--continue {
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__wifi__manual__button--continue:hover:not(:disabled) {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__wifi__manual__button--continue:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* WiFi Selection */
+.addDevice__wifi__select {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.addDevice__wifi__select__header {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.addDevice__wifi__select__icon {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+}
+
+.addDevice__wifi__select__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.addDevice__wifi__select__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+.addDevice__wifi__select__manual {
+  margin-top: 1rem;
+}
+
+.addDevice__wifi__select__manual__button {
+  background: #2a2a2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  font-size: 0.875rem;
+  transition: all 200ms ease;
+}
+
+.addDevice__wifi__select__manual__button:hover {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__wifi__select__manual__icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
+.addDevice__wifi__list {
+  background: #1a1a1a;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.addDevice__wifi__list__content {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.addDevice__wifi__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: #2a2a2a;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: background-color 200ms;
+  cursor: pointer;
+}
+
+.addDevice__wifi__item:hover {
+  background: #3a3a3a;
+}
+
+.addDevice__wifi__item__content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.addDevice__wifi__item__icon {
+  width: 3rem;
+  height: 3rem;
+  background: #3a3a3a;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.addDevice__wifi__item__icon__svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff;
+}
+
+.addDevice__wifi__item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.addDevice__wifi__item__edit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.addDevice__wifi__item__edit__input {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.addDevice__wifi__item__edit__input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.addDevice__wifi__item__edit__button {
+  font-size: 0.875rem;
+  color: #ffffff !important;
+  background: #2a2a2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__wifi__item__edit__button:hover {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__wifi__item__edit__button--connect {
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__wifi__item__edit__button--connect:hover:not(:disabled) {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__wifi__item__edit__button--connect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.addDevice__wifi__item__name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.addDevice__wifi__item__name__text {
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 1.125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addDevice__wifi__item__name__edit {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  color: rgba(255, 255, 255, 0.7);
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.addDevice__wifi__item__name__edit:hover {
+  color: #ffffff;
+}
+
+.addDevice__wifi__item__name__edit__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.addDevice__wifi__item__details {
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.addDevice__wifi__item__details__icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.addDevice__wifi__item__details__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addDevice__wifi__item__details__frequency {
+  flex-shrink: 0;
+}
+
+.addDevice__wifi__item__signal {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.addDevice__wifi__item__signal__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.addDevice__wifi__item__signal__quality {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.addDevice__wifi__item__signal__channel {
+  color: #ffffff;
+  font-size: 0.75rem;
+}
+
+.addDevice__wifi__item__signal__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff;
+}
+
+.addDevice__wifi__empty {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.addDevice__wifi__empty__icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.addDevice__wifi__empty__title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.5rem;
+}
+
+.addDevice__wifi__empty__description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Bluetooth Scanning */
+.addDevice__bluetooth__scan {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.addDevice__bluetooth__scan__content {
+  padding: 3rem 0;
+}
+
+.addDevice__bluetooth__scan__loader {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+  margin-bottom: 1.5rem;
+}
+
+.addDevice__bluetooth__scan__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.addDevice__bluetooth__scan__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+/* Bluetooth Selection */
+.addDevice__bluetooth__select {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.addDevice__bluetooth__select__header {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.addDevice__bluetooth__select__icon {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+}
+
+.addDevice__bluetooth__select__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.addDevice__bluetooth__select__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+.addDevice__bluetooth__list {
+  background: #1a1a1a;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.5rem;
+}
+
+.addDevice__bluetooth__list__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.addDevice__bluetooth__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: #2a2a2a;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: background-color 200ms;
+  cursor: pointer;
+}
+
+.addDevice__bluetooth__item:hover {
+  background: #3a3a3a;
+}
+
+.addDevice__bluetooth__item__content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.addDevice__bluetooth__item__icon {
+  width: 3rem;
+  height: 3rem;
+  background: #3a3a3a;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.addDevice__bluetooth__item__icon__svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff;
+}
+
+.addDevice__bluetooth__item__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.addDevice__bluetooth__item__name {
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 1.125rem;
+}
+
+.addDevice__bluetooth__item__details {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.addDevice__bluetooth__item__signal {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff;
+}
+
+.addDevice__bluetooth__empty {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.addDevice__bluetooth__empty__icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.addDevice__bluetooth__empty__title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.5rem;
+}
+
+.addDevice__bluetooth__empty__description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Bluetooth Connection */
+.addDevice__bluetooth__connect {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.addDevice__bluetooth__connect__content {
+  padding: 3rem 0;
+}
+
+.addDevice__bluetooth__connect__loader {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+  margin-bottom: 1.5rem;
+}
+
+.addDevice__bluetooth__connect__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.addDevice__bluetooth__connect__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+/* WiFi Configuration */
+.addDevice__wifi__config {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.addDevice__wifi__config__header {
+  text-align: center;
+}
+
+.addDevice__wifi__config__loader {
+  width: 4rem;
+  height: 4rem;
+  color: #ffffff;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+  margin-bottom: 1.5rem;
+}
+
+.addDevice__wifi__config__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.addDevice__wifi__config__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+}
+
+.addDevice__wifi__config__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.addDevice__wifi__config__progress__bar {
+  width: 100%;
+  background-color: #2a2a2a;
+  border-radius: 9999px;
+  height: 0.75rem;
+}
+
+.addDevice__wifi__config__progress__bar__fill {
+  height: 0.75rem;
+  background: #404040;
+  border-radius: 9999px;
+  transition: width 500ms;
+}
+
+.addDevice__wifi__config__progress__text {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.addDevice__wifi__config__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.addDevice__wifi__config__step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.addDevice__wifi__config__step__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #ffffff;
+}
+
+/* Success */
+.addDevice__success {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.addDevice__success__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 1rem 0;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__content {
+    gap: 1.5rem;
+  }
+}
+
+.addDevice__success__header {
+  text-align: center;
+}
+
+.addDevice__success__icon {
+  width: 5rem;
+  height: 5rem;
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__icon {
+    width: 6rem;
+    height: 6rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.addDevice__success__icon__svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__icon__svg {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+.addDevice__success__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+}
+
+.addDevice__success__description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__description {
+    font-size: 1.125rem;
+  }
+}
+
+.addDevice__success__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+  max-width: 28rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__info {
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+}
+
+.addDevice__success__info__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+@media (min-width: 640px) {
+  .addDevice__success__info__item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+}
+
+.addDevice__success__info__label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.addDevice__success__info__value {
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
+.addDevice__success__info__value--connected {
+  color: #ffffff;
+}
+
+.addDevice__success__actions {
+  text-align: center;
+  padding: 0 1rem;
+  padding-bottom: 1rem;
+}
+
+.addDevice__success__button {
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 0.5rem;
+  width: 100%;
+  transition: all 200ms ease;
+}
+
+@media (min-width: 640px) {
+  .addDevice__success__button {
+    width: auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__button {
+    padding: 0.75rem 2rem;
+    font-size: 1.125rem;
+  }
+}
+
+.addDevice__success__button:hover:not(:disabled) {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__success__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.addDevice__success__button__loader {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  animation: spin 1s linear infinite;
+}
+
+@media (min-width: 768px) {
+  .addDevice__success__button__loader {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+/* Error Display */
+.addDevice__error {
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.5rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.addDevice__error__message {
+  color: #f87171;
+  text-align: center;
+}
+
+.addDevice__error__actions {
+  text-align: center;
+  margin-top: 0.75rem;
+}
+
+.addDevice__error__button {
+  background: #2a2a2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  font-size: 0.875rem;
+  transition: all 200ms ease;
+}
+
+.addDevice__error__button:hover {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Bottom Navigation */
+.addDevice__bottom__nav {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .addDevice__bottom__nav {
+    display: block;
+  }
+}
+
+/* Dialog Styles */
+.addDevice__dialog {
+  background-color: #000000 !important;
+  border: 2px solid rgba(255, 255, 255, 0.15) !important;
+  width: 90vw;
+  max-width: 28rem;
+  margin: 0 auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+/* Override DialogContent default styles - ensure all text is white */
+.addDevice__dialog,
+.addDevice__dialog * {
+  color: #ffffff !important;
+}
+
+/* Override any background colors in dialog */
+.addDevice__dialog [class*="bg-background"],
+.addDevice__dialog [class*="bg-white"],
+.addDevice__dialog [class*="bg-gray"] {
+  background-color: #000000 !important;
+}
+
+/* Close button styling */
+.addDevice__dialog button[class*="absolute"][class*="right-4"][class*="top-4"],
+.addDevice__dialog button[class*="rounded-sm"][class*="opacity-70"] {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  opacity: 0.7 !important;
+  border: none !important;
+}
+
+.addDevice__dialog button[class*="absolute"][class*="right-4"][class*="top-4"]:hover,
+.addDevice__dialog button[class*="rounded-sm"][class*="opacity-70"]:hover {
+  opacity: 1 !important;
+  background-color: #1a1a1a !important;
+}
+
+.addDevice__dialog button[class*="absolute"][class*="right-4"][class*="top-4"] svg,
+.addDevice__dialog button[class*="rounded-sm"][class*="opacity-70"] svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+@media (min-width: 640px) {
+  .addDevice__dialog {
+    width: 80vw;
+  }
+}
+
+@media (min-width: 768px) {
+  .addDevice__dialog {
+    width: 70vw;
+  }
+}
+
+@media (min-width: 1024px) {
+  .addDevice__dialog {
+    width: 60vw;
+  }
+}
+
+@media (min-width: 1280px) {
+  .addDevice__dialog {
+    width: 50vw;
+  }
+}
+
+.addDevice__dialog__header {
+  padding-bottom: 1rem;
+}
+
+.addDevice__dialog__title {
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.addDevice__dialog__title__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #ffffff;
+}
+
+.addDevice__dialog__description {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.addDevice__dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.addDevice__dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.addDevice__dialog__label {
+  color: #ffffff !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.addDevice__dialog__input {
+  background: #1a1a1a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.addDevice__dialog__input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.addDevice__dialog__input:focus {
+  outline: none !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+}
+
+.addDevice__dialog__input:-webkit-autofill,
+.addDevice__dialog__input:-webkit-autofill:hover,
+.addDevice__dialog__input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
+  box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
+}
+
+/* Override Input component default styles in dialog */
+.addDevice__dialog input[type="text"],
+.addDevice__dialog input[type="password"],
+.addDevice__dialog input[class*="input"],
+.addDevice__dialog input[class*="bg-background"],
+.addDevice__dialog input[class*="border-input"] {
+  background-color: #1a1a1a !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+.addDevice__dialog input[type="text"]:focus,
+.addDevice__dialog input[type="password"]:focus,
+.addDevice__dialog input[class*="input"]:focus,
+.addDevice__dialog input[class*="bg-background"]:focus,
+.addDevice__dialog input[class*="border-input"]:focus {
+  background-color: #2a2a2a !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.addDevice__dialog input[type="text"]::placeholder,
+.addDevice__dialog input[type="password"]::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.addDevice__dialog__input--password {
+  padding-right: 2.5rem;
+}
+
+.addDevice__dialog__input__wrapper {
+  position: relative;
+}
+
+.addDevice__dialog__password__toggle {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  padding: 0.25rem;
+  transition: color 200ms;
+}
+
+.addDevice__dialog__password__toggle:hover {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+.addDevice__dialog__password__toggle svg {
+  color: inherit !important;
+}
+
+.addDevice__dialog__password__toggle__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.addDevice__dialog__select {
+  width: 100%;
+  background: #1a1a1a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.addDevice__dialog__select:focus {
+  outline: none !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: #2a2a2a !important;
+}
+
+.addDevice__dialog__select option {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.addDevice__dialog__actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.addDevice__dialog__button {
+  flex: 1;
+}
+
+.addDevice__dialog__button--cancel {
+  background: #2a2a2a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__dialog__button--cancel:hover:not(:disabled) {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__dialog__button--cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.addDevice__dialog__button--connect {
+  background: #2a2a2a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  transition: all 200ms ease;
+}
+
+.addDevice__dialog__button--connect:hover:not(:disabled) {
+  background: #404040 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.addDevice__dialog__button--connect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.addDevice__dialog__button__loader {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  animation: spin 1s linear infinite;
+}

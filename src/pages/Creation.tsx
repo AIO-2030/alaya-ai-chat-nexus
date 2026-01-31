@@ -19,6 +19,7 @@ import { alayaMcpService, PixelImageGenerateParams } from '../services/alayaMcpS
 import { useAuth } from '../lib/auth';
 import { useToast } from '../hooks/use-toast';
 import { useElevenLabsStable } from '../hooks/elevenlabhook-stable';
+import styles from '../styles/pages/Creation.module.css';
 
 // Types
 type Tool = "pen" | "eraser" | "fill" | "picker";
@@ -873,7 +874,7 @@ const Creation = () => {
     const display = displayRef.current;
     if (!buffer || !display) return;
 
-    // Scale to display - Optimize for mobile screens
+    // Scale to display - Use user-defined scale, but ensure it fits in container
     const container = display.parentElement;
     let currentScale = scale;
     
@@ -883,17 +884,18 @@ const Creation = () => {
       const maxWidth = containerRect.width - 8; // Minimal padding for mobile
       const maxHeight = containerRect.height - 8; // Minimal padding for mobile
       
-      // Calculate maximum possible scale to fill the container completely
-      const scaleX = Math.floor(maxWidth / cols);
-      const scaleY = Math.floor(maxHeight / rows);
-      // Use the smaller scale to ensure canvas fits completely in container
-      currentScale = Math.min(scaleX, scaleY);
+      // Calculate maximum possible scale to fit in container
+      const maxScaleX = Math.floor(maxWidth / cols);
+      const maxScaleY = Math.floor(maxHeight / rows);
+      const maxScale = Math.min(maxScaleX, maxScaleY);
       
-      // Ensure minimum scale for visibility on mobile (smaller minimum for better fit)
-      currentScale = Math.max(currentScale, 6);
+      // Use user-defined scale, but clamp it to fit within container bounds
+      // Ensure minimum scale for visibility on mobile
+      currentScale = Math.max(scale, 6);
       
-      // Cap maximum scale to prevent canvas from being too large on small screens
-      currentScale = Math.min(currentScale, 20);
+      // Cap maximum scale to prevent canvas from being too large
+      // Use the smaller of user scale or max container scale
+      currentScale = Math.min(currentScale, maxScale);
     }
     
     display.width = cols * currentScale;
@@ -967,7 +969,7 @@ const Creation = () => {
 
       // Grid overlay (only for pixel art mode)
       if (showGrid && currentScale >= 6) {
-        dctx.strokeStyle = "rgba(255,255,255,0.3)";
+        dctx.strokeStyle = "rgba(128,128,128,0.5)";
         dctx.lineWidth = 1;
         for (let x = 0; x <= cols; x++) {
           const sx = x * currentScale + 0.5;
@@ -1054,7 +1056,7 @@ const Creation = () => {
   // Show loading state while checking authentication
   if (authLoading) {
     return (
-      <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className={`${styles.creation__page} h-screen w-full flex items-center justify-center`}>
         <div className="relative">
           <div className="w-16 h-16 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin"></div>
           <div className="absolute inset-0 w-16 h-16 border-4 border-purple-400/20 border-r-purple-400 rounded-full animate-spin animation-delay-150"></div>
@@ -1112,46 +1114,14 @@ const Creation = () => {
   };
 
   return (
-    <div className="h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden flex flex-col">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-300"></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-400/5 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
-        </div>
-
-        {/* Neural network pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full"></div>
-          <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-purple-400 rounded-full"></div>
-          <div className="absolute top-1/2 left-3/4 w-2 h-2 bg-blue-400 rounded-full"></div>
-          <svg className="absolute inset-0 w-full h-full">
-            <line x1="25%" y1="25%" x2="75%" y2="50%" stroke="url(#gradient1)" strokeWidth="1" opacity="0.3"/>
-            <line x1="75%" y1="50%" x2="75%" y2="75%" stroke="url(#gradient2)" strokeWidth="1" opacity="0.3"/>
-            <line x1="25%" y1="25%" x2="75%" y2="75%" stroke="url(#gradient3)" strokeWidth="1" opacity="0.3"/>
-            <defs>
-              <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="100%" stopColor="#8b5cf6" />
-              </linearGradient>
-              <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#8b5cf6" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-              <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
+    <div className={`${styles.creation__page} h-screen w-full relative overflow-hidden flex flex-col`}>
 
         {/* Header */}
         <AppHeader />
 
         {/* Login Required Overlay - Only show when login modal is open */}
         {!isLoggedIn && showLoginModal && (
-          <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className={`${styles['creation__login-overlay']} absolute inset-0 z-50 flex items-center justify-center p-4`}>
             <div className="w-full max-w-md">
               <LoginScreen
                 onEmailLoginClick={handleShowEmailLogin}
@@ -1176,16 +1146,16 @@ const Creation = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
             <div className="flex-1 p-1 md:p-2 min-h-0">
-              <div className="h-full rounded-2xl bg-white/5 backdrop-blur-xl shadow-2xl border border-white/10 flex flex-col overflow-hidden">
+              <div className={`${styles['creation__content-panel']} h-full rounded-2xl flex flex-col overflow-hidden`}>
                 
                 {/* Creation Header - Compact for mobile */}
-                <div className="flex-shrink-0 p-2 sm:p-3 md:p-4 border-b border-white/10 bg-white/5">
+                <div className={`${styles.creation__header} flex-shrink-0 p-2 sm:p-3 md:p-4`}>
                   <div className="flex items-center gap-2 sm:gap-3">
                     {/* Back Button */}
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm p-1.5 sm:p-2"
+                      className={`${styles['creation__button-base']} p-1.5 sm:p-2`}
                       onClick={handleBackToGallery}
                     >
                       <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1201,7 +1171,7 @@ const Creation = () => {
                       onClick={handleSaveClick}
                       disabled={isSaving}
                       size="sm"
-                      className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3"
+                      className={`${styles['creation__button-base']} text-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3`}
                     >
                       <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       <span className="hidden xs:inline">{isSaving ? t('gallery.saving') : t('userManagement.save')}</span>
@@ -1213,77 +1183,50 @@ const Creation = () => {
                 {/* Pixel Editor Content */}
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   
-                  {/* AI Creation Entry Banner - Attractive Design */}
-                  <div className="flex-shrink-0 h-16 sm:h-20 md:h-24 z-10 overflow-hidden relative">
-                    {/* Animated background elements */}
-                    <div className="absolute inset-0">
-                      <div className="absolute top-2 left-3 w-12 h-12 bg-gradient-to-r from-cyan-400/30 to-blue-400/30 rounded-full blur-xl animate-pulse"></div>
-                      <div className="absolute top-3 right-6 w-8 h-8 bg-gradient-to-r from-purple-400/30 to-pink-400/30 rounded-full blur-lg animate-pulse animation-delay-500"></div>
-                      <div className="absolute bottom-2 left-1/4 w-6 h-6 bg-gradient-to-r from-yellow-400/30 to-orange-400/30 rounded-full blur-md animate-pulse animation-delay-1000"></div>
-                      <div className="absolute top-1/2 right-1/4 w-4 h-4 bg-gradient-to-r from-green-400/20 to-teal-400/20 rounded-full blur-sm animate-pulse animation-delay-1500"></div>
-                    </div>
-                    
+                  {/* AI Creation Entry Banner - Gray Design */}
+                  <div className={`${styles['creation__ai-banner']} flex-shrink-0 h-16 sm:h-20 md:h-24 z-10 overflow-hidden relative`}>
                     {/* Main content */}
                     <div className="relative h-full flex items-center justify-center p-3 sm:p-4">
                       <div className="w-full max-w-3xl">
-                        {/* Background card with enhanced design */}
+                        {/* Background card */}
                         <div 
-                          className="relative bg-gradient-to-br from-white/20 via-white/15 to-white/10 backdrop-blur-xl rounded-2xl border border-white/40 shadow-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-all duration-300 group"
+                          className={`${styles['creation__ai-card']} relative rounded-2xl cursor-pointer hover:scale-[1.02] transition-all duration-300 group`}
                           onClick={handleAiCreationClick}
                         >
-                          {/* Enhanced glow effect */}
-                          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 animate-pulse"></div>
-                          <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent group-hover:opacity-100 opacity-0 transition-opacity duration-300"></div>
-                          
-                          {/* Content */}
-                          <div className="relative p-3 sm:p-4 md:p-5">
-                            {/* AI Icon with enhanced design */}
+                          {/* Content with text box wrapper */}
+                          <div className={`${styles['creation__ai-card-content']} relative p-3 sm:p-4 md:p-5`}>
+                            {/* AI Icon */}
                             <div className="flex justify-center mb-2 sm:mb-3">
                               <div className="relative">
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 rounded-xl flex items-center justify-center shadow-2xl group-hover:shadow-cyan-400/30 transition-all duration-300">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-600 rounded-xl flex items-center justify-center transition-all duration-300">
                                   <span className="text-white font-bold text-sm sm:text-base">🤖</span>
                                 </div>
-                                {/* Floating particles around AI icon */}
-                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-ping"></div>
-                                <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
-                                <div className="absolute top-1/2 -right-2 w-1 h-1 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
                               </div>
                             </div>
                             
-                            {/* Main text with enhanced typography */}
+                            {/* Main text */}
                             <div className="text-center">
                               <h2 className="text-white text-sm sm:text-base md:text-lg font-bold mb-1 sm:mb-2 leading-tight">
-                                <span className="bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent group-hover:from-cyan-200 group-hover:via-blue-200 group-hover:to-purple-200 transition-all duration-300">
-                                  {t('gallery.aiCreation')}
-                                </span>
+                                {t('gallery.aiCreation')}
                               </h2>
                               
-                              {/* Subtitle with enhanced styling */}
-                              <p className="text-white/90 text-xs sm:text-sm font-medium mb-2 sm:mb-3">
-                                <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent group-hover:from-yellow-200 group-hover:to-orange-200 transition-all duration-300">
-                                  {t('gallery.aiCreationSubtitle')}
-                                </span>
+                              {/* Subtitle - Sky Blue */}
+                              <p className="text-[#00BFFF] text-xs sm:text-sm font-medium mb-2 sm:mb-3">
+                                {t('gallery.aiCreationSubtitle')}
                               </p>
                               
-                              {/* Description */}
-                              <p className="text-white/70 text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed">
+                              {/* Description - Yellow */}
+                              <p className="text-[#FFD700] text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed">
                                 {t('gallery.aiCreationDescription')}
                               </p>
                               
                               {/* Action button */}
                               <div className="flex justify-center">
-                                <button className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group-hover:shadow-cyan-400/30">
+                                <button className={`${styles['creation__button-base']} text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105`}>
                                   {t('gallery.startAiCreation')}
                                 </button>
                               </div>
                             </div>
-                            
-                            {/* Enhanced decorative elements */}
-                            <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></div>
-                            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-purple-400 rounded-full animate-ping animation-delay-300"></div>
-                            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-pink-400 rounded-full animate-ping animation-delay-700"></div>
-                            <div className="absolute top-1/2 left-2 w-1 h-1 bg-yellow-400 rounded-full animate-ping animation-delay-1000"></div>
-                            <div className="absolute top-1/2 right-2 w-1 h-1 bg-green-400 rounded-full animate-ping animation-delay-1500"></div>
                           </div>
                         </div>
                       </div>
@@ -1291,16 +1234,16 @@ const Creation = () => {
                   </div>
                   
                   {/* Canvas Area - Main Drawing Space - Optimized for mobile */}
-                  <div className="flex-1 min-h-0 bg-white/10 backdrop-blur-sm overflow-hidden relative">
+                  <div className={`${styles['creation__canvas-area']} flex-1 min-h-0 overflow-hidden relative`}>
                     {/* AI Creation Mode Banner */}
                     {isAiCreationMode && aiOriginalImage && (
-                      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-gradient-to-r from-cyan-500/90 to-purple-500/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border border-cyan-400/30">
+                      <div className={`${styles['creation__ai-banner']} absolute top-2 left-1/2 transform -translate-x-1/2 z-10 rounded-lg px-4 py-2`}>
                         <div className="flex items-center gap-3">
                           <span className="text-white text-sm font-medium">{t('gallery.aiCreationMode')}</span>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="bg-white/20 border-white/40 text-white hover:bg-white/30 text-xs"
+                            className={`${styles['creation__button-base']} text-xs`}
                             onClick={async () => {
                               // Convert AI image to pixel art for editing
                               if (aiOriginalImage) {
@@ -1322,7 +1265,7 @@ const Creation = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="bg-white/20 border-white/40 text-white hover:bg-white/30 text-xs"
+                            className={`${styles['creation__button-base']} text-xs`}
                             onClick={() => {
                               setIsAiCreationMode(false);
                               setAiOriginalImage(null);
@@ -1343,15 +1286,16 @@ const Creation = () => {
                         onPointerDown={isAiCreationMode ? undefined : handlePointerDown}
                         onPointerMove={isAiCreationMode ? undefined : handlePointerMove}
                         onPointerUp={isAiCreationMode ? undefined : handlePointerUp}
-                        className="bg-white/5 max-w-full max-h-full"
-                        style={{
-                          imageRendering: isAiCreationMode ? 'auto' : 'pixelated',
-                          touchAction: isAiCreationMode ? 'auto' : 'none',
-                          cursor: isAiCreationMode ? 'default' : 
-                                 tool === "pen" ? "crosshair" : 
-                                 tool === "eraser" ? "cell" : 
-                                 tool === "picker" ? "copy" : "crosshair",
-                        }}
+                        className={`bg-white/5 max-w-full max-h-full ${
+                          isAiCreationMode 
+                            ? styles['canvas--ai-mode']
+                            : `${styles.canvas} ${
+                                tool === "pen" ? styles['canvas--pen'] :
+                                tool === "eraser" ? styles['canvas--eraser'] :
+                                tool === "picker" ? styles['canvas--picker'] :
+                                styles['canvas--fill']
+                              }`
+                        }`}
                       />
                       {/* Hidden buffer canvas */}
                       <canvas ref={bufferRef} className="hidden" />
@@ -1359,137 +1303,163 @@ const Creation = () => {
                   </div>
 
                   {/* Bottom Control Panel - Compact for mobile */}
-                  <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm border-t border-white/20 max-h-32 sm:max-h-40 overflow-y-auto scrollbar-thin scrollbar-track-white/10 scrollbar-thumb-white/30 hover:scrollbar-thumb-white/50">
+                  <div className={`${styles['creation__control-panel']} flex-shrink-0 max-h-32 sm:max-h-40 overflow-y-auto`}>
                     
                     {/* Drawing Tools Row - Compact Layout */}
                     <div className="flex flex-wrap items-center justify-center gap-1 p-1.5 sm:p-2">
                         {/* Undo/Redo/Clear/Import - Compact */}
-                        <div className="flex gap-0.5 bg-white/5 rounded-md p-0.5">
+                        <div className={`${styles['creation__tool-group']} flex gap-0.5 p-0.5`}>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={undo}
                             disabled={histIndex <= 0}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
+                            className={`${styles['creation__tool-button']} p-1 min-w-0 h-7`}
+                            style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                           >
-                            <RotateCcw className="h-3 w-3" />
+                            <RotateCcw className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={redo}
                             disabled={histIndex >= history.length - 1}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
+                            className={`${styles['creation__tool-button']} p-1 min-w-0 h-7`}
+                            style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                           >
-                            <RotateCw className="h-3 w-3" />
+                            <RotateCw className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={clearCanvas}
-                            className="bg-white/5 border-white/20 text-white hover:bg-red-500/20 hover:border-red-400/40 p-1 min-w-0 h-7"
+                            className={`${styles['creation__tool-button']} p-1 min-w-0 h-7`}
+                            style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={triggerImageImport}
                             disabled={isImporting}
-                            className="bg-white/5 border-white/20 text-white hover:bg-green-500/20 hover:border-green-400/40 p-1 min-w-0 h-7"
+                            className={`${styles['creation__tool-button']} p-1 min-w-0 h-7`}
                             title="Import Image"
+                            style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                           >
-                            <Upload className="h-3 w-3" />
+                            <Upload className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                         </div>
 
                         {/* Main Tools - Compact */}
-                        <div className="flex gap-0.5 bg-white/5 rounded-md p-0.5">
+                        <div className={`${styles['creation__tool-group']} flex gap-0.5 p-0.5`}>
                           <Button
-                            variant={tool === "pen" ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
                             onClick={() => setTool("pen")}
-                            className={`p-1 min-w-0 h-7 ${tool === "pen" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 ${tool === "pen" ? styles['creation__tool-button--active'] : styles['creation__tool-button']}`}
+                            style={{ 
+                              backgroundColor: tool === "pen" ? '#FFFFFF' : '#FFFFFF', 
+                              color: '#000000', 
+                              borderColor: tool === "pen" ? '#BDBDBD' : '#E0E0E0' 
+                            }}
                           >
-                            <Pen className="h-3 w-3" />
+                            <Pen className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                           <Button
-                            variant={tool === "eraser" ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
                             onClick={() => setTool("eraser")}
-                            className={`p-1 min-w-0 h-7 relative ${tool === "eraser" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 relative ${tool === "eraser" ? styles['creation__tool-button--active'] : styles['creation__tool-button']}`}
                             title={`Eraser (erases to ${palette[getEraserColorIndex()]})`}
+                            style={{ 
+                              backgroundColor: tool === "eraser" ? '#FFFFFF' : '#FFFFFF', 
+                              color: '#000000', 
+                              borderColor: tool === "eraser" ? '#BDBDBD' : '#E0E0E0' 
+                            }}
                           >
-                            <Eraser className="h-3 w-3" />
+                            <Eraser className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                             {/* Small indicator showing eraser color */}
                             {tool === "eraser" && (
                               <div 
-                                className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-white/50"
+                                className={`${styles['eraser-indicator']} absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-white/50`}
                                 style={{ backgroundColor: palette[getEraserColorIndex()] }}
                               />
                             )}
                           </Button>
                           <Button
-                            variant={tool === "fill" ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
                             onClick={() => setTool("fill")}
-                            className={`p-1 min-w-0 h-7 ${tool === "fill" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 ${tool === "fill" ? styles['creation__tool-button--active'] : styles['creation__tool-button']}`}
+                            style={{ 
+                              backgroundColor: tool === "fill" ? '#FFFFFF' : '#FFFFFF', 
+                              color: '#000000', 
+                              borderColor: tool === "fill" ? '#BDBDBD' : '#E0E0E0' 
+                            }}
                           >
-                            <PaintBucket className="h-3 w-3" />
+                            <PaintBucket className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                           <Button
-                            variant={tool === "picker" ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
                             onClick={() => setTool("picker")}
-                            className={`p-1 min-w-0 h-7 ${tool === "picker" ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white" : "bg-white/5 border-white/20 text-white hover:bg-white/10"}`}
+                            className={`p-1 min-w-0 h-7 ${tool === "picker" ? styles['creation__tool-button--active'] : styles['creation__tool-button']}`}
+                            style={{ 
+                              backgroundColor: tool === "picker" ? '#FFFFFF' : '#FFFFFF', 
+                              color: '#000000', 
+                              borderColor: tool === "picker" ? '#BDBDBD' : '#E0E0E0' 
+                            }}
                           >
-                            <Pipette className="h-3 w-3" />
+                            <Pipette className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                         </div>
 
                         {/* View Controls - Compact */}
-                        <div className="flex gap-0.5 bg-white/5 rounded-md p-0.5">
+                        <div className={`${styles['creation__tool-group']} flex gap-0.5 p-0.5`}>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setScale(s => clamp(s - 1, 1, 40))}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
+                            className={`${styles['creation__tool-button']} p-1 min-w-0 h-7`}
+                            style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                           >
-                            <Minus className="h-3 w-3" />
+                            <Minus className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
-                          <div className="px-1.5 py-1 bg-white/5 rounded border border-white/20 text-white text-xs min-w-[32px] text-center h-7 flex items-center justify-center">
+                          <div className={`${styles['creation__scale-display']} px-1.5 py-1 rounded text-xs min-w-[32px] text-center h-7 flex items-center justify-center`}>
                             {scale}x
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setScale(s => clamp(s + 1, 1, 40))}
-                            className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 h-7"
+                            className={`${styles['creation__tool-button']} p-1 min-w-0 h-7`}
+                            style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                           >
-                            <Plus className="h-3 w-3" />
+                            <Plus className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                           </Button>
                         </div>
 
                         {/* Grid Toggle - Compact */}
-                        <div className="flex items-center gap-0.5 bg-white/5 rounded-md p-0.5">
+                        <div className={`${styles['creation__tool-group']} flex items-center gap-0.5 p-0.5`}>
                           <Grid3X3 className="h-3 w-3 text-white/60" />
                           <Switch
                             checked={showGrid}
                             onCheckedChange={setShowGrid}
-                            className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-cyan-500 data-[state=checked]:to-purple-500 scale-50"
+                            className="data-[state=checked]:bg-gray-600 scale-50"
                           />
                         </div>
                       </div>
 
                     {/* Color Palette Row - Compact for mobile */}
                     <div className="flex items-center justify-center gap-1 p-1.5 sm:p-2">
-                      <div className="flex gap-1 bg-white/5 rounded-md p-1 max-w-full overflow-x-auto">
+                      <div className={`${styles['creation__palette-container']} flex gap-1 p-1 max-w-full overflow-x-auto`}>
                         {palette.map((hex, i) => (
                           <button
                             key={i}
                             onClick={() => setColorIdx(i)}
                             onDoubleClick={() => handleColorDoubleClick(i)}
-                            className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 transition-all duration-200 hover:scale-110 flex-shrink-0 ${
+                            className={`${styles['color-swatch']} w-4 h-4 sm:w-5 sm:h-5 rounded border-2 transition-all duration-200 hover:scale-110 flex-shrink-0 ${
                               i === colorIdx ? 'border-cyan-400 shadow-md shadow-cyan-400/30' : 'border-white/30 hover:border-white/60'
                             }`}
                             style={{ backgroundColor: hex }}
@@ -1502,10 +1472,11 @@ const Creation = () => {
                         variant="outline"
                         size="sm"
                         onClick={triggerColorPicker}
-                        className="bg-white/5 border-white/20 text-white hover:bg-white/10 p-1 min-w-0 flex-shrink-0 h-6"
+                        className={`${styles['creation__tool-button']} p-1 min-w-0 flex-shrink-0 h-6`}
                         title="Add new color"
+                        style={{ backgroundColor: '#FFFFFF', color: '#000000', borderColor: '#E0E0E0' }}
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3 w-3" style={{ color: '#000000', stroke: '#000000' }} />
                       </Button>
                     </div>
                   </div>
@@ -1522,7 +1493,7 @@ const Creation = () => {
           type="file"
           accept="image/*"
           onChange={handleFileInputChange}
-          style={{ display: 'none' }}
+          className={styles['hidden-input']}
         />
         
         {/* Hidden color picker input for palette management */}
@@ -1530,12 +1501,12 @@ const Creation = () => {
           ref={colorPickerRef}
           type="color"
           onChange={handleColorPickerChange}
-          style={{ display: 'none' }}
+          className={styles['hidden-input']}
         />
 
         {/* Save Dialog */}
         <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-          <DialogContent className="sm:max-w-md bg-slate-800 border-white/20 text-white">
+          <DialogContent className={`sm:max-w-md ${styles['creation__content-panel']} text-white`}>
             <DialogHeader>
               <DialogTitle className="text-white text-lg font-semibold">
                 {t('gallery.saveCreation')}
@@ -1555,7 +1526,7 @@ const Creation = () => {
                   value={tempTitle}
                   onChange={(e) => setTempTitle(e.target.value)}
                   placeholder={t('gallery.titlePlaceholder')}
-                  className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400"
+                  className={`${styles['creation__tool-button']} text-white placeholder-white/50`}
                   maxLength={100}
                   autoFocus
                 />
@@ -1575,7 +1546,7 @@ const Creation = () => {
                   value={tempDescription}
                   onChange={(e) => setTempDescription(e.target.value)}
                   placeholder={t('gallery.descriptionPlaceholder')}
-                  className="bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-cyan-400 resize-none"
+                  className={`${styles['creation__tool-button']} text-white placeholder-white/50 resize-none`}
                   maxLength={200}
                   rows={3}
                 />
@@ -1591,14 +1562,14 @@ const Creation = () => {
                 variant="outline"
                 onClick={handleSaveCancel}
                 disabled={isSaving}
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+                className="bg-[#1a1a1a] hover:bg-[#252525] border-2 border-[rgba(255,255,255,0.15)] text-white rounded-2xl px-6 py-3 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleSaveConfirm}
                 disabled={isSaving || !tempTitle.trim()}
-                className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-[#1E3A5F] hover:bg-[#2A4A7F] text-white rounded-2xl px-6 py-3 font-bold uppercase tracking-wider transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-[rgba(255,255,255,0.2)] shadow-[0_4px_16px_rgba(30,58,95,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:translateY(-2px) hover:shadow-[0_6px_20px_rgba(30,58,95,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] min-h-[48px] flex items-center justify-center"
               >
                 {isSaving ? (
                   <>
@@ -1618,12 +1589,12 @@ const Creation = () => {
 
         {/* AI Creation Drawer */}
         <Sheet open={showAiCreationDrawer} onOpenChange={setShowAiCreationDrawer}>
-          <SheetContent side="bottom" className="h-[85vh] max-h-[600px] bg-slate-800 border-white/20 text-white flex flex-col">
-            <SheetHeader className="text-center pb-3 flex-shrink-0">
-              <SheetTitle className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+          <SheetContent side="bottom" className={`h-[85vh] max-h-[600px] ${styles['creation__content-panel']} text-white flex flex-col`}>
+            <SheetHeader className="text-center pb-6 flex-shrink-0">
+              <SheetTitle className="text-3xl font-bold text-[#D4AF37] mb-2">
                 {t('gallery.aiCreationDrawer.title')}
               </SheetTitle>
-              <SheetDescription className="text-white/70 text-sm">
+              <SheetDescription className="text-[#9ca3af] text-sm">
                 {t('gallery.aiCreationDrawer.subtitle')}
               </SheetDescription>
             </SheetHeader>
@@ -1636,27 +1607,27 @@ const Creation = () => {
                   onChange={(e) => setAiPrompt(e.target.value)}
                   onKeyDown={handleTextareaKeyDown}
                   placeholder={t('gallery.aiCreationDrawer.placeholder')}
-                  className="flex-1 min-h-[200px] max-h-[350px] resize-none bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-cyan-400 focus:ring-cyan-400/20 text-base"
+                  className="flex-1 min-h-[200px] max-h-[350px] resize-none bg-[#1a1a1a] border-2 border-[rgba(255,255,255,0.15)] rounded-2xl text-white placeholder:text-[#9ca3af] text-base p-4 focus:border-[#D4AF37] focus:outline-none transition-colors duration-200"
                   maxLength={500}
                 />
-                <div className="text-xs text-slate-400 text-right flex-shrink-0">
+                <div className="text-xs text-[#9ca3af] text-right flex-shrink-0">
                   {aiPrompt.length}/500 {t('gallery.aiCreationDrawer.characterCount')}
                 </div>
               </div>
 
               {/* Voice Input and Action Buttons */}
-              <div className="flex items-center justify-center space-x-4 flex-shrink-0">
+              <div className="flex items-center justify-center gap-4 flex-shrink-0">
                 {/* Microphone Button */}
                 <Button
                   onClick={handleMicClick}
                   disabled={isProcessingVoice}
-                  className={`w-16 h-16 rounded-full transition-all duration-200 ${
+                  className={`w-16 h-16 rounded-full transition-all duration-200 cursor-pointer ${
                     isRecording 
                       ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
                       : isProcessingVoice
                       ? 'bg-yellow-500 hover:bg-yellow-600'
-                      : 'bg-blue-500 hover:bg-blue-600'
-                  } shadow-lg hover:shadow-xl`}
+                      : 'bg-[#1E3A5F] hover:bg-[#2A4A7F] border-2 border-[rgba(255,255,255,0.2)]'
+                  } shadow-lg hover:shadow-xl hover:translateY(-2px)`}
                 >
                   {isProcessingVoice ? (
                     <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1671,7 +1642,7 @@ const Creation = () => {
                 <Button
                   onClick={handleAiPromptSubmit}
                   disabled={!aiPrompt.trim() || isProcessingVoice || isGeneratingImage}
-                  className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#1E3A5F] hover:bg-[#2A4A7F] text-white px-8 py-3 rounded-2xl font-bold uppercase tracking-wider transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-[rgba(255,255,255,0.2)] shadow-[0_4px_16px_rgba(30,58,95,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:translateY(-2px) hover:shadow-[0_6px_20px_rgba(30,58,95,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] min-h-[64px] flex items-center justify-center"
                 >
                   {isGeneratingImage ? (
                     <>
@@ -1690,29 +1661,32 @@ const Creation = () => {
               {/* Status Messages */}
               <div className="flex-shrink-0">
                 {isRecording && (
-                  <div className="text-center text-cyan-400 text-sm font-medium animate-pulse">
-                    🎤 {t('gallery.aiCreationDrawer.recording')}
+                  <div className="text-center text-[#D4A5FF] text-sm font-medium animate-pulse">
+                    <Mic className="w-4 h-4 inline-block mr-1" />
+                    {t('gallery.aiCreationDrawer.recording')}
                   </div>
                 )}
                 
                 {isProcessingVoice && (
-                  <div className="text-center text-yellow-400 text-sm font-medium">
-                    🔄 {t('gallery.aiCreationDrawer.processing')}
+                  <div className="text-center text-[#D4AF37] text-sm font-medium">
+                    <div className="w-4 h-4 border-2 border-[#D4AF37]/30 border-t-[#D4AF37] rounded-full animate-spin inline-block mr-1" />
+                    {t('gallery.aiCreationDrawer.processing')}
                   </div>
                 )}
                 
                 {isGeneratingImage && (
-                  <div className="text-center text-purple-400 text-sm font-medium animate-pulse">
-                    🎨 {t('gallery.aiCreationDrawer.generatingImage')}
+                  <div className="text-center text-[#D4AF37] text-sm font-medium animate-pulse">
+                    <div className="w-4 h-4 border-2 border-[#D4AF37]/30 border-t-[#D4AF37] rounded-full animate-spin inline-block mr-1" />
+                    {t('gallery.aiCreationDrawer.generatingImage')}
                   </div>
                 )}
               </div>
 
               {/* Instructions */}
-              <div className="text-center text-white/60 text-xs space-y-1 flex-shrink-0 pb-2">
-                <p>💡 <strong>Tip:</strong> {t('gallery.aiCreationDrawer.tips.voice')}</p>
-                <p>⌨️ <strong>Keyboard:</strong> {t('gallery.aiCreationDrawer.tips.keyboard')}</p>
-                <p>🎨 {t('gallery.aiCreationDrawer.tips.specific')}</p>
+              <div className="text-center text-[#9ca3af] text-xs space-y-2 flex-shrink-0 pb-2">
+                <p><strong className="text-white">Tip:</strong> {t('gallery.aiCreationDrawer.tips.voice')}</p>
+                <p><strong className="text-white">Keyboard:</strong> {t('gallery.aiCreationDrawer.tips.keyboard')}</p>
+                <p>{t('gallery.aiCreationDrawer.tips.specific')}</p>
               </div>
             </div>
           </SheetContent>

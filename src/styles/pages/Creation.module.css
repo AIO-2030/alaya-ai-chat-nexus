@@ -1,12 +1,191 @@
 /**
  * Creation Page Styles
- * Black & White Design - Inspired by X (Twitter)
+ * Black & White Design - Pure Black Background with Gray Controls
  */
 
+/* Page Background - Pure Black */
 .creation__page {
   min-height: 100vh;
-  background-color: var(--bg-primary);
+  background-color: #000000 !important;
   padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-lg));
+}
+
+/* Main Container */
+.creation__container {
+  background-color: #000000;
+}
+
+/* Content Panel - Gray Background */
+.creation__content-panel {
+  background-color: #000000 !important;
+  border: 2px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Header Section - Darker Gray */
+.creation__header {
+  background-color: var(--color-gray-800);
+  border-bottom: 1px solid var(--color-gray-700);
+}
+
+/* Button - Gray Background */
+.creation__button-base {
+  background-color: var(--color-gray-700);
+  border: 1px solid var(--color-gray-600);
+  color: var(--text-inverse);
+}
+
+.creation__button-base:hover {
+  background-color: var(--color-gray-600);
+  border-color: var(--color-gray-500);
+}
+
+/* Control Panel - Medium Gray */
+.creation__control-panel {
+  background-color: var(--color-gray-800);
+  border-top: 1px solid var(--color-gray-700);
+}
+
+/* Tool Button Group - Lighter Gray */
+.creation__tool-group {
+  background-color: var(--color-gray-700);
+  border-radius: var(--radius-md);
+}
+
+/* Tool Button - Active State */
+.creation__tool-button--active {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border-color: #BDBDBD !important;
+  border: 1px solid #BDBDBD !important;
+  color: #000000 !important;
+}
+
+.creation__tool-button--active svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+  fill: #000000 !important;
+}
+
+/* Tool Button - Inactive State */
+.creation__tool-button {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E0E0E0 !important;
+  border-color: #E0E0E0 !important;
+  color: #000000 !important;
+}
+
+/* Override Button component default styles - Must override Tailwind classes */
+button.creation__tool-button,
+button.creation__tool-button.bg-background,
+button.creation__tool-button[class*="bg-background"],
+.creation__tool-button.bg-background {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E0E0E0 !important;
+  border-color: #E0E0E0 !important;
+  color: #000000 !important;
+}
+
+.creation__tool-button svg,
+button.creation__tool-button svg,
+.creation__tool-button svg * {
+  color: #000000 !important;
+  stroke: #000000 !important;
+  fill: #000000 !important;
+}
+
+.creation__tool-button:hover,
+button.creation__tool-button:hover,
+.creation__tool-button.bg-accent:hover,
+button.creation__tool-button.bg-accent:hover {
+  background-color: #F5F5F5 !important;
+  background: #F5F5F5 !important;
+  border-color: #BDBDBD !important;
+  border: 1px solid #BDBDBD !important;
+  color: #000000 !important;
+}
+
+.creation__tool-button:hover svg,
+button.creation__tool-button:hover svg,
+.creation__tool-button:hover svg * {
+  color: #000000 !important;
+  stroke: #000000 !important;
+  fill: #000000 !important;
+}
+
+/* Canvas Area - Dark Gray */
+.creation__canvas-area {
+  background-color: var(--color-gray-900);
+}
+
+/* AI Banner - Medium Gray */
+.creation__ai-banner {
+  background-color: var(--color-gray-800);
+  border: 1px solid var(--color-gray-700);
+}
+
+/* AI Creation Card - Lighter Gray with Highlighted Background and Text Box */
+.creation__ai-card {
+  background-color: #616161 !important;
+  background: #616161 !important;
+  border: 2px solid #757575 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  position: relative;
+}
+
+.creation__ai-card::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid #BDBDBD;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.creation__ai-card:hover {
+  background-color: #757575 !important;
+  background: #757575 !important;
+  border-color: #9E9E9E !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(-2px);
+}
+
+.creation__ai-card:hover::before {
+  border-color: #E0E0E0;
+}
+
+/* AI Card Content Wrapper */
+.creation__ai-card-content {
+  position: relative;
+  z-index: 2;
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+  border-radius: 12px;
+  margin: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Color Palette Container - Dark Gray */
+.creation__palette-container {
+  background-color: var(--color-gray-800);
+  border-radius: var(--radius-md);
+}
+
+/* Scale Display - White Background */
+.creation__scale-display {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E0E0E0 !important;
+  color: #000000 !important;
+}
+
+/* Login Overlay - Dark Gray */
+.creation__login-overlay {
+  background-color: var(--color-gray-900);
 }
 
 .creation__container {
@@ -394,6 +573,49 @@
 .creation__step--active .creation__step__label {
   color: var(--text-primary);
   font-weight: var(--font-medium);
+}
+
+/* Pixel Editor Canvas Styles */
+.canvas {
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
+.canvas--ai-mode {
+  image-rendering: auto;
+  touch-action: auto;
+  cursor: default;
+}
+
+.canvas--pen {
+  cursor: crosshair;
+}
+
+.canvas--eraser {
+  cursor: cell;
+}
+
+.canvas--picker {
+  cursor: copy;
+}
+
+.canvas--fill {
+  cursor: crosshair;
+}
+
+/* Hidden Input Elements */
+.hidden-input {
+  display: none;
+}
+
+/* Color Swatch (dynamic backgroundColor remains inline) */
+.color-swatch {
+  /* backgroundColor is set inline dynamically */
+}
+
+/* Eraser Color Indicator (dynamic backgroundColor remains inline) */
+.eraser-indicator {
+  /* backgroundColor is set inline dynamically */
 }
 
 /* Responsive Design */
