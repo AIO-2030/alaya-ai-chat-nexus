@@ -22,6 +22,7 @@ import {
 import { copyWithFeedback } from '../utils/clipboard.js';
 import QRCodeScanner from '../components/QRCodeScanner';
 import { cn } from '../lib/utils';
+import { AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID } from '../runtime/AIOProtocolExecutor';
 import styles from '../styles/pages/Contracts.module.css';
 
 const Contracts = () => {
@@ -62,9 +63,13 @@ const Contracts = () => {
       
       const userPrincipalId = getUserPrincipalId();
       const contacts = await getContactsByOwner(userPrincipalId);
-      
-      setContracts(contacts);
-      console.log('[Contracts] Loaded contacts:', contacts);
+      const normalized = contacts.map(c =>
+        c.id === 999 || c.name === 'Univoice'
+          ? { ...c, contactPrincipalId: AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID }
+          : c
+      );
+      setContracts(normalized);
+      console.log('[Contracts] Loaded contacts:', normalized);
     } catch (err) {
       console.error('[Contracts] Error loading contacts:', err);
       setError('Failed to load contacts');
@@ -102,7 +107,7 @@ const Contracts = () => {
           avatar: "UV",
           devices: [],
           isOnline: true,
-          contactPrincipalId: "univoice_ai_principal_id"
+          contactPrincipalId: AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID
         }
       ]);
     } finally {

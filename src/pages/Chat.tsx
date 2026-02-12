@@ -32,7 +32,10 @@ import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
 import { deviceApiService, DeviceRecord } from '../services/api/deviceApi';
 import { convertPixelToGif, GifResult } from '../lib/pixelToGifConverter';
 import { cn } from '../lib/utils';
+import { execWebChat, AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID } from '../runtime/AIOProtocolExecutor';
 import styles from '../styles/pages/Chat.module.css';
+
+const AI_CHAT_STORAGE_KEY_PREFIX = 'aio_webchat_chat_';
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -51,6 +54,9 @@ const Chat = () => {
   const contactIsOnline = searchParams.get('contactIsOnline') === 'true';
   const contactNickname = searchParams.get('contactNickname');
   const contactPrincipalId = searchParams.get('contactPrincipalId');
+
+  /** Univoice AI 联系人：使用 execWebChat + localStorage，不走 canister */
+  const isAiContact = contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID;
 
 
   // Check for immediate restoration needs
@@ -508,78 +514,71 @@ const Chat = () => {
           contactPrincipalId: contactPrincipalId
         });
         
-        // Contact information check removed - functionality works correctly without this warning
-        // The warning was unnecessarily strict and prevented normal operation
-        
         setIsLoadingChat(false);
         return;
       }
 
       try {
         setIsLoadingChat(true);
-        console.log('[Chat] Initializing chat between:', user.principalId, 'and', contactPrincipalId);
-        
-        // Start chat and get social pair key
-        const pairKey = await startChatWithContact(user.principalId, contactPrincipalId);
-        setSocialPairKey(pairKey);
-        console.log('[Chat] Generated social pair key:', pairKey);
-        
-        // Load initial chat history (latest 5 pages)
-        // Messages are stored from oldest to newest, so we need to load from the end
-        const totalCount = await getChatMessageCount(user.principalId, contactPrincipalId);
-        const initialLoadSize = pageSize * pagesPerLoad;
-        
-        if (totalCount === 0) {
-          setMessages([]);
+
+        if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
+          // AI 联系人：从 localStorage 加载，不调用 canister
+          const storageKey = `${AI_CHAT_STORAGE_KEY_PREFIX}${user.principalId}`;
+          try {
+            const raw = localStorage.getItem(storageKey);
+            const list = raw ? (JSON.parse(raw) as ChatMessageInfo[]) : [];
+            setMessages(Array.isArray(list) ? list : []);
+          } catch {
+            setMessages([]);
+          }
+          setSocialPairKey('');
           setCurrentPage(0);
           setHasMoreMessages(false);
-          console.log('[Chat] No messages found');
+          console.log('[Chat] Loaded AI chat from localStorage');
         } else {
-          // Calculate offset to load from the end (latest messages first)
-          // If totalCount = 100, initialLoadSize = 100, we want offset = 0 (load all)
-          // If totalCount = 200, initialLoadSize = 100, we want offset = 100 (load last 100)
-          const offset = Math.max(0, totalCount - initialLoadSize);
-          const actualLoadSize = Math.min(initialLoadSize, totalCount - offset);
-          
-          const initialMessages = await getChatMessagesPaginated(
-            user.principalId, 
-            contactPrincipalId, 
-            offset, 
-            actualLoadSize
-          );
-          
-          setMessages(initialMessages);
-          // Set currentOffset to the next offset to load (going backwards, so subtract)
-          setCurrentPage(offset);
-          setHasMoreMessages(offset > 0);
-          console.log('[Chat] Loaded initial messages:', {
-            totalCount,
-            offset,
-            actualLoadSize,
-            messageCount: initialMessages.length,
-            hasMore: offset > 0,
-            currentPage: offset
-          });
-          
-          // Log pagination state for debugging
-          console.log('[Chat] Pagination state after initial load:', {
-            currentPage: offset,
-            hasMoreMessages: offset > 0,
-            totalMessages: totalCount,
-            loadedMessages: initialMessages.length
-          });
+          console.log('[Chat] Initializing chat between:', user.principalId, 'and', contactPrincipalId);
+          const pairKey = await startChatWithContact(user.principalId, contactPrincipalId);
+          setSocialPairKey(pairKey);
+          console.log('[Chat] Generated social pair key:', pairKey);
+
+          const totalCount = await getChatMessageCount(user.principalId, contactPrincipalId);
+          const initialLoadSize = pageSize * pagesPerLoad;
+
+          if (totalCount === 0) {
+            setMessages([]);
+            setCurrentPage(0);
+            setHasMoreMessages(false);
+            console.log('[Chat] No messages found');
+          } else {
+            const offset = Math.max(0, totalCount - initialLoadSize);
+            const actualLoadSize = Math.min(initialLoadSize, totalCount - offset);
+            const initialMessages = await getChatMessagesPaginated(
+              user.principalId,
+              contactPrincipalId,
+              offset,
+              actualLoadSize
+            );
+            setMessages(initialMessages);
+            setCurrentPage(offset);
+            setHasMoreMessages(offset > 0);
+            console.log('[Chat] Loaded initial messages:', {
+              totalCount,
+              offset,
+              actualLoadSize,
+              messageCount: initialMessages.length,
+              hasMore: offset > 0,
+              currentPage: offset
+            });
+          }
         }
-        
       } catch (error) {
         console.error('[Chat] Error initializing chat:', error);
-        // Set fallback demo messages if chat initialization fails
         setMessages([]);
       } finally {
         setIsLoadingChat(false);
       }
     };
 
-    // Only initialize when not loading and we have the necessary data
     if (!authLoading) {
       initializeChat();
     } else {
@@ -633,6 +632,9 @@ const Chat = () => {
           hasMore: hasMoreMessages
         });
         return;
+      }
+      if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
+        return; // AI 会话全部在 localStorage，无分页
       }
 
       try {
@@ -1068,9 +1070,9 @@ const Chat = () => {
     };
   }, [contactPrincipalId, refreshContactDevices, contactDeviceList, getContactDeviceStatus]);
 
-  // Poll for new messages every 5 seconds
+  // Poll for new messages every 5 seconds（AI 联系人走 localStorage，不轮询 canister）
   useEffect(() => {
-    if (!user?.principalId) return;
+    if (!user?.principalId || contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) return;
 
     const pollInterval = setInterval(async () => {
       try {
@@ -1132,31 +1134,71 @@ const Chat = () => {
 
     try {
       setLoading(true);
-      
-      // Use fallback values if contactPrincipalId is null
       const contactId = contactPrincipalId || 'unknown';
-      
-      if (pendingGif) {
-        // Send GIF message
-        console.log('[Chat] Sending GIF message:', pendingGif);
-        await sendGifMessage(user.principalId, contactId, pendingGif);
-        setPendingGif(null);
-      } else {
-        // Send text message
-        console.log('[Chat] Sending message:', newMessage);
-        await sendChatMessage(user.principalId, contactId, newMessage, 'Text');
+
+      if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
+        // AI 联系人：execWebChat + localStorage，不经过 canister
+        if (pendingGif) {
+          toast({ title: t('chat.error.generic'), description: 'AI 会话暂不支持发送 GIF', variant: 'destructive' });
+          setLoading(false);
+          return;
+        }
+        const textToSend = newMessage.trim();
         setNewMessage('');
+        const userMsg: ChatMessageInfo = {
+          sendBy: user.principalId,
+          content: textToSend,
+          mode: 'Text',
+          timestamp: Date.now()
+        };
+        setMessages(prev => [...prev, userMsg]);
+        const historyForApi = messages.map(m => ({
+          role: (m.sendBy === user.principalId ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: m.content
+        }));
+        const result = await execWebChat({
+          messages: [...historyForApi, { role: 'user', content: textToSend }],
+          stream: false
+        });
+        const aiContent = result.success && result.data?.choices?.[0]?.message?.content
+          ? result.data.choices[0].message.content
+          : (result.error || '回复出错，请重试');
+        const aiMsg: ChatMessageInfo = {
+          sendBy: contactPrincipalId,
+          content: aiContent,
+          mode: 'Text',
+          timestamp: Date.now()
+        };
+        setMessages(prev => [...prev, aiMsg]);
+        const storageKey = `${AI_CHAT_STORAGE_KEY_PREFIX}${user.principalId}`;
+        const toSave = [...messages, userMsg, aiMsg];
+        localStorage.setItem(storageKey, JSON.stringify(toSave));
+        console.log('[Chat] AI message sent and saved to localStorage');
+      } else {
+        if (pendingGif) {
+          console.log('[Chat] Sending GIF message:', pendingGif);
+          await sendGifMessage(user.principalId, contactId, pendingGif);
+          setPendingGif(null);
+        } else {
+          console.log('[Chat] Sending message:', newMessage);
+          await sendChatMessage(user.principalId, contactId, newMessage, 'Text');
+          setNewMessage('');
+        }
+        const updatedMessages = await getRecentChatMessages(user.principalId, contactId);
+        setMessages(updatedMessages);
+        console.log('[Chat] Message sent successfully');
       }
-      
-      // Reload messages to include the new one
-      const updatedMessages = await getRecentChatMessages(user.principalId, contactId);
-      setMessages(updatedMessages);
-      
-      console.log('[Chat] Message sent successfully');
     } catch (error) {
       console.error('[Chat] Error sending message:', error);
-      if (pendingGif) {
-        // Add fallback GIF message if backend fails
+      if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        setMessages(prev => [...prev, {
+          sendBy: contactPrincipalId,
+          content: `错误: ${errMsg}`,
+          mode: 'Text',
+          timestamp: Date.now()
+        }]);
+      } else if (pendingGif) {
         const fallbackMsg: ChatMessageInfo = {
           sendBy: user.principalId,
           content: JSON.stringify(pendingGif),
@@ -1167,7 +1209,6 @@ const Chat = () => {
         setMessages(prev => [...prev, fallbackMsg]);
         setPendingGif(null);
       } else {
-        // Add fallback text message if backend fails
         const fallbackMsg: ChatMessageInfo = {
           sendBy: user.principalId,
           content: newMessage,

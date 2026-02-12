@@ -1,6 +1,79 @@
 // AIO Protocol Executor - Independent implementation for alaya-chat-nexus-frontend
 import { AIOProtocolStepInfo, AIOProtocolResult } from './AIOProtocolTypes';
 
+// ============ AIO WebChat Interface (OpenAI-compatible) ============
+/** Production: https://webchat.aio2030.fun/v1/chat/completions */
+/** Dev: http://127.0.0.1:8002/v1/chat/completions (or VITE_AIO_WEBCHAT_URL) */
+
+/** Univoice AI 联系人唯一标识：contactPrincipalId 为此值时视为 AI 会话，走 execWebChat + localStorage */
+export const AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID = 'aio_webchat_ai';
+
+export interface WebChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface WebChatCompletionRequest {
+  model: string;
+  messages: WebChatMessage[];
+  stream?: boolean;
+}
+
+/** Non-stream response (OpenAI format) */
+export interface WebChatCompletionResponse {
+  id?: string;
+  object?: string;
+  created?: number;
+  model?: string;
+  choices: Array<{
+    index: number;
+    message: { role: string; content: string };
+    finish_reason?: string;
+  }>;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+}
+
+/** Stream chunk (SSE data line) */
+export interface WebChatStreamChunk {
+  id?: string;
+  object?: string;
+  created?: number;
+  model?: string;
+  choices: Array<{
+    index: number;
+    delta: { role?: string; content?: string };
+    finish_reason?: string | null;
+  }>;
+}
+
+export interface ExecWebChatOptions {
+  model?: string;
+  messages: WebChatMessage[];
+  stream?: boolean;
+  timeout?: number;
+  /** 流式响应时每收到一个 chunk 的回调 */
+  onChunk?: (chunk: WebChatStreamChunk) => void;
+}
+
+export interface ExecWebChatResult {
+  success: boolean;
+  data?: WebChatCompletionResponse;
+  error?: string;
+}
+
+const WEBCHAT_PRODUCTION_URL = 'https://webchat.aio2030.fun/v1/chat/completions';
+
+/** Get WebChat endpoint by environment (prod vs dev). */
+function getWebChatEndpoint(): string {
+  const isProduction = window.location.protocol === 'https:';
+  if (isProduction) {
+    return WEBCHAT_PRODUCTION_URL;
+  }
+  const devUrl = (import.meta.env.VITE_AIO_WEBCHAT_URL || 'http://127.0.0.1:8002')
+    .replace(/\/+$/, '');
+  return `${devUrl}/v1/chat/completions`;
+}
+
 // Types for RPC communication
 interface JsonRpcRequest {
   jsonrpc: string;
@@ -184,6 +257,100 @@ async function executeRpc(
       },
       id: requestId
     };
+  }
+}
+
+/**
+ * Execute WebChat completion (AIO Chat Router / OpenAI-compatible).
+ * Production: https://webchat.aio2030.fun/v1/chat/completions
+ * Dev: http://127.0.0.1:8002/v1/chat/completions (or VITE_AIO_WEBCHAT_URL)
+ *
+ * @param options model, messages, stream, timeout, optional onChunk for stream mode
+ * @returns Promise<ExecWebChatResult> with data (and assembled content when stream)
+ */
+export async function execWebChat(options: ExecWebChatOptions): Promise<ExecWebChatResult> {
+  const {
+    model = 'openclaw:main',
+    messages,
+    stream = false,
+    timeout = 60,
+    onChunk
+  } = options;
+
+  const endpoint = getWebChatEndpoint();
+  const requestBody: WebChatCompletionRequest = {
+    model,
+    messages,
+    stream
+  };
+
+  console.log('[execWebChat] endpoint:', endpoint, 'stream:', stream);
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout * 1000);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[execWebChat] HTTP error:', response.status, errText);
+      return { success: false, error: `HTTP ${response.status}: ${errText}` };
+    }
+
+    if (stream) {
+      const reader = response.body?.getReader();
+      if (!reader) {
+        return { success: false, error: 'No response body for stream' };
+      }
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assembledContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const chunk: WebChatStreamChunk = JSON.parse(data);
+            const content = chunk?.choices?.[0]?.delta?.content;
+            if (content) assembledContent += content;
+            if (onChunk) onChunk(chunk);
+          } catch {
+            // ignore parse errors for partial lines
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          choices: [{ index: 0, message: { role: 'assistant', content: assembledContent } }]
+        }
+      };
+    }
+
+    const data: WebChatCompletionResponse = await response.json();
+    console.log('[execWebChat] response:', data);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[execWebChat] error:', message);
+    return { success: false, error: message };
   }
 }
 
