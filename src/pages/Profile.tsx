@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth';
-import { User, Smartphone, MoreHorizontal, ChevronRight, Edit, Save, X, Lock, Eye, EyeOff, Coins, Sparkles, Download } from 'lucide-react';
+import { User, Smartphone, MoreHorizontal, ChevronRight, Edit, Save, X, Lock, Eye, EyeOff, Coins, Sparkles, Download, Clipboard } from 'lucide-react';
+import { PublicKey } from '@solana/web3.js';
 import { AppHeader } from '../components/AppHeader';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { PageLayout } from '../components/PageLayout';
@@ -9,7 +10,7 @@ import { upsertNickname, getUserInfoByPrincipal, changeUserPassword } from '../s
 import { useToast } from '../hooks/use-toast';
 import { useDeviceStatus } from '../hooks/useDeviceStatus';
 import DeviceStatusIndicator from '../components/DeviceStatusIndicator';
-import { useSolanaWallet } from '../lib/solanaWallet';
+import { useSolanaWallet, solanaWalletManager } from '../lib/solanaWallet';
 import QRCode from 'react-qr-code';
 import { useLocation, useNavigate } from 'react-router-dom';
 import pageBaseStyles from '../styles/pages/PageBase.module.css';
@@ -46,6 +47,7 @@ const Profile = () => {
     connect: connectSolanaWallet,
     disconnect: disconnectSolanaWallet,
     getTokenBalance,
+    setManualAddress,
   } = useSolanaWallet();
   const [tokenBalance, setTokenBalance] = useState<{
     balance: number;
@@ -54,6 +56,11 @@ const Profile = () => {
     name?: string;
   } | null>(null);
   const [isLoadingTokenBalance, setIsLoadingTokenBalance] = useState(false);
+
+  // Manual Solana address modal (fallback when wallet link times out)
+  const [showManualAddressModal, setShowManualAddressModal] = useState(false);
+  const [manualAddressValue, setManualAddressValue] = useState('');
+  const [manualAddressError, setManualAddressError] = useState('');
 
   // Debug: Log wallet state changes
   useEffect(() => {
@@ -285,7 +292,15 @@ const Profile = () => {
         await fetchTokenBalance(address);
       } else {
         console.log('[Profile] Connection returned null, checking error state...');
-        // Connection was cancelled or failed, check error state
+        // Connection was cancelled or failed — on timeout, show manual address modal (read manager state so we have latest error)
+        const currentError = solanaWalletManager.getState().error;
+        const isTimeout = currentError && (
+          currentError.toLowerCase().includes('timeout') ||
+          currentError.includes('Connection timeout')
+        );
+        if (isTimeout) {
+          setShowManualAddressModal(true);
+        }
         if (solanaError) {
           console.error('[Profile] Connection failed with error:', solanaError);
           toast({
@@ -299,11 +314,13 @@ const Profile = () => {
       }
     } catch (error: any) {
       console.error('[Profile] Exception in handleConnectPhantom:', error);
-      console.error('[Profile] Exception details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      });
+      const isTimeout = error?.message && (
+        error.message.toLowerCase().includes('timeout') ||
+        error.message.includes('Connection timeout')
+      );
+      if (isTimeout) {
+        setShowManualAddressModal(true);
+      }
       toast({
         title: t('common.walletConnectionFailed') || 'Connection Failed',
         description: error.message || 'Failed to connect to Phantom wallet. Please make sure Phantom wallet is installed.',
@@ -323,6 +340,55 @@ const Profile = () => {
     } catch (error: any) {
       console.error('Failed to disconnect wallet:', error);
     }
+  };
+
+  const handleCloseManualAddressModal = () => {
+    setShowManualAddressModal(false);
+    setManualAddressValue('');
+    setManualAddressError('');
+  };
+
+  const handlePasteAddress = async () => {
+    setManualAddressError('');
+    try {
+      const text = await navigator.clipboard.readText();
+      const trimmed = text.trim();
+      if (trimmed) {
+        setManualAddressValue(trimmed);
+        toast({
+          title: t('common.pasted') || '已粘贴',
+          description: t('common.addressPasted') || '已从剪贴板粘贴地址',
+        });
+      }
+    } catch (e) {
+      toast({
+        title: t('common.pasteFailed') || '粘贴失败',
+        description: t('common.pasteFailedDesc') || '无法读取剪贴板，请手动输入或检查权限',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSubmitManualAddress = () => {
+    setManualAddressError('');
+    const trimmed = manualAddressValue.trim();
+    if (!trimmed) {
+      setManualAddressError(t('profile.manualAddress.required') || '请输入 Solana 钱包地址');
+      return;
+    }
+    try {
+      new PublicKey(trimmed);
+    } catch {
+      setManualAddressError(t('profile.manualAddress.invalid') || '不是有效的 Solana 地址，请确认为 SOL 链地址');
+      return;
+    }
+    setManualAddress(trimmed);
+    handleCloseManualAddressModal();
+    fetchTokenBalance(trimmed);
+    toast({
+      title: t('common.walletConnected') || 'Wallet Connected',
+      description: `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`,
+    });
   };
 
   const fetchTokenBalance = async (address?: string) => {
@@ -650,6 +716,15 @@ const Profile = () => {
                   {solanaError && !isSolanaConnecting && (
                     <div className={styles.profile__wallet__error}>
                       <p className={styles.profile__wallet__error__text}>{solanaError}</p>
+                      {(solanaError.toLowerCase().includes('timeout') || solanaError.includes('Connection timeout')) && (
+                        <button
+                          type="button"
+                          onClick={() => setShowManualAddressModal(true)}
+                          className={styles.profile__wallet__error__manual_btn}
+                        >
+                          {t('profile.manualAddress.enterManually') || '手动输入 Solana 地址'}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -922,6 +997,73 @@ const Profile = () => {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Manual Solana Address Modal (fallback when wallet link times out) */}
+      {showManualAddressModal && (
+        <div className={styles.profile__manual_address_modal_overlay} onClick={handleCloseManualAddressModal}>
+          <div className={styles.profile__manual_address_modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.profile__manual_address_modal__header}>
+              <span className={styles.profile__manual_address_modal__title}>
+                {t('profile.manualAddress.title') || '输入 Solana 钱包地址'}
+              </span>
+              <button
+                type="button"
+                onClick={handleCloseManualAddressModal}
+                className={styles.profile__manual_address_modal__close}
+                aria-label="Close"
+              >
+                <X className={styles.profile__manual_address_modal__close_icon} />
+              </button>
+            </div>
+            <p className={styles.profile__manual_address_modal__hint}>
+              {t('profile.manualAddress.hint') || '请确保输入的是 Solana (SOL) 链上的钱包地址，格式通常为 32–44 个字符的字母数字组合。'}
+            </p>
+            <div className={styles.profile__manual_address_modal__input_row}>
+              <input
+                type="text"
+                value={manualAddressValue}
+                onChange={(e) => {
+                  setManualAddressValue(e.target.value);
+                  setManualAddressError('');
+                }}
+                placeholder={t('profile.manualAddress.placeholder') || '粘贴或输入 Solana 地址'}
+                className={styles.profile__manual_address_modal__input}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button
+                type="button"
+                onClick={handlePasteAddress}
+                className={styles.profile__manual_address_modal__paste_btn}
+                title={t('profile.manualAddress.paste') || '粘贴'}
+              >
+                <Clipboard className={styles.profile__manual_address_modal__paste_icon} />
+                <span>{t('profile.manualAddress.paste') || '粘贴'}</span>
+              </button>
+            </div>
+            {manualAddressError && (
+              <p className={styles.profile__manual_address_modal__error}>{manualAddressError}</p>
+            )}
+            <div className={styles.profile__manual_address_modal__actions}>
+              <button
+                type="button"
+                onClick={handleSubmitManualAddress}
+                disabled={!manualAddressValue.trim()}
+                className={styles.profile__manual_address_modal__submit}
+              >
+                {t('profile.manualAddress.confirm') || '确认'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseManualAddressModal}
+                className={styles.profile__manual_address_modal__cancel}
+              >
+                {t('common.cancel') || '取消'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </PageLayout>
   );

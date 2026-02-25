@@ -189,7 +189,24 @@ const resources = {
         copied: 'Copied',
         walletConnectUriCopied: 'WalletConnect URI copied to clipboard',
         copyFailed: 'Copy Failed',
-        failedToCopyUri: 'Failed to copy URI to clipboard'
+        failedToCopyUri: 'Failed to copy URI to clipboard',
+        pasted: 'Pasted',
+        addressPasted: 'Address pasted from clipboard',
+        pasteFailed: 'Paste Failed',
+        pasteFailedDesc: 'Could not read clipboard. Please paste manually or check permissions.',
+        viewTasksAndRewards: 'View tasks and claim rewards'
+      },
+      profile: {
+        manualAddress: {
+          title: 'Enter Solana Wallet Address',
+          hint: 'Please enter a Solana (SOL) chain wallet address. It is usually 32–44 characters (letters and numbers).',
+          placeholder: 'Paste or type Solana address',
+          paste: 'Paste',
+          confirm: 'Confirm',
+          enterManually: 'Enter Solana address manually',
+          required: 'Please enter a Solana wallet address',
+          invalid: 'Invalid Solana address. Please ensure it is a valid SOL chain address.'
+        }
       },
       login: {
         welcome: 'Welcome to Univoice',
@@ -391,6 +408,10 @@ const resources = {
       chat: {
         readyToSend: 'Ready to send',
         backToContacts: 'Back to Contacts',
+        deleteAllChatRecords: 'Delete all chat records',
+        deleteAllChatRecordsConfirm: 'Delete all messages in this chat? This cannot be undone.',
+        deleteAllChatRecordsSuccess: 'Chat records deleted',
+        deleteAllChatRecordsFailed: 'Failed to delete chat records',
         pixelArt: 'Pixel Art',
         sendToDevice: 'Send to Device',
         send: 'Send',
@@ -717,7 +738,24 @@ const resources = {
         copied: '已复制',
         walletConnectUriCopied: 'WalletConnect URI 已复制到剪贴板',
         copyFailed: '复制失败',
-        failedToCopyUri: '复制 URI 到剪贴板失败'
+        failedToCopyUri: '复制 URI 到剪贴板失败',
+        pasted: '已粘贴',
+        addressPasted: '已从剪贴板粘贴地址',
+        pasteFailed: '粘贴失败',
+        pasteFailedDesc: '无法读取剪贴板，请手动输入或检查权限。',
+        viewTasksAndRewards: '查看任务并领取奖励'
+      },
+      profile: {
+        manualAddress: {
+          title: '输入 Solana 钱包地址',
+          hint: '请确保输入的是 Solana (SOL) 链上的钱包地址，格式通常为 32–44 个字符的字母数字组合。',
+          placeholder: '粘贴或输入 Solana 地址',
+          paste: '粘贴',
+          confirm: '确认',
+          enterManually: '手动输入 Solana 地址',
+          required: '请输入 Solana 钱包地址',
+          invalid: '不是有效的 Solana 地址，请确认为 SOL 链地址。'
+        }
       },
       login: {
         welcome: '欢迎来到 Univoice',
@@ -919,6 +957,10 @@ const resources = {
       chat: {
         readyToSend: '准备发送',
         backToContacts: '返回联系人列表',
+        deleteAllChatRecords: '删除全部聊天记录',
+        deleteAllChatRecordsConfirm: '确定删除本会话的全部消息吗？此操作不可恢复。',
+        deleteAllChatRecordsSuccess: '聊天记录已删除',
+        deleteAllChatRecordsFailed: '删除聊天记录失败',
         pixelArt: '像素艺术',
         sendToDevice: '发送到设备',
         send: '发送',

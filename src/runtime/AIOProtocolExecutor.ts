@@ -16,6 +16,10 @@ export interface WebChatMessage {
 export interface WebChatCompletionRequest {
   model: string;
   messages: WebChatMessage[];
+  /** 发送方 principalId，用于保持同一用户的会话（Session behavior），必传 */
+  user?: string;
+  /** 用户昵称，用于 AI 个性化交互 */
+  user_nickname?: string;
   stream?: boolean;
 }
 
@@ -49,6 +53,10 @@ export interface WebChatStreamChunk {
 export interface ExecWebChatOptions {
   model?: string;
   messages: WebChatMessage[];
+  /** 发送方 principalId，用于保持同一用户的会话（Session behavior），必传 */
+  user?: string;
+  /** 用户昵称，用于 AI 个性化交互 */
+  user_nickname?: string;
   stream?: boolean;
   timeout?: number;
   /** 流式响应时每收到一个 chunk 的回调 */
@@ -66,7 +74,8 @@ const WEBCHAT_PRODUCTION_URL = 'https://webchat.aio2030.fun/v1/chat/completions'
 /** Get WebChat endpoint by environment (prod vs dev). */
 function getWebChatEndpoint(): string {
   const isProduction = window.location.protocol === 'https:';
-  if (isProduction) {
+  const isProductionFlag = true;
+  if (isProductionFlag) {
     return WEBCHAT_PRODUCTION_URL;
   }
   const devUrl = (import.meta.env.VITE_AIO_WEBCHAT_URL || 'http://127.0.0.1:8002')
@@ -169,9 +178,10 @@ async function executeRpc(
   try {
     // Check if running in production environment
     const isProduction = import.meta.env.PROD || window.location.protocol === 'https:';
-    
+    const isProductionFlag = true;
+
     let baseUrl;
-    if (isProduction) {
+    if (isProductionFlag) {
       // Production environment uses remote MCP service directly with HTTPS
       baseUrl = 'https://mcp.aio2030.fun/api/v1/rpc';
       console.log(`[executeRpc] Using production MCP server: ${baseUrl}`);
@@ -272,6 +282,8 @@ export async function execWebChat(options: ExecWebChatOptions): Promise<ExecWebC
   const {
     model = 'openclaw:main',
     messages,
+    user,
+    user_nickname,
     stream = false,
     timeout = 60,
     onChunk
@@ -281,10 +293,12 @@ export async function execWebChat(options: ExecWebChatOptions): Promise<ExecWebC
   const requestBody: WebChatCompletionRequest = {
     model,
     messages,
+    user: user != null && user !== '' ? user : `anonymous-${Date.now()}`,
+    ...(user_nickname != null && user_nickname !== '' ? { user_nickname } : {}),
     stream
   };
 
-  console.log('[execWebChat] endpoint:', endpoint, 'stream:', stream);
+  console.log('[execWebChat] endpoint:', endpoint, 'requestBody:', requestBody);
 
   try {
     const controller = new AbortController();
@@ -376,9 +390,9 @@ export async function exec_step(
 
   // Check if running in production environment
   const isProduction = import.meta.env.PROD || window.location.protocol === 'https:';
-  
+  const isProductionFlag = true;
   let baseApiUrl;
-  if (isProduction) {
+  if (isProductionFlag) {
     // Production environment uses remote MCP service directly
     baseApiUrl = 'https://mcp.aio2030.fun/api/v1/rpc';
     console.log(`[AIOProtocolExecutor] Using production MCP server: ${baseApiUrl}`);

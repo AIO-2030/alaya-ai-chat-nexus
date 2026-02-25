@@ -826,6 +826,18 @@ class SolanaWalletManager {
     }
   }
 
+  setManualAddress(address: string) {
+    console.log('[SolanaWallet] Setting manual address:', address);
+    this.updateState({
+      address,
+      isConnected: true,
+      isConnecting: false,
+      error: null,
+      uri: undefined,
+    });
+    localStorage.setItem('solana_wallet_address', address);
+  }
+
   getState(): SolanaWalletState {
     return { ...this.state };
   }
@@ -902,5 +914,6 @@ export const useSolanaWallet = () => {
     connect: () => solanaWalletManager.connect(),
     disconnect: () => solanaWalletManager.disconnect(),
     getTokenBalance: (address?: string) => solanaWalletManager.getTokenBalance(address),
+    setManualAddress: (address: string) => solanaWalletManager.setManualAddress(address),
   };
 };

@@ -522,6 +522,29 @@ export const clearNotificationsForPair = async (
   }
 };
 
+/**
+ * Clear all chat messages for a social pair (backend). Does not apply to Univoice AI (use frontend storage clear).
+ * @param principal1 Current user principal ID
+ * @param principal2 Contact principal ID
+ * @returns Number of messages removed
+ */
+export const clearChatHistoryForPair = async (
+  principal1: string,
+  principal2: string
+): Promise<number> => {
+  try {
+    const actor = getActor();
+    const result = await actor.clear_chat_history_for_pair(principal1, principal2);
+    if (isOk(result)) {
+      return Number(result.Ok);
+    }
+    throw new Error(result.Err);
+  } catch (error) {
+    console.error('[ChatApi] Error clearing chat history for pair:', error);
+    throw error;
+  }
+};
+
 // Utility functions for chat management
 
 /**

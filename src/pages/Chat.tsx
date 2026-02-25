@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, Send, Smile, Smartphone, X } from 'lucide-react';
+import { ArrowLeft, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -20,6 +20,7 @@ import {
   getChatMessageCount,
   startChatWithContact,
   checkForNewMessages,
+  clearChatHistoryForPair,
   NotificationInfo,
   GifInfo,
   sendGifMessage
@@ -1158,6 +1159,8 @@ const Chat = () => {
         }));
         const result = await execWebChat({
           messages: [...historyForApi, { role: 'user', content: textToSend }],
+          user: user.principalId,
+          user_nickname: user.nickname || user.name || '',
           stream: false
         });
         const aiContent = result.success && result.data?.choices?.[0]?.message?.content
@@ -1225,6 +1228,32 @@ const Chat = () => {
 
   const handleBackToContracts = () => {
     navigate('/contracts');
+  };
+
+  const handleDeleteAllChatRecords = async () => {
+    if (!user?.principalId || !contactPrincipalId) return;
+    const confirmed = window.confirm(t('chat.deleteAllChatRecordsConfirm'));
+    if (!confirmed) return;
+    try {
+      if (isAiContact) {
+        const storageKey = `${AI_CHAT_STORAGE_KEY_PREFIX}${user.principalId}`;
+        localStorage.removeItem(storageKey);
+        setMessages([]);
+        setCurrentPage(0);
+        setHasMoreMessages(false);
+        toast({ title: t('chat.deleteAllChatRecordsSuccess'), variant: 'default' });
+      } else {
+        await clearChatHistoryForPair(user.principalId, contactPrincipalId);
+        setMessages([]);
+        setCurrentPage(0);
+        setHasMoreMessages(false);
+        setSocialPairKey('');
+        toast({ title: t('chat.deleteAllChatRecordsSuccess'), variant: 'default' });
+      }
+    } catch (e) {
+      console.error('[Chat] Error deleting chat records:', e);
+      toast({ title: t('chat.deleteAllChatRecordsFailed'), variant: 'destructive' });
+    }
   };
 
   const handleEmojiClick = () => {
@@ -1351,6 +1380,18 @@ const Chat = () => {
                               )}
                             </p>
                           </div>
+                        </div>
+                        <div className={styles.chat__header__actions}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={styles.chat__delete_all__button}
+                            onClick={handleDeleteAllChatRecords}
+                            title={t('chat.deleteAllChatRecords')}
+                            aria-label={t('chat.deleteAllChatRecords')}
+                          >
+                            <Trash2 className={styles.chat__delete_all__icon} />
+                          </Button>
                         </div>
                       </div>
                     </div>

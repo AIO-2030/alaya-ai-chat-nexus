@@ -13,8 +13,6 @@ import {
   Smartphone,
   Mic,
   CreditCard,
-  ChevronRight,
-  X
 } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { BottomNavigation } from '../components/BottomNavigation';
@@ -32,6 +30,7 @@ import {
   type ClaimTicket,
   type TaskStatus,
 } from '../services/api/taskRewardsApi';
+import styles from '../styles/pages/TaskRewards.module.css';
 
 // Task ID to display name mapping
 const TASK_NAMES: Record<string, string> = {
@@ -40,37 +39,37 @@ const TASK_NAMES: Record<string, string> = {
   'voice_clone': 'Voice Clone',
 };
 
-// Task ID to icon mapping (function to avoid JSX execution at module level)
+// Task ID to icon mapping (size from parent .taskCard__icon svg in CSS)
 const getTaskIcon = (taskId: string): React.ReactNode => {
   switch (taskId) {
     case 'register_device':
-      return <Smartphone className="h-4 w-4" />;
+      return <Smartphone />;
     case 'ai_subscription':
-      return <CreditCard className="h-4 w-4" />;
+      return <CreditCard />;
     case 'voice_clone':
-      return <Mic className="h-4 w-4" />;
+      return <Mic />;
     default:
-      return <Gift className="h-4 w-4" />;
+      return <Gift />;
   }
 };
 
-// Task status to display mapping
-const getStatusDisplay = (status: TaskStatus): { label: string; color: string; icon: React.ReactNode } => {
+// Task status to display mapping (color is CSS module class name)
+const getStatusDisplay = (status: TaskStatus, statusIconClass: string): { label: string; colorClass: string; icon: React.ReactNode } => {
   switch (status) {
     case 'NotStarted':
-      return { label: 'Not Started', color: 'text-gray-400', icon: <Clock className="h-4 w-4" /> };
+      return { label: 'Not Started', colorClass: styles.statusGray, icon: <Clock className={statusIconClass} /> };
     case 'InProgress':
-      return { label: 'In Progress', color: 'text-blue-400', icon: <Loader2 className="h-4 w-4 animate-spin" /> };
+      return { label: 'In Progress', colorClass: styles.statusBlue, icon: <Loader2 className={`${statusIconClass} ${styles.statusIconSpin}`} /> };
     case 'Completed':
-      return { label: 'Completed', color: 'text-green-400', icon: <CheckCircle2 className="h-4 w-4" /> };
+      return { label: 'Completed', colorClass: styles.statusGreen, icon: <CheckCircle2 className={statusIconClass} /> };
     case 'RewardPrepared':
-      return { label: 'Reward Ready', color: 'text-yellow-400', icon: <Gift className="h-4 w-4" /> };
+      return { label: 'Reward Ready', colorClass: styles.statusYellow, icon: <Gift className={statusIconClass} /> };
     case 'TicketIssued':
-      return { label: 'Ticket Issued', color: 'text-orange-400', icon: <Gift className="h-4 w-4" /> };
+      return { label: 'Ticket Issued', colorClass: styles.statusOrange, icon: <Gift className={statusIconClass} /> };
     case 'Claimed':
-      return { label: 'Claimed', color: 'text-purple-400', icon: <CheckCircle2 className="h-4 w-4" /> };
+      return { label: 'Claimed', colorClass: styles.statusPurple, icon: <CheckCircle2 className={statusIconClass} /> };
     default:
-      return { label: status, color: 'text-white/60', icon: <Clock className="h-4 w-4" /> };
+      return { label: status, colorClass: styles.statusMuted, icon: <Clock className={statusIconClass} /> };
   }
 };
 
@@ -263,40 +262,35 @@ const TaskRewards = () => {
   if (!isSolanaConnected) {
     return (
       <PageLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+        <div className={styles.page}>
           <AppHeader />
-          
-          <div className="relative z-10 p-4 pb-20 pt-24">
-            <div className="flex items-center gap-4 mb-6">
+          <div className={styles.content}>
+            <div className={styles.header}>
               <button
                 onClick={() => navigate({ pathname: '/profile', search: location.search })}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className={styles.backButton}
               >
-                <ArrowLeft className="h-5 w-5 text-white" />
+                <ArrowLeft className={styles.backIcon} />
               </button>
-              <h1 className="text-2xl font-bold text-white">Task Rewards</h1>
+              <h1 className={styles.title}>Task Rewards</h1>
             </div>
-            
-            <div className="bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-2xl p-6 border border-white/10 backdrop-blur-xl">
-              <div className="text-center">
-                <Coins className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-white mb-2">
-                  Connect Your Wallet
-                </h2>
-                <p className="text-white/60 mb-6">
+            <div className={styles.connectCard}>
+              <div className={styles.connectCard__inner}>
+                <Coins className={styles.connectCard__icon} />
+                <h2 className={styles.connectCard__title}>Connect Your Wallet</h2>
+                <p className={styles.connectCard__text}>
                   Please connect your Phantom wallet to view and claim rewards.
                 </p>
                 <button
                   onClick={connectSolanaWallet}
                   disabled={isSolanaConnecting}
-                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white rounded-lg font-medium transition-all disabled:opacity-50"
+                  className={styles.connectButton}
                 >
                   {isSolanaConnecting ? 'Connecting...' : 'Connect Wallet'}
                 </button>
               </div>
             </div>
           </div>
-          
           <BottomNavigation />
         </div>
       </PageLayout>
@@ -305,99 +299,76 @@ const TaskRewards = () => {
 
   return (
     <PageLayout>
-      <style>{`
-        .task-scroll-container::-webkit-scrollbar {
-          display: none;
-        }
-        .task-scroll-container {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      <div className={styles.page}>
         <AppHeader />
-        
-        {/* Animated background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse animation-delay-700"></div>
+        <div className={styles.bgBlur}>
+          <div className={styles.bgBlur__orb1} />
+          <div className={styles.bgBlur__orb2} />
         </div>
-
-        <div className="relative z-10 p-4 pb-20 pt-24">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
+        <div className={styles.content}>
+          <div className={styles.header}>
             <button
-                onClick={() => navigate({ pathname: '/profile', search: location.search })}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              onClick={() => navigate({ pathname: '/profile', search: location.search })}
+              className={styles.backButton}
             >
-              <ArrowLeft className="h-5 w-5 text-white" />
+              <ArrowLeft className={styles.backIcon} />
             </button>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Task Rewards</h1>
-              <p className="text-white/60 text-sm">
+            <div className={styles.headerMeta}>
+              <h1 className={styles.title}>Task Rewards</h1>
+              <p className={styles.subtitle}>
                 {solanaAddress?.slice(0, 6)}...{solanaAddress?.slice(-4)}
               </p>
             </div>
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+            <div className={styles.loading}>
+              <Loader2 className={styles.loadingSpinner} />
             </div>
           ) : error ? (
-            <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-2 text-red-200">
-                <AlertCircle className="h-5 w-5" />
+            <div className={styles.errorBox}>
+              <div className={styles.errorBox__content}>
+                <AlertCircle className={styles.errorBox__icon} />
                 <span>{error}</span>
               </div>
             </div>
           ) : (
             <>
               {/* Tasks List */}
-              <div className="mb-6">
-                <h2 className="text-base font-semibold text-white/90 mb-3">Your Tasks</h2>
-                <div 
-                  className="task-scroll-container flex flex-col gap-3 overflow-y-auto max-h-[60vh] pr-2 scroll-smooth"
-                  style={{
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
+              <div className={styles.tasksSection}>
+                <h2 className={styles.tasksTitle}>Your Tasks</h2>
+                <div className={styles.scrollContainer}>
                   {taskState?.tasks.map((task) => {
-                    const contract = taskContract.find(t => t.taskid === task.taskid);
                     const status = taskStatusToString(task.status);
-                    const statusDisplay = getStatusDisplay(status);
+                    const statusDisplay = getStatusDisplay(status, styles.taskCard__statusIcon);
                     const taskName = TASK_NAMES[task.taskid] || task.taskid;
                     const taskIcon = getTaskIcon(task.taskid);
                     const showCompleted = !!(task.completed_at && task.completed_at !== 0n);
                     const evidenceText = task.evidence && task.evidence.length > 0 ? task.evidence[0] : null;
-                    
                     return (
-                      <div
-                        key={task.taskid}
-                        className="w-full bg-gradient-to-r from-cyan-400/10 to-purple-400/10 rounded-xl p-3 border border-white/10 backdrop-blur-xl shadow-lg"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1.5 bg-cyan-400/20 rounded-lg flex-shrink-0">
-                            <div className="text-cyan-400 w-5 h-5">{taskIcon}</div>
+                      <div key={task.taskid} className={styles.taskCard}>
+                        <div className={styles.taskCard__row1}>
+                          <div className={styles.taskCard__iconWrap}>
+                            <div className={styles.taskCard__icon}>{taskIcon}</div>
                           </div>
-                          <h3 className="text-white font-semibold text-sm leading-tight flex-1">{taskName}</h3>
+                          <h3 className={styles.taskCard__name}>{taskName}</h3>
                         </div>
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <div className={`flex items-center gap-1.5 text-xs ${statusDisplay.color}`}>
-                            <span className="flex-shrink-0">{statusDisplay.icon}</span>
+                        <div className={styles.taskCard__row2}>
+                          <div className={`${styles.taskCard__status} ${statusDisplay.colorClass}`}>
+                            <span className={styles.taskCard__statusIcon}>{statusDisplay.icon}</span>
                             <span>{statusDisplay.label}</span>
                           </div>
-                          <span className="text-xs text-white/70 whitespace-nowrap font-medium">
+                          <span className={styles.taskCard__reward}>
                             {formatAmount(task.reward_amount)} PMUG
                           </span>
                         </div>
                         {showCompleted && (
-                          <div className="mt-1.5 text-[10px] text-white/50">
+                          <div className={styles.taskCard__completed}>
                             Completed: {formatDate(task.completed_at)}
                           </div>
                         )}
                         {evidenceText && (
-                          <p className="mt-1 text-[10px] text-white/40 break-words">Evidence: {evidenceText}</p>
+                          <p className={styles.taskCard__evidence}>Evidence: {evidenceText}</p>
                         )}
                       </div>
                     );
@@ -407,22 +378,22 @@ const TaskRewards = () => {
 
               {/* Claim Section */}
               {(claimStatus === 'ready' || claimStatus === 'fetching-ticket' || claimStatus === 'ticket-ready' || claimStatus === 'submitting-tx' || claimStatus === 'confirming' || claimStatus === 'updating-backend') && (
-                <div className="mb-6">
-                  <div className="bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-purple-500/20 rounded-xl p-6 border border-yellow-400/30">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Sparkles className="h-6 w-6 text-yellow-400" />
-                      <h2 className="text-lg font-semibold text-white">Claim Your Rewards</h2>
+                <div className={styles.claimSection}>
+                  <div className={styles.claimCard}>
+                    <div className={styles.claimCard__header}>
+                      <Sparkles className={styles.claimCard__icon} />
+                      <h2 className={styles.claimCard__title}>Claim Your Rewards</h2>
                     </div>
-                    <p className="text-white/80 mb-4">
+                    <p className={styles.claimCard__text}>
                       You have rewards ready to claim! Click the button below to claim your PMUG tokens.
                     </p>
                     <button
                       onClick={handleClaim}
                       disabled={claimStatus !== 'ready' && claimStatus !== 'ticket-ready'}
-                      className="w-full px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className={styles.claimButton}
                     >
                       {(claimStatus === 'fetching-ticket' || claimStatus === 'submitting-tx' || claimStatus === 'confirming' || claimStatus === 'updating-backend') && (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className={styles.claimButtonSpinner} />
                       )}
                       {claimStatus === 'ticket-ready' ? 'Confirm Claim' : claimStatus === 'ready' ? 'Claim Rewards' : 'Processing...'}
                     </button>
@@ -431,34 +402,33 @@ const TaskRewards = () => {
               )}
 
               {claimStatus === 'success' && (
-                <div className="mb-6 bg-green-500/20 border border-green-500/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-green-200">
-                    <CheckCircle2 className="h-5 w-5" />
+                <div className={styles.successBox}>
+                  <div className={styles.successBox__content}>
+                    <CheckCircle2 className={styles.successBox__icon} />
                     <span>Successfully claimed your rewards!</span>
                   </div>
                 </div>
               )}
 
               {claimStatus === 'failed' && (
-                <div className="mb-6 bg-red-500/20 border border-red-500/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-red-200">
-                    <AlertCircle className="h-5 w-5" />
+                <div className={styles.failedBox}>
+                  <div className={styles.failedBox__content}>
+                    <AlertCircle className={styles.failedBox__icon} />
                     <span>{error || 'Claim failed. Please try again.'}</span>
                   </div>
                 </div>
               )}
 
               {claimStatus === 'no-rewards' && (
-                <div className="mb-6 bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                  <Gift className="h-12 w-12 text-white/40 mx-auto mb-3" />
-                  <p className="text-white/60">No rewards available to claim at this time.</p>
-                  <p className="text-white/40 text-sm mt-2">Complete tasks to earn rewards!</p>
+                <div className={styles.noRewardsBox}>
+                  <Gift className={styles.noRewardsBox__icon} />
+                  <p className={styles.noRewardsBox__text}>No rewards available to claim at this time.</p>
+                  <p className={styles.noRewardsBox__hint}>Complete tasks to earn rewards!</p>
                 </div>
               )}
             </>
           )}
         </div>
-
         <BottomNavigation />
       </div>
     </PageLayout>

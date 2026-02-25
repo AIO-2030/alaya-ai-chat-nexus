@@ -581,6 +581,11 @@ export interface _SERVICE {
     { 'Ok' : bigint } |
       { 'Err' : string }
   >,
+  'clear_chat_history_for_pair' : ActorMethod<
+    [string, string],
+    { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
   'complete_task' : ActorMethod<
     [string, string, [] | [string], bigint],
     { 'Ok' : null } |

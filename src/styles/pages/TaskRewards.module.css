@@ -1,0 +1,454 @@
+/**
+ * Task Rewards Page Styles
+ * Pure black background, grayscale panels/buttons, font & accent colors unchanged
+ */
+
+/* ===== Page & Layout ===== */
+.page {
+  min-height: 100vh;
+  background: #000000;
+  position: relative;
+  overflow: hidden;
+}
+
+.content {
+  position: relative;
+  z-index: 10;
+  padding: 6rem 1rem 5rem;
+}
+
+/* ===== Animated Background ===== */
+.bgBlur {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.bgBlur__orb1 {
+  position: absolute;
+  top: 5rem;
+  left: 5rem;
+  width: 18rem;
+  height: 18rem;
+  background: rgba(26, 26, 26, 0.6);
+  border-radius: 9999px;
+  filter: blur(64px);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.bgBlur__orb2 {
+  position: absolute;
+  bottom: 5rem;
+  right: 5rem;
+  width: 24rem;
+  height: 24rem;
+  background: rgba(38, 38, 38, 0.5);
+  border-radius: 9999px;
+  filter: blur(64px);
+  animation: pulse 2s ease-in-out infinite 0.7s;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ===== Header ===== */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.backButton {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.backButton:hover {
+  background: #1a1a1a;
+}
+
+.backIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: white;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
+
+.headerMeta {
+  display: block;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+/* ===== Connect Wallet Card (not connected state) ===== */
+.connectCard {
+  background: #141414;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #262626;
+}
+
+.connectCard__inner {
+  text-align: center;
+}
+
+.connectCard__icon {
+  width: 4rem;
+  height: 4rem;
+  color: #facc15;
+  margin: 0 auto 1rem;
+  display: block;
+}
+
+.connectCard__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+.connectCard__text {
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 1.5rem;
+}
+
+.connectButton {
+  padding: 0.75rem 1.5rem;
+  background: #262626;
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.connectButton:hover {
+  background: #404040;
+}
+
+.connectButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Loading ===== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 0;
+}
+
+.loadingSpinner {
+  width: 2rem;
+  height: 2rem;
+  color: #22d3ee;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Error Box ===== */
+.errorBox {
+  background: #141414;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.errorBox__content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fecaca;
+}
+
+.errorBox__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+/* ===== Tasks Section ===== */
+.tasksSection {
+  margin-bottom: 1.5rem;
+}
+
+.tasksTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.75rem;
+}
+
+.scrollContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  max-height: 60vh;
+  padding-right: 0.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scrollContainer::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollContainer {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== Task Card ===== */
+.taskCard {
+  width: 100%;
+  background: #0d0d0d;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #262626;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.taskCard__row1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.taskCard__iconWrap {
+  padding: 0.375rem;
+  background: #1a1a1a;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.taskCard__icon {
+  color: #22d3ee;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: block;
+}
+
+.taskCard__name {
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  flex: 1;
+}
+
+.taskCard__row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.taskCard__status {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.taskCard__statusIcon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.statusIconSpin {
+  animation: spin 0.8s linear infinite;
+}
+
+.taskCard__icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Status colors */
+.statusGray { color: #9ca3af; }
+.statusBlue { color: #60a5fa; }
+.statusGreen { color: #4ade80; }
+.statusYellow { color: #facc15; }
+.statusOrange { color: #fb923c; }
+.statusPurple { color: #c084fc; }
+.statusMuted { color: rgba(255, 255, 255, 0.6); }
+
+.taskCard__reward {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.taskCard__completed {
+  margin-top: 0.375rem;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.taskCard__evidence {
+  margin-top: 0.25rem;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  word-break: break-word;
+}
+
+/* ===== Claim Section ===== */
+.claimSection {
+  margin-bottom: 1.5rem;
+}
+
+.claimCard {
+  background: #141414;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid #262626;
+}
+
+.claimCard__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.claimCard__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #facc15;
+  flex-shrink: 0;
+}
+
+.claimCard__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: white;
+}
+
+.claimCard__text {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+}
+
+.claimButton {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: #262626;
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.claimButton:hover:not(:disabled) {
+  background: #404040;
+}
+
+.claimButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.claimButtonSpinner {
+  width: 1rem;
+  height: 1rem;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ===== Success / Failed / No Rewards ===== */
+.successBox {
+  margin-bottom: 1.5rem;
+  background: #141414;
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.successBox__content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #bbf7d0;
+}
+
+.successBox__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.failedBox {
+  margin-bottom: 1.5rem;
+  background: #141414;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.failedBox__content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fecaca;
+}
+
+.failedBox__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.noRewardsBox {
+  margin-bottom: 1.5rem;
+  background: #141414;
+  border: 1px solid #262626;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.noRewardsBox__icon {
+  width: 3rem;
+  height: 3rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 auto 0.75rem;
+  display: block;
+}
+
+.noRewardsBox__text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.noRewardsBox__hint {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}

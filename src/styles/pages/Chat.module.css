@@ -129,12 +129,18 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
   .chat__header__content {
     gap: 1rem;
   }
+}
+
+.chat__header__actions {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .chat__back__button {
@@ -171,6 +177,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
 }
 
 @media (min-width: 640px) {
@@ -194,6 +202,30 @@
   border-width: 2px;
   border-color: #000000;
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.chat__delete_all__button {
+  flex-shrink: 0;
+  padding: 0.375rem;
+  color: rgba(255, 255, 255, 0.6);
+  background-color: transparent !important;
+}
+
+.chat__delete_all__button:hover {
+  color: rgba(239, 68, 68, 0.9);
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.chat__delete_all__icon {
+  height: 1rem;
+  width: 1rem;
+}
+
+@media (min-width: 640px) {
+  .chat__delete_all__icon {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
 }
 
 @media (min-width: 640px) {
