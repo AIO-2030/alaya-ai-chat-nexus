@@ -1,18 +1,39 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth';
+import { useSolanaWallet } from '../lib/solanaWallet';
 import { AppHeader } from '../components/AppHeader';
-import { MessageSquare, Sparkles, Globe, Heart, Infinity, Mic } from 'lucide-react';
+import { MessageSquare, Sparkles, Globe, Heart, Infinity, Mic, Bot, Mic2, Loader2 } from 'lucide-react';
 import { PageLayout } from '../components/PageLayout';
 import { useNavigate } from 'react-router-dom';
 import { BottomNavigation } from '../components/BottomNavigation';
 import { VoiceRecordingDialog } from '../components/VoiceRecordingDialog';
+import { WalletConnectPanel } from '../components/WalletConnectPanel';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import styles from '../styles/pages/Index.module.css';
+import type { ServiceType } from '../services/api/aiSubscriptionApi';
+import {
+  listAiSubscriptionServices,
+  createAiSubscriptionRecord,
+} from '../services/api/aiSubscriptionApi';
+import type { PriceLevel } from '../services/api/aiSubscriptionApi';
+import { buildUsdtTransferTransaction } from '../lib/solanaUsdt';
+import { recordPayment } from '../services/api/taskRewardsApi';
 
 const Index = () => {
+  const { t } = useTranslation();
   const { user, loading: authLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const {
+    address: solanaAddress,
+    isConnected: isSolanaConnected,
+    signAndSendTransaction,
+  } = useSolanaWallet();
+  const [showAISubscriptionSheet, setShowAISubscriptionSheet] = useState(false);
+  const [subscriptionServices, setSubscriptionServices] = useState<ServiceType[]>([]);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [payingSvrId, setPayingSvrId] = useState<string | null>(null);
 
   // Agent ID configuration - default master agent
   const defaultAgentId = "agent_01jz8rr062f41tsyt56q8fzbrz";
@@ -44,13 +65,13 @@ const Index = () => {
     });
     
     if (!isAuthenticated() || !user) {
-      alert('Please login first to create your custom voice');
+      alert(t('index.loginRequiredForVoice'));
       return;
     }
     
     if (!user.principalId) {
       console.error('[Index] User exists but principalId is missing:', user);
-      alert('User authentication incomplete. Please login again.');
+      alert(t('index.authIncomplete'));
       return;
     }
 
@@ -68,7 +89,7 @@ const Index = () => {
       }
     } catch (error) {
       console.error('Error checking user AI config:', error);
-      alert('Failed to check your voice configuration. Please try again.');
+      alert(t('index.voiceConfigCheckFailed'));
     }
   };
 
@@ -114,16 +135,77 @@ const Index = () => {
       setShowVoiceDialog(true);
     } catch (error) {
       console.error('Error deleting user AI config:', error);
-      alert('Failed to delete existing voice. Please try again.');
+      alert(t('index.deleteVoiceFailed'));
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Fetch AI subscription service types when sheet opens
+  useEffect(() => {
+    if (!showAISubscriptionSheet || !isSolanaConnected) return;
+    setSubscriptionLoading(true);
+    listAiSubscriptionServices()
+      .then(setSubscriptionServices)
+      .catch((e) => {
+        console.error('[Index] Failed to load subscription services:', e);
+        setSubscriptionServices([]);
+      })
+      .finally(() => setSubscriptionLoading(false));
+  }, [showAISubscriptionSheet, isSolanaConnected]);
+
+  // Pay with USDT (Solana) for a subscription and record on backend
+  const handlePayWithUsdt = async (service: ServiceType) => {
+    if (!solanaAddress || !signAndSendTransaction) {
+      alert(t('index.subscriptionWalletRequired'));
+      return;
+    }
+    const priceNum = Number(service.price);
+    if (priceNum <= 0 || !Number.isFinite(priceNum)) {
+      alert(t('index.invalidPrice'));
+      return;
+    }
+    setPayingSvrId(service.svr_id);
+    try {
+      const tx = await buildUsdtTransferTransaction(solanaAddress, priceNum);
+      const txSig = await signAndSendTransaction(tx);
+      const ts = BigInt(Math.floor(Date.now() * 1000));
+      const payDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const principalId = user?.principalId ?? solanaAddress;
+      const payfor = 'ai_subscription';
+      const amountSmallest = BigInt(Math.round(priceNum * 1_000_000));
+
+      await recordPayment(solanaAddress, amountSmallest, txSig, ts, payfor);
+
+      // 支付成功后，将支付结果提交到 aio-base-backend 的 subscription_record
+      const createResult = await createAiSubscriptionRecord({
+        principal_id: principalId,
+        pay_walletid: solanaAddress,
+        svr_id: service.svr_id,
+        pay_date: payDate,
+        status: { Normal: null },
+      });
+
+      if ('Err' in createResult) {
+        console.error('[Index] subscription_record 提交失败:', createResult.Err);
+        alert(t('index.subscriptionRecordFailed', { error: createResult.Err, txSig: txSig.slice(0, 16) }));
+        return;
+      }
+
+      setShowAISubscriptionSheet(false);
+      alert(t('index.paymentSuccessWithSubscription', { txSig: txSig.slice(0, 8) }));
+    } catch (e: any) {
+      console.error('[Index] USDT payment failed:', e);
+      alert(e?.message || t('index.paymentFailed'));
+    } finally {
+      setPayingSvrId(null);
     }
   };
 
   // Handle voice recording completion
   const handleVoiceRecorded = async (audioBlob: Blob) => {
     if (!user || !user.principalId || !user.userId) {
-      alert('User information is incomplete. Please login again.');
+      alert(t('index.userInfoIncomplete'));
       return;
     }
 
@@ -134,17 +216,41 @@ const Index = () => {
       const result = await createCustomVoiceAgent(user.principalId, audioBlob, defaultAgentId, user.userId);
       
       if (result.success) {
-        alert('Your custom voice has been created successfully!');
+        // 更新代币奖励任务：语音克隆完成
+        if (solanaAddress) {
+          try {
+            const { completeTask } = await import('../services/api/taskRewardsApi');
+            const taskResult = await completeTask(
+              solanaAddress,
+              'voice_clone',
+              result.agentId ?? result.voiceId,
+              BigInt(Date.now() * 1_000_000)
+            );
+            if ('Err' in taskResult) {
+              console.warn('[Index] Failed to complete voice_clone task:', taskResult.Err);
+            }
+          } catch (taskErr) {
+            console.warn('[Index] Error completing voice_clone task:', taskErr);
+          }
+        }
+        alert(t('index.voiceCreatedSuccess'));
         setShowVoiceDialog(false);
       } else {
-        alert(`Failed to create custom voice: ${result.error || 'Unknown error'}`);
+        alert(t('index.voiceCreatedFailed', { error: result.error || 'Unknown error' }));
       }
     } catch (error) {
       console.error('Error creating custom voice:', error);
-      alert('Failed to create custom voice. Please try again.');
+      alert(t('index.voiceCreatedTryAgain'));
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const getPriceLevelLabel = (pl: PriceLevel): string => {
+    if (pl && 'M' in pl) return t('index.priceLevelMonth');
+    if (pl && 'Y' in pl) return t('index.priceLevelYear');
+    if (pl && 'E' in pl) return t('index.priceLevelPermanent');
+    return '';
   };
 
   // Auto-scroll to bottom when new messages arrive
@@ -198,9 +304,20 @@ const Index = () => {
 
         {/* Main Content - Introduction and Guide */}
         <div className={styles.index__container}>
-          {/* Profile Avatar */}
-          <div className={styles.index__profile__avatar}>
-            <img src="agent_logo.png" alt="UNV" className={styles.index__profile__avatar__image} />
+          {/* Profile Avatar + Floating AI Subscription button (avatar top-right) */}
+          <div className={styles.index__avatar__wrap}>
+            <div className={styles.index__profile__avatar}>
+              <img src="agent_logo.png" alt="UNV" className={styles.index__profile__avatar__image} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAISubscriptionSheet(true)}
+              className={styles.index__float__btn}
+              aria-label={t('index.aiSubscription') || 'AI Subscription'}
+            >
+              <Sparkles className={styles.index__float__btn__icon} aria-hidden />
+              <span className={styles.index__float__btn__text}>{t('index.aiSubscription') || 'AI Subscription'}</span>
+            </button>
           </div>
 
           {/* Title Section - Two Separate Modules */}
@@ -232,21 +349,21 @@ const Index = () => {
             </button>
           </div>
 
-          {/* Feature Items - Horizontal Layout */}
-          <div className={styles.index__features__container}>
-            <div className={styles.index__feature__item}>
-              <Heart className={styles.index__feature__icon} />
+          {/* Feature Banner - Slogan strip (visually distinct from Bottom Bar) */}
+          <section className={styles.index__features__container} aria-label="Why Univoice">
+            <div className={`${styles.index__feature__item} ${styles['index__feature__item--authentic']}`}>
+              <Heart className={styles.index__feature__icon} aria-hidden />
               <span className={styles.index__feature__text}>Authentic</span>
             </div>
-            <div className={styles.index__feature__item}>
-              <Globe className={styles.index__feature__icon} />
+            <div className={`${styles.index__feature__item} ${styles['index__feature__item--freedom']}`}>
+              <Globe className={styles.index__feature__icon} aria-hidden />
               <span className={styles.index__feature__text}>Freedom</span>
             </div>
-            <div className={styles.index__feature__item}>
-              <Infinity className={styles.index__feature__icon} />
+            <div className={`${styles.index__feature__item} ${styles['index__feature__item--infinity']}`}>
+              <Infinity className={styles.index__feature__icon} aria-hidden />
               <span className={styles.index__feature__text}>Infinity</span>
             </div>
-          </div>
+          </section>
         </div>
 
         {/* Bottom Navigation - Mobile only */}
@@ -254,18 +371,90 @@ const Index = () => {
           <BottomNavigation />
         </div>
 
+        {/* AI Subscription Sheet (drawer): connect wallet or choose subscription */}
+        <Sheet open={showAISubscriptionSheet} onOpenChange={setShowAISubscriptionSheet}>
+          <SheetContent
+            side="right"
+            className={styles.index__subscription__sheet}
+          >
+            <SheetHeader>
+              <SheetTitle className={styles.index__subscription__sheet__title}>
+                {t('index.aiSubscriptionSheetTitle') || 'AI Subscription'}
+              </SheetTitle>
+            </SheetHeader>
+            <div className={styles.index__subscription__sheet__body}>
+              {!isSolanaConnected ? (
+                <WalletConnectPanel
+                  variant="compact"
+                  showTitle={true}
+                  onConnected={() => {}}
+                />
+              ) : (
+                <div className={styles.index__subscription__sheet__body__content}>
+                  {subscriptionLoading ? (
+                    <div className={styles.index__subscription__loading}>
+                      <Loader2 className={styles.index__subscription__loading__icon} aria-hidden />
+                      <span>{t('common.loading') || 'Loading...'}</span>
+                    </div>
+                  ) : subscriptionServices.length === 0 ? (
+                    <p className={styles.index__subscription__empty}>
+                      {t('index.noSubscriptionServices') || 'No subscription plans available.'}
+                    </p>
+                  ) : (
+                    <div className={styles.index__subscription__options}>
+                      {subscriptionServices.map((svc) => {
+                        const priceNum = Number(svc.price);
+                        const isPaying = payingSvrId === svc.svr_id;
+                        return (
+                          <div key={svc.svr_id} className={styles.index__subscription__option__card}>
+                            <div className={styles.index__subscription__option}>
+                              <div className={styles.index__subscription__option__content}>
+                                <span className={styles.index__subscription__option__title}>
+                                  {svc.name}
+                                </span>
+                                <span className={styles.index__subscription__option__desc}>
+                                  {getPriceLevelLabel(svc.price_level)} · {priceNum} {t('common.currencyUsdt')}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className={styles.index__subscription__pay__btn}
+                                disabled={isPaying}
+                                onClick={() => handlePayWithUsdt(svc)}
+                              >
+                                {isPaying ? (
+                                  <>
+                                    <Loader2 className={styles.index__subscription__pay__btn__spinner} aria-hidden />
+                                    {t('index.paying') || 'Paying...'}
+                                  </>
+                                ) : (
+                                  `${t('index.payUsdt')} ${priceNum} ${t('common.currencyUsdt')}`
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Existing Voice?</AlertDialogTitle>
+              <AlertDialogTitle>{t('index.deleteVoiceConfirmTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
-                You already have a custom voice. Creating a new one will delete your existing voice and agent. This action cannot be undone.
+                {t('index.deleteVoiceConfirmDesc')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteConfirm}>Delete and Continue</AlertDialogAction>
+              <AlertDialogCancel>{t('index.deleteVoiceConfirmCancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm}>{t('index.deleteVoiceConfirmAction')}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

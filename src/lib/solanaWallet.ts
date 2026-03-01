@@ -1,5 +1,5 @@
 import React from 'react';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { SignClient } from '@walletconnect/sign-client';
 import type { SessionTypes } from '@walletconnect/types';
 
@@ -695,6 +695,58 @@ class SolanaWalletManager {
     localStorage.removeItem('solana_wallet_address');
   }
 
+  /**
+   * Sign and send a Solana transaction (e.g. USDT transfer).
+   * Uses Phantom or WalletConnect depending on current connection.
+   * @returns Transaction signature (txid) on success
+   */
+  async signAndSendTransaction(transaction: Transaction): Promise<string> {
+    const provider = this.getPhantomProvider();
+    if (provider?.isConnected && provider.publicKey) {
+      let result: any;
+      if (typeof (provider as any).signAndSendTransaction === 'function') {
+        result = await (provider as any).signAndSendTransaction(transaction, {
+          preflightCommitment: 'confirmed',
+          skipPreflight: false,
+        });
+      } else {
+        const serialized = transaction.serialize({
+          requireAllSignatures: false,
+          verifySignatures: false,
+        });
+        const base64 = Buffer.from(serialized).toString('base64');
+        result = await (provider as any).request({
+          method: 'signAndSendTransaction',
+          params: { message: base64, options: { preflightCommitment: 'confirmed' } },
+        });
+      }
+      const sig = result?.signature ?? result;
+      if (typeof sig === 'string') return sig;
+      if (sig && typeof sig === 'object' && 'signature' in sig) return (sig as { signature: string }).signature;
+      throw new Error('No transaction signature returned');
+    }
+    if (this.signClient && this.session) {
+      const serialized = transaction.serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
+      });
+      const base64 = Buffer.from(serialized).toString('base64');
+      const result = await this.signClient.request({
+        topic: this.session.topic,
+        chainId: SOLANA_CAIP2_CHAIN_ID,
+        request: {
+          method: 'solana_signAndSendTransaction',
+          params: { transaction: base64 },
+        },
+      });
+      const sig = result as string | { signature: string } | undefined;
+      if (typeof sig === 'string') return sig;
+      if (sig && typeof sig === 'object' && 'signature' in sig) return (sig as { signature: string }).signature;
+      throw new Error('No transaction signature returned');
+    }
+    throw new Error('Wallet not connected. Connect Phantom or WalletConnect first.');
+  }
+
   async getTokenBalance(address?: string): Promise<{
     balance: number;
     decimals: number;
@@ -915,5 +967,6 @@ export const useSolanaWallet = () => {
     disconnect: () => solanaWalletManager.disconnect(),
     getTokenBalance: (address?: string) => solanaWalletManager.getTokenBalance(address),
     setManualAddress: (address: string) => solanaWalletManager.setManualAddress(address),
+    signAndSendTransaction: (tx: Transaction) => solanaWalletManager.signAndSendTransaction(tx),
   };
 };

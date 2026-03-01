@@ -1,0 +1,569 @@
+/**
+ * WalletConnectPanel - shared wallet connect UI, black/dark theme
+ */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.titleSection {
+  margin-bottom: 0.25rem;
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.titleIcon {
+  width: 1rem;
+  height: 1rem;
+  color: #fbbf24;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+}
+
+.connectButton {
+  width: 100%;
+  padding: 1rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connectButton:hover:not(:disabled) {
+  background: #262626;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.connectButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.connectButtonContent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connectButtonIconContainer {
+  padding: 0.5rem;
+  background: #262626;
+  border-radius: 8px;
+}
+
+.connectButtonIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #fbbf24;
+}
+
+.connectButtonText {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.connectButtonChevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.connectionHint {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.connectionHintText {
+  font-size: 0.875rem;
+  color: #bfdbfe;
+  margin: 0;
+  text-align: center;
+}
+
+.qrSection {
+  padding: 1rem;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+}
+
+.qrTitle {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0 0 0.75rem 0;
+  text-align: center;
+}
+
+.qrCodeContainer {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  background: #ffffff;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.qrCode {
+  height: auto;
+  max-width: 100%;
+  width: 100%;
+}
+
+.openButton {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: #1E3A5F;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.openButton:hover {
+  background: #2a4a6f;
+}
+
+.copyButton {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copyButton:hover {
+  background: #262626;
+}
+
+.mobileHint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.saveQrButton {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.saveQrButton:hover {
+  background: #262626;
+}
+
+.saveQrIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.qrHint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin: 0.75rem 0 0 0;
+  text-align: center;
+}
+
+.error {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: #fecaca;
+  margin: 0;
+}
+
+.errorManualBtn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(34, 211, 238, 0.15);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 8px;
+  color: #67e8f9;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.errorManualBtn:hover {
+  background: rgba(34, 211, 238, 0.25);
+}
+
+/* Connected state */
+.connectedCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+}
+
+.connectedContent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connectedIconContainer {
+  padding: 0.5rem;
+  background: #262626;
+  border-radius: 8px;
+}
+
+.connectedIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #fbbf24;
+}
+
+.connectedInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.connectedText {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.connectedAddress {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8125rem;
+  margin: 0.25rem 0 0 0;
+  font-family: ui-monospace, monospace;
+}
+
+.disconnectButton {
+  padding: 0.375rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s;
+}
+
+.disconnectButton:hover {
+  background: #262626;
+  color: #ffffff;
+}
+
+.disconnectIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.earnButton {
+  width: 100%;
+  padding: 1rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.earnButton:hover {
+  background: #262626;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.earnButtonContent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.earnButtonIconContainer {
+  padding: 0.5rem;
+  background: #262626;
+  border-radius: 8px;
+}
+
+.earnButtonIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #fbbf24;
+}
+
+.earnButtonTextContainer {
+  text-align: left;
+}
+
+.earnButtonText {
+  color: #ffffff;
+  font-weight: 600;
+  display: block;
+}
+
+.earnButtonSubtext {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.earnButtonChevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tokenBalance {
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.tokenBalanceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tokenBalanceLabel {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+}
+
+.tokenBalanceValue {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.tokenBalanceName {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0 0;
+}
+
+/* Compact connected (brief message in sheet) */
+.compactConnected {
+  padding: 1rem;
+  text-align: center;
+}
+
+.compactConnectedText {
+  color: #ffffff;
+  font-weight: 600;
+  margin: 0;
+}
+
+.compactConnectedAddress {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+  font-family: ui-monospace, monospace;
+}
+
+/* Manual address modal */
+.manualOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.manualModal {
+  width: 100%;
+  max-width: 24rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.manualHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.manualTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.manualClose {
+  padding: 0.375rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s;
+}
+
+.manualClose:hover {
+  background: #262626;
+  color: #ffffff;
+}
+
+.manualCloseIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.manualHint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.manualInputRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.manualInput {
+  flex: 1;
+  padding: 0.625rem 0.75rem;
+  background: #262626;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-family: ui-monospace, monospace;
+  outline: none;
+}
+
+.manualInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.manualInput:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.manualPasteBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  background: #262626;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.manualPasteBtn:hover {
+  background: #333333;
+}
+
+.manualPasteIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.manualError {
+  font-size: 0.8125rem;
+  color: #fca5a5;
+  margin-bottom: 0.75rem;
+}
+
+.manualActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.manualSubmit {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: #1E3A5F;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.manualSubmit:hover:not(:disabled) {
+  opacity: 0.95;
+}
+
+.manualSubmit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manualCancel {
+  padding: 0.625rem 1rem;
+  background: #262626;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.manualCancel:hover {
+  background: #333333;
+}

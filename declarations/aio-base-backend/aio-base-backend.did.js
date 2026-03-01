@@ -117,10 +117,33 @@ export const idlFactory = ({ IDL }) => {
     'devices' : IDL.Vec(IDL.Text),
     'passwd' : IDL.Opt(IDL.Text),
   });
+  const PriceLevel = IDL.Variant({
+    'E' : IDL.Null,
+    'M' : IDL.Null,
+    'Y' : IDL.Null,
+  });
+  const ServiceType = IDL.Record({
+    'svr_id' : IDL.Text,
+    'name' : IDL.Text,
+    'price_level' : PriceLevel,
+    'price' : IDL.Nat64,
+  });
+  const SubscriptionStatus = IDL.Variant({
+    'Normal' : IDL.Null,
+    'Resolved' : IDL.Null,
+  });
+  const SubscriptionRecord = IDL.Record({
+    'status' : SubscriptionStatus,
+    'pay_date' : IDL.Text,
+    'svr_id' : IDL.Text,
+    'pay_walletid' : IDL.Text,
+    'principal_id' : IDL.Text,
+  });
   const MerkleSnapshotMeta = IDL.Record({
     'leaves_count' : IDL.Nat64,
     'root' : IDL.Vec(IDL.Nat8),
     'locked' : IDL.Bool,
+    'created_at' : IDL.Nat64,
     'epoch' : IDL.Nat64,
   });
   const TokenGrantStatus = IDL.Variant({
@@ -539,6 +562,74 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'admin_set_bitpay_pos_token' : IDL.Func([IDL.Text], [], []),
+    'ai_sub_create_service' : IDL.Func(
+        [ServiceType],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'ai_sub_create_subscription_record' : IDL.Func(
+        [SubscriptionRecord],
+        [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
+        [],
+      ),
+    'ai_sub_delete_service' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'ai_sub_get_active_subscriptions' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(SubscriptionRecord)],
+        ['query'],
+      ),
+    'ai_sub_get_service' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(ServiceType)],
+        ['query'],
+      ),
+    'ai_sub_get_subscription_record' : IDL.Func(
+        [IDL.Nat64],
+        [IDL.Opt(SubscriptionRecord)],
+        ['query'],
+      ),
+    'ai_sub_is_subscribed' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Bool],
+        ['query'],
+      ),
+    'ai_sub_list_services' : IDL.Func([], [IDL.Vec(ServiceType)], ['query']),
+    'ai_sub_list_services_paginated' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(ServiceType)],
+        ['query'],
+      ),
+    'ai_sub_list_subscriptions_by_principal' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(SubscriptionRecord)],
+        ['query'],
+      ),
+    'ai_sub_list_subscriptions_by_principal_paginated' : IDL.Func(
+        [IDL.Text, IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(SubscriptionRecord)],
+        ['query'],
+      ),
+    'ai_sub_resolve_subscription' : IDL.Func(
+        [IDL.Nat64],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'ai_sub_service_count' : IDL.Func([], [IDL.Nat64], ['query']),
+    'ai_sub_subscription_record_count' : IDL.Func([], [IDL.Nat64], ['query']),
+    'ai_sub_update_service' : IDL.Func(
+        [IDL.Text, ServiceType],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
+    'ai_sub_update_subscription_status' : IDL.Func(
+        [IDL.Nat64, SubscriptionStatus],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
     'authenticate_user_with_email_password' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text })],
@@ -576,12 +667,12 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
         [],
       ),
-    'clear_notifications_for_pair' : IDL.Func(
+    'clear_chat_history_for_pair' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
         [],
       ),
-    'clear_chat_history_for_pair' : IDL.Func(
+    'clear_notifications_for_pair' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Variant({ 'Ok' : IDL.Nat64, 'Err' : IDL.Text })],
         [],

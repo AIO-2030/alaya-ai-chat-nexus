@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '../lib/auth';
+import { useSolanaWallet } from '../lib/solanaWallet';
 import { AppHeader } from '../components/AppHeader';
 import { AppSidebar } from '../components/AppSidebar';
 import { BottomNavigation } from '../components/BottomNavigation';
@@ -17,6 +18,7 @@ import styles from '../styles/pages/AddDevice.module.css';
 const AddDevice = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { address: solanaAddress } = useSolanaWallet();
   const { t } = useTranslation();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [wifiPassword, setWifiPassword] = useState('');
@@ -141,8 +143,27 @@ const AddDevice = () => {
 
   const handleSubmitDeviceRecord = async () => {
     try {
+      // 在 submit 前保存设备信息，因成功后 manager 会 reset 清空 selectedBluetoothDevice
+      const deviceEvidence = deviceInitState.selectedBluetoothDevice?.id ?? deviceInitState.selectedBluetoothDevice?.name;
       const success = await submitDeviceRecord();
       if (success) {
+        // 更新代币奖励任务：配网/注册设备完成（绑定过钱包则执行）
+        if (solanaAddress) {
+          try {
+            const { completeTask } = await import('../services/api/taskRewardsApi');
+            const taskResult = await completeTask(
+              solanaAddress,
+              'register_device',
+              deviceEvidence,
+              BigInt(Date.now() * 1_000_000)
+            );
+            if ('Err' in taskResult) {
+              console.warn('[AddDevice] Failed to complete register_device task:', taskResult.Err);
+            }
+          } catch (taskErr) {
+            console.warn('[AddDevice] Error completing register_device task:', taskErr);
+          }
+        }
         navigate('/my-devices');
       }
     } catch (error) {

@@ -234,6 +234,7 @@ export interface MerkleSnapshotMeta {
   'leaves_count' : bigint,
   'root' : Uint8Array | number[],
   'locked' : boolean,
+  'created_at' : bigint,
   'epoch' : bigint,
 }
 export type MessageMode = { 'Gif' : null } |
@@ -305,6 +306,9 @@ export type PixelRow = Uint16Array | number[];
 export type Platform = { 'Linux' : null } |
   { 'Both' : null } |
   { 'Windows' : null };
+export type PriceLevel = { 'E' : null } |
+  { 'M' : null } |
+  { 'Y' : null };
 export interface Project {
   'updated_at' : bigint,
   'owner' : Principal,
@@ -354,6 +358,12 @@ export interface SchemaProperty {
   'items' : [] | [SchemaProperty],
   'enum_values' : [] | [Array<string>],
 }
+export interface ServiceType {
+  'svr_id' : string,
+  'name' : string,
+  'price_level' : PriceLevel,
+  'price' : bigint,
+}
 export interface Source {
   'author' : string,
   'version' : string,
@@ -375,6 +385,15 @@ export type SubscriptionPlan = { 'Premium' : null } |
   { 'Enterprise' : null } |
   { 'Free' : null } |
   { 'Basic' : null };
+export interface SubscriptionRecord {
+  'status' : SubscriptionStatus,
+  'pay_date' : string,
+  'svr_id' : string,
+  'pay_walletid' : string,
+  'principal_id' : string,
+}
+export type SubscriptionStatus = { 'Normal' : null } |
+  { 'Resolved' : null };
 export interface TaskContractItem {
   'reward' : bigint,
   'taskid' : string,
@@ -543,6 +562,61 @@ export interface _SERVICE {
       { 'Err' : string }
   >,
   'admin_set_bitpay_pos_token' : ActorMethod<[string], undefined>,
+  'ai_sub_create_service' : ActorMethod<
+    [ServiceType],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'ai_sub_create_subscription_record' : ActorMethod<
+    [SubscriptionRecord],
+    { 'Ok' : bigint } |
+      { 'Err' : string }
+  >,
+  'ai_sub_delete_service' : ActorMethod<
+    [string],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'ai_sub_get_active_subscriptions' : ActorMethod<
+    [string],
+    Array<SubscriptionRecord>
+  >,
+  'ai_sub_get_service' : ActorMethod<[string], [] | [ServiceType]>,
+  'ai_sub_get_subscription_record' : ActorMethod<
+    [bigint],
+    [] | [SubscriptionRecord]
+  >,
+  'ai_sub_is_subscribed' : ActorMethod<[string, string], boolean>,
+  'ai_sub_list_services' : ActorMethod<[], Array<ServiceType>>,
+  'ai_sub_list_services_paginated' : ActorMethod<
+    [bigint, bigint],
+    Array<ServiceType>
+  >,
+  'ai_sub_list_subscriptions_by_principal' : ActorMethod<
+    [string],
+    Array<SubscriptionRecord>
+  >,
+  'ai_sub_list_subscriptions_by_principal_paginated' : ActorMethod<
+    [string, bigint, bigint],
+    Array<SubscriptionRecord>
+  >,
+  'ai_sub_resolve_subscription' : ActorMethod<
+    [bigint],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'ai_sub_service_count' : ActorMethod<[], bigint>,
+  'ai_sub_subscription_record_count' : ActorMethod<[], bigint>,
+  'ai_sub_update_service' : ActorMethod<
+    [string, ServiceType],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
+  'ai_sub_update_subscription_status' : ActorMethod<
+    [bigint, SubscriptionStatus],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
   'authenticate_user_with_email_password' : ActorMethod<
     [string, string],
     { 'Ok' : string } |
@@ -576,12 +650,12 @@ export interface _SERVICE {
     { 'Ok' : bigint } |
       { 'Err' : string }
   >,
-  'clear_notifications_for_pair' : ActorMethod<
+  'clear_chat_history_for_pair' : ActorMethod<
     [string, string],
     { 'Ok' : bigint } |
       { 'Err' : string }
   >,
-  'clear_chat_history_for_pair' : ActorMethod<
+  'clear_notifications_for_pair' : ActorMethod<
     [string, string],
     { 'Ok' : bigint } |
       { 'Err' : string }
