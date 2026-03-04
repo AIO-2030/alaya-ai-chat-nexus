@@ -26,6 +26,17 @@ const SOLANA_CAIP2_CHAIN_ID = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 // Token contract address
 const TOKEN_MINT_ADDRESS = 'V8tLkyqHdtzzYCGdsVf5CZ55BsLuvu7F4TchiDhJgem';
 
+/** Browser-safe Uint8Array to base64 (no Node Buffer) */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const CHUNK = 8192;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const sub = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(sub));
+  }
+  return btoa(binary);
+}
+
 interface SolanaWalletState {
   address: string | null;
   isConnected: boolean;
@@ -714,7 +725,7 @@ class SolanaWalletManager {
           requireAllSignatures: false,
           verifySignatures: false,
         });
-        const base64 = Buffer.from(serialized).toString('base64');
+        const base64 = uint8ArrayToBase64(serialized);
         result = await (provider as any).request({
           method: 'signAndSendTransaction',
           params: { message: base64, options: { preflightCommitment: 'confirmed' } },
@@ -730,7 +741,7 @@ class SolanaWalletManager {
         requireAllSignatures: false,
         verifySignatures: false,
       });
-      const base64 = Buffer.from(serialized).toString('base64');
+      const base64 = uint8ArrayToBase64(serialized);
       const result = await this.signClient.request({
         topic: this.session.topic,
         chainId: SOLANA_CAIP2_CHAIN_ID,

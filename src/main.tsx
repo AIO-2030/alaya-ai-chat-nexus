@@ -1,3 +1,12 @@
+// Polyfill Buffer for browser (required by @solana/web3.js / @solana/spl-token)
+import { Buffer } from 'buffer'
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).Buffer = Buffer
+}
+if (typeof window !== 'undefined') {
+  (window as any).Buffer = Buffer
+}
+
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './i18n'

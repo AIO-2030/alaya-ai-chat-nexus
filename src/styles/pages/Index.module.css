@@ -196,11 +196,17 @@
   }
 }
 
-/* AI Subscription Sheet - dark theme */
+/* AI Subscription Sheet - dark theme，自下而上弹出 */
 .index__subscription__sheet {
   background: #000000 !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
   color: #ffffff;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .index__subscription__sheet__title {
@@ -208,9 +214,15 @@
   font-weight: 600;
 }
 
+/* 底部留出 bottom bar 高度 + 安全区，适配不同屏幕，避免内容被遮挡 */
 .index__subscription__sheet__body {
   padding-top: 1rem;
+  padding-left: 1rem;
   padding-right: 1rem;
+  padding-bottom: calc(var(--bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + var(--spacing-md, 1rem));
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .index__subscription__sheet__body__content {

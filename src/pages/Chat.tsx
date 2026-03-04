@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { ArrowLeft, Bot, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
@@ -34,9 +34,16 @@ import { deviceApiService, DeviceRecord } from '../services/api/deviceApi';
 import { convertPixelToGif, GifResult } from '../lib/pixelToGifConverter';
 import { cn } from '../lib/utils';
 import { execWebChat, AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID } from '../runtime/AIOProtocolExecutor';
+import { isSubscribedToPersonalAi } from '../services/api/aiSubscriptionApi';
+import { formatChatForAiSuggestion, buildWebChatMessagesForSuggestion } from '../lib/formatChatForAiSuggestion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import styles from '../styles/pages/Chat.module.css';
 
 const AI_CHAT_STORAGE_KEY_PREFIX = 'aio_webchat_chat_';
+/** 未订阅用户与 Univoice AI 的累计会话次数（按 principal 存本地） */
+const AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX = 'aio_webchat_ai_guest_session_count_';
+const AI_CHAT_GUEST_SESSION_LIMIT = 3;
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -188,6 +195,10 @@ const Chat = () => {
   const [isSendingToDevice, setIsSendingToDevice] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
   const [sendProgressText, setSendProgressText] = useState('');
+  /** AI 回复建议抽屉：仅真人聊天显示 */
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const [aiSuggestionContent, setAiSuggestionContent] = useState('');
+  const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -326,6 +337,19 @@ const Chat = () => {
     lastUpdateTime: deviceStatusUpdateTime
   } = useGlobalDeviceStatus(contactPrincipalId ? [contactPrincipalId] : []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const MAX_INPUT_HEIGHT_PX = 120; // 7.5rem ≈ 5 行
+
+  const adjustInputHeight = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = '0';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT_PX)}px`;
+  }, []);
+
+  useEffect(() => {
+    adjustInputHeight();
+  }, [newMessage, adjustInputHeight]);
 
   // Check if contact info needs to be restored from sessionStorage on component load
   useEffect(() => {
@@ -1145,6 +1169,23 @@ const Chat = () => {
           return;
         }
         const textToSend = newMessage.trim();
+
+        // 未订阅 personal AI 时仅允许累计 3 次会话，超出后提示去订阅
+        const subscribed = await isSubscribedToPersonalAi(user.principalId);
+        if (!subscribed) {
+          const guestCountKey = `${AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX}${user.principalId}`;
+          const count = parseInt(localStorage.getItem(guestCountKey) || '0', 10);
+          if (count >= AI_CHAT_GUEST_SESSION_LIMIT) {
+            toast({
+              title: t('chat.aiSessionLimitReached'),
+              description: t('chat.aiSessionLimitReachedDesc'),
+              variant: 'destructive',
+            });
+            setLoading(false);
+            return;
+          }
+        }
+
         setNewMessage('');
         const userMsg: ChatMessageInfo = {
           sendBy: user.principalId,
@@ -1176,6 +1217,12 @@ const Chat = () => {
         const storageKey = `${AI_CHAT_STORAGE_KEY_PREFIX}${user.principalId}`;
         const toSave = [...messages, userMsg, aiMsg];
         localStorage.setItem(storageKey, JSON.stringify(toSave));
+
+        if (!subscribed) {
+          const guestCountKey = `${AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX}${user.principalId}`;
+          const count = parseInt(localStorage.getItem(guestCountKey) || '0', 10);
+          localStorage.setItem(guestCountKey, String(count + 1));
+        }
         console.log('[Chat] AI message sent and saved to localStorage');
       } else {
         if (pendingGif) {
@@ -1255,6 +1302,46 @@ const Chat = () => {
       toast({ title: t('chat.deleteAllChatRecordsFailed'), variant: 'destructive' });
     }
   };
+
+  const handleRequestAiSuggestion = useCallback(async () => {
+    if (!user?.principalId || isAiContact) return;
+    const recent = messages.slice(-10);
+    if (recent.length === 0) {
+      toast({
+        title: t('chat.aiSuggestion.noMessages') || 'No messages',
+        description: t('chat.aiSuggestion.noMessagesDesc') || 'Send some messages first to get suggestions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setAiDrawerOpen(true);
+    setAiSuggestionContent('');
+    setAiSuggestionLoading(true);
+    try {
+      const formattedPrompt = formatChatForAiSuggestion({
+        messages,
+        userPrincipalId: user.principalId,
+        partnerDisplayName: contactName || contactNickname || 'partner',
+        maxMessages: 10,
+      });
+      const webChatMessages = buildWebChatMessagesForSuggestion(formattedPrompt);
+      const result = await execWebChat({
+        messages: webChatMessages,
+        user: user.principalId,
+        user_nickname: user.nickname || user.name || '',
+        stream: false,
+      });
+      const text = result.success && result.data?.choices?.[0]?.message?.content
+        ? result.data.choices[0].message.content
+        : (result.error || (t('chat.aiSuggestion.error') || 'Failed to get suggestion'));
+      setAiSuggestionContent(text);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setAiSuggestionContent(t('chat.aiSuggestion.error') || 'Error: ' + msg);
+    } finally {
+      setAiSuggestionLoading(false);
+    }
+  }, [user?.principalId, user?.nickname, user?.name, messages, contactName, contactNickname, isAiContact, toast, t]);
 
   const handleEmojiClick = () => {
     // Contact info check removed - functionality works correctly without this warning
@@ -1541,7 +1628,9 @@ const Chat = () => {
                               )}
                             </div>
                           ) : (
-                            <p className={styles.chat__message__text}>{message.content}</p>
+                            <div className={styles.chat__message__text}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                            </div>
                           )}
                           <div className={styles.chat__message__meta}>
                             <p className={styles.chat__message__time}>{formatTimestamp(message.timestamp)}</p>
@@ -1791,20 +1880,23 @@ const Chat = () => {
                         </div>
                       )}
 
-                      {/* Message Input Row */}
+                      {/* Message Input Row - 多行输入：Enter 换行，Ctrl/Cmd+Enter 发送 */}
                       <div className={styles.chat__input__row}>
                         <div className={styles.chat__input__field}>
-                          <Input
+                          <textarea
+                            ref={inputRef}
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             placeholder={t('common.typeYourMessage') as string}
-                            className="w-full bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter' && !loading) {
+                            className={cn(styles.chat__input__textarea, 'w-full bg-white/5 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm text-xs sm:text-sm')}
+                            rows={1}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                                 e.preventDefault();
-                                handleSendMessage();
+                                if (!loading) handleSendMessage();
                               }
                             }}
+                            aria-label={t('common.typeYourMessage') as string}
                           />
                         </div>
                         
@@ -1834,7 +1926,19 @@ const Chat = () => {
                           <Smile className={styles.chat__function__button__icon} />
                           {t('common.emoji')}
                         </Button>
-                        
+                        {!isAiContact && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={styles.chat__function__button}
+                            onClick={handleRequestAiSuggestion}
+                            disabled={aiSuggestionLoading || messages.length === 0}
+                            title={t('chat.withAiAssistant') || 'With AI assistant'}
+                          >
+                            <Bot className={styles.chat__function__button__icon} />
+                            {t('chat.withAiAssistant') || 'With AI assistant'}
+                          </Button>
+                        )}
                         {/* Device Status Indicator - Hidden in chat page as we show contact's devices instead */}
                         {/* <DeviceStatusIndicator 
                           showDetails={false}
@@ -1876,7 +1980,46 @@ const Chat = () => {
           </div>
         </div>
 
-
+        {/* AI 回复建议抽屉：仅真人聊天时通过按钮打开 */}
+        {aiDrawerOpen && (
+          <>
+            <div
+              className={styles.chat__ai_drawer__backdrop}
+              onClick={() => !aiSuggestionLoading && setAiDrawerOpen(false)}
+              aria-hidden="true"
+            />
+            <div className={cn(styles.chat__ai_drawer, aiDrawerOpen && styles.chat__ai_drawer__open)}>
+              <div className={styles.chat__ai_drawer__handle} />
+              <div className={styles.chat__ai_drawer__header}>
+                <h2 className={styles.chat__ai_drawer__title}>
+                  {t('chat.aiSuggestion.title') || 'AI Reply Suggestion'}
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={styles.chat__ai_drawer__close}
+                  onClick={() => !aiSuggestionLoading && setAiDrawerOpen(false)}
+                  disabled={aiSuggestionLoading}
+                  aria-label={t('common.close') || 'Close'}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className={styles.chat__ai_drawer__body}>
+                {aiSuggestionLoading ? (
+                  <div className={styles.chat__ai_drawer__loading}>
+                    <div className={styles.chat__messages__loading__more__spinner} />
+                    <span>{t('chat.aiSuggestion.loading') || 'Getting suggestion...'}</span>
+                  </div>
+                ) : (
+                  <div className={styles.chat__ai_drawer__content}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiSuggestionContent || '—'}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </PageLayout>
   );

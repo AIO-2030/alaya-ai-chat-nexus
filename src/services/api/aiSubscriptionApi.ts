@@ -76,3 +76,50 @@ export const priceLevelLabel = (pl: PriceLevel): string => {
   if (pl && 'E' in pl) return '永久';
   return '';
 };
+
+/**
+ * 获取用户当前有效的 AI 订阅列表（status 为 Normal）
+ */
+export const getActiveAiSubscriptions = async (
+  principalId: string
+): Promise<SubscriptionRecord[]> => {
+  const a = getActor() as any;
+  if (typeof a.ai_sub_get_active_subscriptions !== 'function') {
+    return [];
+  }
+  const list = await a.ai_sub_get_active_subscriptions(principalId);
+  return (list || []).map((r: any) => ({
+    principal_id: r.principal_id ?? '',
+    pay_walletid: r.pay_walletid ?? '',
+    svr_id: r.svr_id ?? '',
+    pay_date: r.pay_date ?? '',
+    status: r.status ?? { Normal: null },
+  }));
+};
+
+/**
+ * 检查用户是否已订阅 personal AI（任意有效 AI 订阅即视为已订阅）
+ */
+export const isSubscribedToPersonalAi = async (
+  principalId: string
+): Promise<boolean> => {
+  const active = await getActiveAiSubscriptions(principalId);
+  return active.length > 0;
+};
+
+/** 后端服务 ID：个人 AI 对话（Start Chat） */
+export const SVR_ID_PERSONAL_AI = 'ai_subscription';
+/** 后端服务 ID：语音克隆（Create My Voice） */
+export const SVR_ID_VOICE_CLONE = 'voice_clone';
+
+/**
+ * 检查用户是否已订阅指定服务（按 svr_id）
+ */
+export const isSubscribedToService = async (
+  principalId: string,
+  svrId: string
+): Promise<boolean> => {
+  const a = getActor() as any;
+  if (typeof a.ai_sub_is_subscribed !== 'function') return false;
+  return a.ai_sub_is_subscribed(principalId, svrId);
+};

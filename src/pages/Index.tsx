@@ -16,9 +16,12 @@ import type { ServiceType } from '../services/api/aiSubscriptionApi';
 import {
   listAiSubscriptionServices,
   createAiSubscriptionRecord,
+  isSubscribedToService,
+  SVR_ID_PERSONAL_AI,
+  SVR_ID_VOICE_CLONE,
 } from '../services/api/aiSubscriptionApi';
 import type { PriceLevel } from '../services/api/aiSubscriptionApi';
-import { buildUsdtTransferTransaction } from '../lib/solanaUsdt';
+import { buildUsdtTransferTransaction, USDT_DECIMALS } from '../lib/solanaUsdt';
 import { recordPayment } from '../services/api/taskRewardsApi';
 
 const Index = () => {
@@ -42,33 +45,40 @@ const Index = () => {
   const [showVoiceDialog, setShowVoiceDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  /** 未订阅时弹窗：'chat' = Start Chat 需个人 AI 订阅，'voice' = Create My Voice 需语音克隆订阅 */
+  const [showSubscribePrompt, setShowSubscribePrompt] = useState<'chat' | 'voice' | null>(null);
   
   console.log('🚀 Index component mounted with defaultAgentId:', defaultAgentId);
 
   // Agent ID validation
   const isValidAgentId = defaultAgentId && defaultAgentId.startsWith('agent_');
 
-  // Handle navigation to ElevenLabs chat page
-  const handleStartChat = () => {
-    console.log('🚀 Navigating to ElevenLabs chat page');
-    navigate('/elevenlabs-chat');
+  // Handle navigation to ElevenLabs chat page（需已登录且已订阅个人 AI）
+  const handleStartChat = async () => {
+    if (!isAuthenticated() || !user?.principalId) {
+      alert(t('index.loginRequiredForVoice'));
+      return;
+    }
+    try {
+      const subscribed = await isSubscribedToService(user.principalId, SVR_ID_PERSONAL_AI);
+      if (!subscribed) {
+        setShowSubscribePrompt('chat');
+        return;
+      }
+      console.log('🚀 Navigating to ElevenLabs chat page');
+      navigate('/elevenlabs-chat');
+    } catch (e) {
+      console.error('[Index] Check subscription for Start Chat failed:', e);
+      setShowSubscribePrompt('chat');
+    }
   };
 
-  // Handle Create My Voice button click
+  // Handle Create My Voice button click（需已登录且已订阅语音克隆）
   const handleCreateMyVoice = async () => {
-    // Check if user is logged in
-    console.log('[Index] Checking authentication:', {
-      isAuthenticated: isAuthenticated(),
-      hasUser: !!user,
-      principalId: user?.principalId,
-      loginStatus: user?.loginStatus,
-    });
-    
     if (!isAuthenticated() || !user) {
       alert(t('index.loginRequiredForVoice'));
       return;
     }
-    
     if (!user.principalId) {
       console.error('[Index] User exists but principalId is missing:', user);
       alert(t('index.authIncomplete'));
@@ -76,15 +86,23 @@ const Index = () => {
     }
 
     try {
-      // Check if user already has a custom agent
-      const { get_user_ai_config, has_user_ai_config } = await import('../services/api/aiApi');
+      const subscribed = await isSubscribedToService(user.principalId, SVR_ID_VOICE_CLONE);
+      if (!subscribed) {
+        setShowSubscribePrompt('voice');
+        return;
+      }
+    } catch (e) {
+      console.error('[Index] Check subscription for Create My Voice failed:', e);
+      setShowSubscribePrompt('voice');
+      return;
+    }
+
+    try {
+      const { has_user_ai_config } = await import('../services/api/aiApi');
       const hasConfig = await has_user_ai_config(user.principalId);
-      
       if (hasConfig) {
-        // Show delete confirmation dialog
         setShowDeleteConfirm(true);
       } else {
-        // No existing config, proceed directly
         setShowVoiceDialog(true);
       }
     } catch (error) {
@@ -154,33 +172,42 @@ const Index = () => {
       .finally(() => setSubscriptionLoading(false));
   }, [showAISubscriptionSheet, isSolanaConnected]);
 
-  // Pay with USDT (Solana) for a subscription and record on backend
+  // Pay with USDT (Solana) for a subscription and record on backend. When price is 0, skip wallet and write order only.
   const handlePayWithUsdt = async (service: ServiceType) => {
-    if (!solanaAddress || !signAndSendTransaction) {
-      alert(t('index.subscriptionWalletRequired'));
-      return;
-    }
-    const priceNum = Number(service.price);
-    if (priceNum <= 0 || !Number.isFinite(priceNum)) {
+    const amountSmallest = BigInt(service.price);
+    const humanAmount = usdtSmallestToHuman(service.price);
+    if (humanAmount < 0 || !Number.isFinite(humanAmount)) {
       alert(t('index.invalidPrice'));
       return;
     }
+
+    const isFree = amountSmallest === 0n;
+    if (!isFree && (!solanaAddress || !signAndSendTransaction)) {
+      alert(t('index.subscriptionWalletRequired'));
+      return;
+    }
+
+    const principalId = user?.principalId ?? solanaAddress ?? '';
+    if (!principalId) {
+      alert(t('index.subscriptionWalletRequired')); // 免费也需身份
+      return;
+    }
+
     setPayingSvrId(service.svr_id);
+    let txSig = '';
     try {
-      const tx = await buildUsdtTransferTransaction(solanaAddress, priceNum);
-      const txSig = await signAndSendTransaction(tx);
-      const ts = BigInt(Math.floor(Date.now() * 1000));
+      if (!isFree) {
+        const tx = await buildUsdtTransferTransaction(solanaAddress!, humanAmount);
+        txSig = await signAndSendTransaction(tx);
+        const ts = BigInt(Math.floor(Date.now() * 1000));
+        const payfor = 'ai_subscription';
+        await recordPayment(solanaAddress!, amountSmallest, txSig, ts, payfor);
+      }
+
       const payDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const principalId = user?.principalId ?? solanaAddress;
-      const payfor = 'ai_subscription';
-      const amountSmallest = BigInt(Math.round(priceNum * 1_000_000));
-
-      await recordPayment(solanaAddress, amountSmallest, txSig, ts, payfor);
-
-      // 支付成功后，将支付结果提交到 aio-base-backend 的 subscription_record
       const createResult = await createAiSubscriptionRecord({
         principal_id: principalId,
-        pay_walletid: solanaAddress,
+        pay_walletid: isFree ? '' : solanaAddress!,
         svr_id: service.svr_id,
         pay_date: payDate,
         status: { Normal: null },
@@ -193,7 +220,7 @@ const Index = () => {
       }
 
       setShowAISubscriptionSheet(false);
-      alert(t('index.paymentSuccessWithSubscription', { txSig: txSig.slice(0, 8) }));
+      alert(isFree ? t('index.subscriptionActivated') : t('index.paymentSuccessWithSubscription', { txSig: txSig.slice(0, 8) }));
     } catch (e: any) {
       console.error('[Index] USDT payment failed:', e);
       alert(e?.message || t('index.paymentFailed'));
@@ -251,6 +278,18 @@ const Index = () => {
     if (pl && 'Y' in pl) return t('index.priceLevelYear');
     if (pl && 'E' in pl) return t('index.priceLevelPermanent');
     return '';
+  };
+
+  /** Backend price is USDT smallest unit (6 decimals). Convert to human amount for display. */
+  const formatUsdtPrice = (priceSmallest: number | bigint): string => {
+    const n = Number(priceSmallest) / 10 ** USDT_DECIMALS;
+    if (!Number.isFinite(n) || n < 0) return '0';
+    return n % 1 === 0 ? String(n) : n.toFixed(2).replace(/\.?0+$/, '');
+  };
+
+  /** Backend price (smallest unit) → human USDT number for transfer. */
+  const usdtSmallestToHuman = (priceSmallest: number | bigint): number => {
+    return Number(priceSmallest) / 10 ** USDT_DECIMALS;
   };
 
   // Auto-scroll to bottom when new messages arrive
@@ -371,10 +410,10 @@ const Index = () => {
           <BottomNavigation />
         </div>
 
-        {/* AI Subscription Sheet (drawer): connect wallet or choose subscription */}
+        {/* AI Subscription Sheet (drawer): 自下而上弹出 */}
         <Sheet open={showAISubscriptionSheet} onOpenChange={setShowAISubscriptionSheet}>
           <SheetContent
-            side="right"
+            side="bottom"
             className={styles.index__subscription__sheet}
           >
             <SheetHeader>
@@ -403,7 +442,7 @@ const Index = () => {
                   ) : (
                     <div className={styles.index__subscription__options}>
                       {subscriptionServices.map((svc) => {
-                        const priceNum = Number(svc.price);
+                        const priceDisplay = formatUsdtPrice(svc.price);
                         const isPaying = payingSvrId === svc.svr_id;
                         return (
                           <div key={svc.svr_id} className={styles.index__subscription__option__card}>
@@ -413,7 +452,7 @@ const Index = () => {
                                   {svc.name}
                                 </span>
                                 <span className={styles.index__subscription__option__desc}>
-                                  {getPriceLevelLabel(svc.price_level)} · {priceNum} {t('common.currencyUsdt')}
+                                  {getPriceLevelLabel(svc.price_level)} · {priceDisplay} {t('common.currencyUsdt')}
                                 </span>
                               </div>
                               <button
@@ -428,7 +467,7 @@ const Index = () => {
                                     {t('index.paying') || 'Paying...'}
                                   </>
                                 ) : (
-                                  `${t('index.payUsdt')} ${priceNum} ${t('common.currencyUsdt')}`
+                                  `${t('index.payUsdt')} ${priceDisplay} ${t('common.currencyUsdt')}`
                                 )}
                               </button>
                             </div>
@@ -455,6 +494,31 @@ const Index = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>{t('index.deleteVoiceConfirmCancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteConfirm}>{t('index.deleteVoiceConfirmAction')}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 未订阅时提示：Start Chat 需个人 AI，Create My Voice 需语音克隆 */}
+        <AlertDialog open={!!showSubscribePrompt} onOpenChange={(open) => !open && setShowSubscribePrompt(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {showSubscribePrompt === 'chat' ? t('index.subscribeRequiredForChat') : t('index.subscribeRequiredForVoice')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {showSubscribePrompt === 'chat' ? t('index.subscribeRequiredForChatDesc') : t('index.subscribeRequiredForVoiceDesc')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setShowSubscribePrompt(null);
+                  setShowAISubscriptionSheet(true);
+                }}
+              >
+                {t('index.goToSubscribe')}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

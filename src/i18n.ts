@@ -195,7 +195,8 @@ const resources = {
         pasteFailed: 'Paste Failed',
         pasteFailedDesc: 'Could not read clipboard. Please paste manually or check permissions.',
         viewTasksAndRewards: 'View tasks and claim rewards',
-        currencyUsdt: 'USDT'
+        currencyUsdt: 'USDT',
+        close: 'Close'
       },
       index: {
         aiSubscription: 'AI Subscription',
@@ -212,6 +213,7 @@ const resources = {
         invalidPrice: 'Invalid price.',
         subscriptionRecordFailed: 'Payment is on-chain, but subscription record failed to save: {{error}}. Please keep transaction ID: {{txSig}}... and contact support.',
         paymentSuccessWithSubscription: 'Payment successful, subscription is active. Tx: {{txSig}}...',
+        subscriptionActivated: 'Subscription activated.',
         paymentFailed: 'Payment failed. Please try again.',
         loginRequiredForVoice: 'Please login first to create your custom voice',
         authIncomplete: 'User authentication incomplete. Please login again.',
@@ -227,7 +229,12 @@ const resources = {
         deleteVoiceConfirmAction: 'Delete and Continue',
         priceLevelMonth: 'Monthly',
         priceLevelYear: 'Yearly',
-        priceLevelPermanent: 'Permanent'
+        priceLevelPermanent: 'Permanent',
+        subscribeRequiredForChat: 'Personal AI subscription required',
+        subscribeRequiredForChatDesc: 'Please subscribe to Personal AI to use Start Chat.',
+        subscribeRequiredForVoice: 'Voice Clone subscription required',
+        subscribeRequiredForVoiceDesc: 'Please subscribe to Voice Clone to create your custom voice.',
+        goToSubscribe: 'Subscribe'
       },
       profile: {
         manualAddress: {
@@ -460,6 +467,17 @@ const resources = {
         success: {
           gifSent: 'GIF Sent',
           textSent: 'Message Sent'
+        },
+        aiSessionLimitReached: 'Session limit reached',
+        aiSessionLimitReachedDesc: 'You have used your 3 free sessions with Univoice AI. Subscribe to Personal AI for unlimited conversations.',
+        goToSubscribe: 'Subscribe',
+        withAiAssistant: 'With AI assistant',
+        aiSuggestion: {
+          title: 'AI Reply Suggestion',
+          noMessages: 'No messages',
+          noMessagesDesc: 'Send some messages first to get suggestions.',
+          loading: 'Getting suggestion...',
+          error: 'Failed to get suggestion'
         },
         error: {
           emptyMessage: 'Message is Empty',
@@ -777,7 +795,8 @@ const resources = {
         pasteFailed: '粘贴失败',
         pasteFailedDesc: '无法读取剪贴板，请手动输入或检查权限。',
         viewTasksAndRewards: '查看任务并领取奖励',
-        currencyUsdt: 'USDT'
+        currencyUsdt: 'USDT',
+        close: '关闭'
       },
       index: {
         aiSubscription: 'AI 订阅',
@@ -794,6 +813,7 @@ const resources = {
         invalidPrice: '价格无效。',
         subscriptionRecordFailed: '支付已上链，但订阅记录保存失败：{{error}}。请保留交易号：{{txSig}}... 并联系客服。',
         paymentSuccessWithSubscription: '支付成功，订阅已生效。交易号：{{txSig}}...',
+        subscriptionActivated: '订阅已开通。',
         paymentFailed: '支付失败，请重试。',
         loginRequiredForVoice: '请先登录以创建您的定制声音',
         authIncomplete: '用户认证不完整，请重新登录。',
@@ -809,7 +829,12 @@ const resources = {
         deleteVoiceConfirmAction: '删除并继续',
         priceLevelMonth: '月付',
         priceLevelYear: '年付',
-        priceLevelPermanent: '永久'
+        priceLevelPermanent: '永久',
+        subscribeRequiredForChat: '请先订阅个人 AI',
+        subscribeRequiredForChatDesc: '使用 Start Chat 需先订阅个人 AI，请先订阅后再使用。',
+        subscribeRequiredForVoice: '请先订阅语音克隆',
+        subscribeRequiredForVoiceDesc: '使用 Create My Voice 需先订阅语音克隆，请先订阅后再使用。',
+        goToSubscribe: '去订阅'
       },
       profile: {
         manualAddress: {
@@ -1042,6 +1067,17 @@ const resources = {
         success: {
           gifSent: 'GIF已发送',
           textSent: '消息已发送'
+        },
+        aiSessionLimitReached: '会话次数已用完',
+        aiSessionLimitReachedDesc: '您与 Univoice AI 的 3 次免费会话已用完。订阅 Personal AI 后可无限畅聊。',
+        goToSubscribe: '去订阅',
+        withAiAssistant: 'AI 助手',
+        aiSuggestion: {
+          title: 'AI 回复建议',
+          noMessages: '暂无消息',
+          noMessagesDesc: '先发送几条消息后再获取建议。',
+          loading: '正在获取建议...',
+          error: '获取建议失败'
         },
         error: {
           emptyMessage: '消息为空',
