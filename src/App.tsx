@@ -20,6 +20,7 @@ import DeviceSend from "./pages/DeviceSend";
 import Gallery from "./pages/Gallery";
 import Creation from "./pages/Creation";
 import TaskRewards from "./pages/TaskRewards";
+import WalletCallback from "./pages/WalletCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
                 <Route path="/gallery" element={<Gallery />} />
                 <Route path="/creation" element={<Creation />} />
                 <Route path="/task-rewards" element={<TaskRewards />} />
+                <Route path="/wallet-callback" element={<WalletCallback />} />
                 <Route path="/env-test" element={<EnvironmentTest />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

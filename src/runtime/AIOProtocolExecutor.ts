@@ -363,7 +363,15 @@ export async function execWebChat(options: ExecWebChatOptions): Promise<ExecWebC
     return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('[execWebChat] error:', message);
+    const err = error as Error & { name?: string; cause?: unknown };
+    console.error('[execWebChat] error:', message, {
+      name: err?.name,
+      cause: err?.cause,
+      endpoint
+    });
+    // iOS 模拟器常见：Safari/WebKit 对网络失败会报 "Load failed" 或 "网络连接已中断"，
+    // 可能原因：模拟器网络/DNS 与真机不同、代理/VPN、CORS（若页面来源与请求域不同）、
+    // 或跨域/混合内容策略。真机与 Chrome 正常时多为模拟器环境差异。
     return { success: false, error: message };
   }
 }

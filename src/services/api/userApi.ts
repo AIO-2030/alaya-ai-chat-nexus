@@ -358,6 +358,8 @@ export interface ContactInfo {
   nickname?: string;
   metadata?: string;
   contactPrincipalId?: string; // Add this field for sharing contacts
+  /** Unread count from chat-api DM session list */
+  unreadCount?: number;
 }
 
 // Convert backend Contact to frontend ContactInfo

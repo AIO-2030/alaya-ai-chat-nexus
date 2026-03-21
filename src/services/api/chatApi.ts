@@ -110,6 +110,9 @@ export interface ChatMessageInfo {
   mode: 'Text' | 'Voice' | 'Image' | 'Gif';  // Content type (Emoji, PixelArt, and Gif are all treated as Gif)
   timestamp: number;        // Message timestamp (in milliseconds)
   gifInfo?: GifInfo;        // Parsed GIF data when mode is Gif (includes emoji, pixel art, and GIF as single-frame GIF)
+  /** chat-api message id (SSE dedupe + read receipts) */
+  serverMessageId?: string;
+  clientMsgId?: string;
 }
 
 export interface NotificationInfo {

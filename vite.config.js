@@ -48,7 +48,8 @@ export default defineConfig(({ mode }) => ({
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
         connect-src 'self' 
-          http://localhost:* https://localhost:*
+          http://localhost:* http://127.0.0.1:*
+          https://localhost:*
           https://icp0.io https://*.icp0.io 
           https://icp-api.io 
           https://ic0.app https://*.ic0.app
@@ -57,7 +58,7 @@ export default defineConfig(({ mode }) => ({
           wss://api.elevenlabs.io wss://*.elevenlabs.io
           blob: ws: wss:;
         style-src 'self' 'unsafe-inline';
-        img-src 'self' data: https://lh3.googleusercontent.com;
+        img-src 'self' data: blob: https://lh3.googleusercontent.com https://media.giphy.com https://*.giphy.com https://via.placeholder.com http://localhost:9000 http://127.0.0.1:9000 https://*.amazonaws.com;
         font-src 'self';
         object-src 'none';
         base-uri 'self';

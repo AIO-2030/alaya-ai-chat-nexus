@@ -1,4 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useChatSse } from '../hooks/useChatSse';
+import {
+  hasUnivoiceChatAuth,
+  createOrGetDmSession,
+  listMessages,
+  sendTextMessage,
+  sendGifMessageDm,
+  markRead,
+  messageItemToChatMessageInfo,
+  type MessageItem,
+} from '../services/api/univoiceChatApi';
 import { ArrowLeft, Bot, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -41,7 +52,7 @@ import remarkGfm from 'remark-gfm';
 import styles from '../styles/pages/Chat.module.css';
 
 const AI_CHAT_STORAGE_KEY_PREFIX = 'aio_webchat_chat_';
-/** 未订阅用户与 Univoice AI 的累计会话次数（按 principal 存本地） */
+/** Guest session count for Univoice AI (per principal, localStorage) */
 const AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX = 'aio_webchat_ai_guest_session_count_';
 const AI_CHAT_GUEST_SESSION_LIMIT = 3;
 
@@ -63,9 +74,24 @@ const Chat = () => {
   const contactNickname = searchParams.get('contactNickname');
   const contactPrincipalId = searchParams.get('contactPrincipalId');
 
-  /** Univoice AI 联系人：使用 execWebChat + localStorage，不走 canister */
+  /** AI contact: execWebChat + localStorage (no canister) */
   const isAiContact = contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID;
 
+  /** Human chat with stored email credentials: chat-api + chat-sse; else canister */
+  const useUnivoiceDm = useMemo(
+    () => !isAiContact && hasUnivoiceChatAuth() && !!contactPrincipalId,
+    [isAiContact, contactPrincipalId]
+  );
+
+  const [dmSessionId, setDmSessionId] = useState<string | null>(null);
+  /** Cursor for loading older DM messages (chat-api `nextCursor`) */
+  const [univoiceNextCursor, setUnivoiceNextCursor] = useState<string | null>(null);
+  const lastMarkReadId = useRef<string | null>(null);
+
+  useEffect(() => {
+    setDmSessionId(null);
+    setUnivoiceNextCursor(null);
+  }, [contactPrincipalId]);
 
   // Check for immediate restoration needs
   const hasGifData = searchParams.get('gifData');
@@ -195,7 +221,7 @@ const Chat = () => {
   const [isSendingToDevice, setIsSendingToDevice] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
   const [sendProgressText, setSendProgressText] = useState('');
-  /** AI 回复建议抽屉：仅真人聊天显示 */
+  /** AI reply suggestion drawer (human chat only) */
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [aiSuggestionContent, setAiSuggestionContent] = useState('');
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
@@ -338,7 +364,7 @@ const Chat = () => {
   } = useGlobalDeviceStatus(contactPrincipalId ? [contactPrincipalId] : []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const MAX_INPUT_HEIGHT_PX = 120; // 7.5rem ≈ 5 行
+  const MAX_INPUT_HEIGHT_PX = 120; // ~7.5rem, ~5 lines
 
   const adjustInputHeight = useCallback(() => {
     const el = inputRef.current;
@@ -547,7 +573,7 @@ const Chat = () => {
         setIsLoadingChat(true);
 
         if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
-          // AI 联系人：从 localStorage 加载，不调用 canister
+          // AI contact: load from localStorage (no canister)
           const storageKey = `${AI_CHAT_STORAGE_KEY_PREFIX}${user.principalId}`;
           try {
             const raw = localStorage.getItem(storageKey);
@@ -560,6 +586,29 @@ const Chat = () => {
           setCurrentPage(0);
           setHasMoreMessages(false);
           console.log('[Chat] Loaded AI chat from localStorage');
+        } else if (useUnivoiceDm) {
+          console.log('[Chat] Initializing Univoice DM:', user.principalId, '↔', contactPrincipalId);
+          const summary = await createOrGetDmSession(user.principalId, contactPrincipalId, {
+            userNickname: user.nickname || user.name || undefined,
+          });
+          setDmSessionId(summary.sessionId);
+          const dmPageLimit = pageSize * pagesPerLoad;
+          const { items, nextCursor } = await listMessages(
+            user.principalId,
+            summary.sessionId,
+            undefined,
+            dmPageLimit
+          );
+          const sorted = [...items].sort(
+            (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+          );
+          setMessages(sorted.map(messageItemToChatMessageInfo));
+          setUnivoiceNextCursor(nextCursor);
+          setHasMoreMessages(!!nextCursor);
+          setSocialPairKey(summary.sessionId);
+          setCurrentPage(0);
+          lastMarkReadId.current = null;
+          console.log('[Chat] Univoice DM session:', summary.sessionId, 'messages:', sorted.length, 'hasMore:', !!nextCursor);
         } else {
           console.log('[Chat] Initializing chat between:', user.principalId, 'and', contactPrincipalId);
           const pairKey = await startChatWithContact(user.principalId, contactPrincipalId);
@@ -599,6 +648,7 @@ const Chat = () => {
       } catch (error) {
         console.error('[Chat] Error initializing chat:', error);
         setMessages([]);
+        setDmSessionId(null);
       } finally {
         setIsLoadingChat(false);
       }
@@ -609,9 +659,80 @@ const Chat = () => {
     } else {
       console.log('[Chat] Waiting for auth to complete before initializing chat');
     }
-  }, [user?.principalId, contactPrincipalId, authLoading]);
+  }, [user?.principalId, contactPrincipalId, authLoading, useUnivoiceDm]);
 
-  // 像素图数据现在通过GIF格式传递，不再需要单独处理
+  const onUnivoiceMessageNew = useCallback(
+    (m: MessageItem) => {
+      if (!user?.principalId) return;
+      setMessages((prev) => {
+        const ci = messageItemToChatMessageInfo(m);
+        const stripped = prev.filter((p) => {
+          if (p.serverMessageId) return true;
+          if (
+            ci.clientMsgId &&
+            p.clientMsgId &&
+            p.clientMsgId === ci.clientMsgId &&
+            p.sendBy === user.principalId
+          ) {
+            return false;
+          }
+          if (
+            p.clientMsgId &&
+            p.sendBy === user.principalId &&
+            p.content === ci.content &&
+            Math.abs(p.timestamp - ci.timestamp) < 120_000
+          ) {
+            return false;
+          }
+          return true;
+        });
+        if (stripped.some((x) => x.serverMessageId === ci.serverMessageId)) {
+          return prev;
+        }
+        return [...stripped, ci].sort((a, b) => a.timestamp - b.timestamp);
+      });
+    },
+    [user?.principalId]
+  );
+
+  const onUnivoiceSyncHint = useCallback(async () => {
+    if (!user?.principalId || !dmSessionId) return;
+    try {
+      const dmPageLimit = pageSize * pagesPerLoad;
+      const { items, nextCursor } = await listMessages(
+        user.principalId,
+        dmSessionId,
+        undefined,
+        dmPageLimit
+      );
+      const sorted = [...items].sort(
+        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+      );
+      setMessages(sorted.map(messageItemToChatMessageInfo));
+      setUnivoiceNextCursor(nextCursor);
+      setHasMoreMessages(!!nextCursor);
+    } catch (e) {
+      console.warn('[Chat] sync.hint refetch failed', e);
+    }
+  }, [user?.principalId, dmSessionId]);
+
+  useChatSse(
+    useUnivoiceDm ? user?.principalId ?? null : null,
+    dmSessionId,
+    onUnivoiceMessageNew,
+    onUnivoiceSyncHint
+  );
+
+  useEffect(() => {
+    if (!useUnivoiceDm || !dmSessionId || !user?.principalId) return;
+    const last = [...messages].reverse().find((m) => m.serverMessageId);
+    if (!last?.serverMessageId) return;
+    if (lastMarkReadId.current === last.serverMessageId) return;
+    lastMarkReadId.current = last.serverMessageId;
+    markRead(user.principalId, dmSessionId, last.serverMessageId).catch(() => {});
+  }, [useUnivoiceDm, dmSessionId, messages, user?.principalId]);
+
+  // Pixel art is passed as GIF data; no separate channel
 
   // Handle GIF data from URL params
   useEffect(() => {
@@ -658,8 +779,50 @@ const Chat = () => {
         });
         return;
       }
+      if (useUnivoiceDm) {
+        if (!dmSessionId || !univoiceNextCursor) {
+          return;
+        }
+        try {
+          setIsLoadingMore(true);
+          const container = messagesContainerRef.current;
+          const scrollHeightBefore = container?.scrollHeight || 0;
+          const scrollTopBefore = container?.scrollTop || 0;
+          const dmPageLimit = pageSize * pagesPerLoad;
+          const { items, nextCursor } = await listMessages(
+            user.principalId,
+            dmSessionId,
+            univoiceNextCursor,
+            dmPageLimit
+          );
+          if (items.length === 0) {
+            setHasMoreMessages(false);
+            setUnivoiceNextCursor(null);
+            setIsLoadingMore(false);
+            return;
+          }
+          const sorted = [...items].sort(
+            (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+          );
+          const older = sorted.map(messageItemToChatMessageInfo);
+          setMessages((prev) => [...older, ...prev]);
+          setUnivoiceNextCursor(nextCursor);
+          setHasMoreMessages(!!nextCursor);
+          setTimeout(() => {
+            if (container) {
+              const scrollDiff = container.scrollHeight - scrollHeightBefore;
+              container.scrollTop = scrollTopBefore + scrollDiff;
+            }
+          }, 0);
+        } catch (error) {
+          console.error('[Chat] Error loading older DM messages:', error);
+        } finally {
+          setIsLoadingMore(false);
+        }
+        return;
+      }
       if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
-        return; // AI 会话全部在 localStorage，无分页
+        return; // AI chat is fully in localStorage — no pagination
       }
 
       try {
@@ -740,7 +903,16 @@ const Chat = () => {
         setIsLoadingMore(false);
       }
     };
-  }, [user?.principalId, contactPrincipalId, isLoadingMore, hasMoreMessages, currentPage]);
+  }, [
+    user?.principalId,
+    contactPrincipalId,
+    isLoadingMore,
+    hasMoreMessages,
+    currentPage,
+    useUnivoiceDm,
+    dmSessionId,
+    univoiceNextCursor,
+  ]);
 
   // Handle scroll event to detect when user scrolls to top
   useEffect(() => {
@@ -1095,9 +1267,10 @@ const Chat = () => {
     };
   }, [contactPrincipalId, refreshContactDevices, contactDeviceList, getContactDeviceStatus]);
 
-  // Poll for new messages every 5 seconds（AI 联系人走 localStorage，不轮询 canister）
+  // Poll canister every 5s (skipped for AI localStorage and Univoice DM — SSE handles realtime)
   useEffect(() => {
     if (!user?.principalId || contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) return;
+    if (useUnivoiceDm) return;
 
     const pollInterval = setInterval(async () => {
       try {
@@ -1116,7 +1289,7 @@ const Chat = () => {
     }, 5000);
 
     return () => clearInterval(pollInterval);
-  }, [user?.principalId, socialPairKey, contactPrincipalId]);
+  }, [user?.principalId, socialPairKey, contactPrincipalId, useUnivoiceDm]);
 
   const handleSendMessage = async () => {
     // Detailed check for missing data
@@ -1162,15 +1335,15 @@ const Chat = () => {
       const contactId = contactPrincipalId || 'unknown';
 
       if (contactPrincipalId === AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID) {
-        // AI 联系人：execWebChat + localStorage，不经过 canister
+        // AI contact: execWebChat + localStorage (not canister)
         if (pendingGif) {
-          toast({ title: t('chat.error.generic'), description: 'AI 会话暂不支持发送 GIF', variant: 'destructive' });
+          toast({ title: t('chat.error.generic'), description: 'GIF is not supported in AI chat', variant: 'destructive' });
           setLoading(false);
           return;
         }
         const textToSend = newMessage.trim();
 
-        // 未订阅 personal AI 时仅允许累计 3 次会话，超出后提示去订阅
+        // Guest limit: 3 sessions when not subscribed to personal AI
         const subscribed = await isSubscribedToPersonalAi(user.principalId);
         if (!subscribed) {
           const guestCountKey = `${AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX}${user.principalId}`;
@@ -1206,7 +1379,7 @@ const Chat = () => {
         });
         const aiContent = result.success && result.data?.choices?.[0]?.message?.content
           ? result.data.choices[0].message.content
-          : (result.error || '回复出错，请重试');
+          : (result.error || 'Reply failed, please try again');
         const aiMsg: ChatMessageInfo = {
           sendBy: contactPrincipalId,
           content: aiContent,
@@ -1225,6 +1398,43 @@ const Chat = () => {
         }
         console.log('[Chat] AI message sent and saved to localStorage');
       } else {
+        if (useUnivoiceDm && dmSessionId && user.principalId) {
+          if (pendingGif) {
+            const clientMsgId = crypto.randomUUID();
+            const added = await sendGifMessageDm(
+              user.principalId,
+              dmSessionId,
+              clientMsgId,
+              pendingGif
+            );
+            setPendingGif(null);
+            setMessages((prev) => [...prev, added]);
+            console.log('[Chat] Univoice DM GIF sent');
+            setLoading(false);
+            return;
+          }
+          const textToSend = newMessage.trim();
+          if (!textToSend) {
+            setLoading(false);
+            return;
+          }
+          const clientMsgId = crypto.randomUUID();
+          await sendTextMessage(user.principalId, dmSessionId, clientMsgId, textToSend);
+          setNewMessage('');
+          setMessages((prev) => [
+            ...prev,
+            {
+              sendBy: user.principalId,
+              content: textToSend,
+              mode: 'Text',
+              timestamp: Date.now(),
+              clientMsgId,
+            },
+          ]);
+          console.log('[Chat] Univoice DM message sent');
+          setLoading(false);
+          return;
+        }
         if (pendingGif) {
           console.log('[Chat] Sending GIF message:', pendingGif);
           await sendGifMessage(user.principalId, contactId, pendingGif);
@@ -1244,7 +1454,7 @@ const Chat = () => {
         const errMsg = error instanceof Error ? error.message : String(error);
         setMessages(prev => [...prev, {
           sendBy: contactPrincipalId,
-          content: `错误: ${errMsg}`,
+          content: `Error: ${errMsg}`,
           mode: 'Text',
           timestamp: Date.now()
         }]);
@@ -1289,6 +1499,12 @@ const Chat = () => {
         setCurrentPage(0);
         setHasMoreMessages(false);
         toast({ title: t('chat.deleteAllChatRecordsSuccess'), variant: 'default' });
+      } else if (useUnivoiceDm) {
+        toast({
+          title: t('chat.deleteAllChatRecordsFailed'),
+          description: 'Clearing DM history requires server support — not available yet',
+          variant: 'destructive',
+        });
       } else {
         await clearChatHistoryForPair(user.principalId, contactPrincipalId);
         setMessages([]);
@@ -1534,7 +1750,7 @@ const Chat = () => {
                         <div className={styles.chat__messages__loading__more}>
                           <div className={styles.chat__messages__loading__more__content}>
                             <div className={styles.chat__messages__loading__more__spinner}></div>
-                            <span>加载历史消息...</span>
+                            <span>Loading older messages...</span>
                           </div>
                         </div>
                       )}
@@ -1574,7 +1790,7 @@ const Chat = () => {
                                     </svg>
                                     <p className={styles.chat__message__gif__failed__title}>{message.gifInfo.title}</p>
                                     {unrecoverableGifs.has(`${message.sendBy}-${message.timestamp}`) && (
-                                      <p className={styles.chat__message__gif__failed__warning}>⚠️ 此GIF无法恢复</p>
+                                      <p className={styles.chat__message__gif__failed__warning}>⚠️ This GIF cannot be recovered</p>
                                     )}
                                     <p className={styles.chat__message__gif__failed__size}>
                                       {message.gifInfo.width}x{message.gifInfo.height}
@@ -1646,7 +1862,7 @@ const Chat = () => {
 
                 {/* Input Area */}
                 <div className={styles.chat__input__area}>
-                      {/* 像素图现在通过GIF格式处理，不再需要单独的预览 */}
+                      {/* Pixel art is sent as GIF; no separate preview strip */}
 
                       {/* Pending GIF Preview */}
                       {pendingGif && (
@@ -1724,7 +1940,7 @@ const Chat = () => {
                                   // Check if device service is initialized, if not, try to initialize it (with timeout)
                                   if (!deviceServiceInitialized) {
                                     console.log('[Chat] Device service not initialized, attempting to initialize...');
-                                    setSendProgressText(t('chat.initializingDeviceService') || '正在初始化设备服务...');
+                                    setSendProgressText(t('chat.initializingDeviceService') || 'Initializing device service...');
                                     
                                     // Initialize with timeout to prevent blocking
                                     try {
@@ -1740,7 +1956,7 @@ const Chat = () => {
                                     }
                                   }
                                   
-                                  setSendProgressText(t('chat.sending') || '正在发送...');
+                                  setSendProgressText(t('chat.sending') || 'Sending...');
                                   
                                   const sentTo: string[] = [];
                                   const errors: string[] = [];
@@ -1754,7 +1970,7 @@ const Chat = () => {
                                     // Update progress before sending
                                     const currentProgress = Math.round((i / totalDevices) * 100);
                                     setSendProgress(currentProgress);
-                                    setSendProgressText(t('chat.sendingToDevice', { current: i + 1, total: totalDevices }) || `正在发送到设备 ${i + 1}/${totalDevices}...`);
+                                    setSendProgressText(t('chat.sendingToDevice', { current: i + 1, total: totalDevices }) || `Sending to device ${i + 1}/${totalDevices}...`);
                                     
                                     console.log('[Chat] Sending to device:', {
                                       deviceId: device.id,
@@ -1796,7 +2012,7 @@ const Chat = () => {
                                   
                                   // Complete progress
                                   setSendProgress(100);
-                                  setSendProgressText(t('chat.sendComplete') || '发送完成');
+                                  setSendProgressText(t('chat.sendComplete') || 'Send complete');
                                   
                                   // Clear pending content first
                                   const hadPendingGif = !!pendingGif;
@@ -1817,12 +2033,28 @@ const Chat = () => {
                                         const deviceMessage = t('chat.deviceMessageSent');
                                         const contactId = contactPrincipalId || 'unknown';
                                         if (user?.principalId && contactId !== 'unknown') {
-                                          await sendChatMessage(user.principalId, contactId, deviceMessage, 'Text');
+                                          if (useUnivoiceDm && dmSessionId) {
+                                            const cid = crypto.randomUUID();
+                                            await sendTextMessage(user.principalId, dmSessionId, cid, deviceMessage);
+                                            const dmPageLimit = pageSize * pagesPerLoad;
+                                            const { items, nextCursor } = await listMessages(
+                                              user.principalId,
+                                              dmSessionId,
+                                              undefined,
+                                              dmPageLimit
+                                            );
+                                            const sorted = [...items].sort(
+                                              (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+                                            );
+                                            setMessages(sorted.map(messageItemToChatMessageInfo));
+                                            setUnivoiceNextCursor(nextCursor);
+                                            setHasMoreMessages(!!nextCursor);
+                                          } else {
+                                            await sendChatMessage(user.principalId, contactId, deviceMessage, 'Text');
+                                            const updatedMessages = await getRecentChatMessages(user.principalId, contactId);
+                                            setMessages(updatedMessages);
+                                          }
                                           console.log('[Chat] Auto-sent device message to chat:', deviceMessage);
-                                          
-                                          // Reload messages to include the new one
-                                          const updatedMessages = await getRecentChatMessages(user.principalId, contactId);
-                                          setMessages(updatedMessages);
                                         }
                                       } catch (error) {
                                         console.error('[Chat] Failed to send auto device message to chat:', error);
@@ -1858,7 +2090,7 @@ const Chat = () => {
                               disabled={(!newMessage.trim() && !pendingGif) || isSendingToDevice}
                               className={styles.chat__device__section__button}
                             >
-                              {isSendingToDevice ? (t('chat.sending') || '发送中...') : (t('chat.send') || 'Send')}
+                              {isSendingToDevice ? (t('chat.sending') || 'Sending...') : (t('chat.send') || 'Send')}
                             </Button>
                             )}
                           </div>
@@ -1880,7 +2112,7 @@ const Chat = () => {
                         </div>
                       )}
 
-                      {/* Message Input Row - 多行输入：Enter 换行，Ctrl/Cmd+Enter 发送 */}
+                      {/* Message input: Enter = newline; Ctrl/Cmd+Enter = send */}
                       <div className={styles.chat__input__row}>
                         <div className={styles.chat__input__field}>
                           <textarea
@@ -1980,7 +2212,7 @@ const Chat = () => {
           </div>
         </div>
 
-        {/* AI 回复建议抽屉：仅真人聊天时通过按钮打开 */}
+        {/* AI reply suggestion drawer (human chat, button to open) */}
         {aiDrawerOpen && (
           <>
             <div

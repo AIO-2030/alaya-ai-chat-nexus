@@ -19,11 +19,26 @@ import {
   createContactFromPrincipalId,
   ContactInfo 
 } from '../services/api/userApi';
+import {
+  listDmSessions,
+  createOrGetDmSession,
+  hasUnivoiceChatAuth,
+  peerSessionDisplayName,
+  avatarInitialsFromDisplay,
+} from '../services/api/univoiceChatApi';
 import { copyWithFeedback } from '../utils/clipboard.js';
 import QRCodeScanner from '../components/QRCodeScanner';
 import { cn } from '../lib/utils';
 import { AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID } from '../runtime/AIOProtocolExecutor';
+import { deviceApiService, type DeviceRecord } from '../services/api/deviceApi';
 import styles from '../styles/pages/Contracts.module.css';
+
+function deviceOverviewFromRecords(list: DeviceRecord[]): { devices: string[]; isOnline: boolean } {
+  if (!list.length) return { devices: [], isOnline: false };
+  const devices = list.map((d) => d.deviceName?.trim() || d.name?.trim() || d.id);
+  const isOnline = list.some((d) => 'Online' in d.status);
+  return { devices, isOnline };
+}
 
 const Contracts = () => {
   const { user, loading: authLoading } = useAuth();
@@ -55,13 +70,96 @@ const Contracts = () => {
     return 'anonymous';
   };
 
-  // Load contacts from backend
+  const peerToStableContactId = (peer: string): number => {
+    let h = 0;
+    for (let i = 0; i < peer.length; i++) h = Math.imul(31, h) + peer.charCodeAt(i) | 0;
+    const n = Math.abs(h) % 1000000000;
+    return n === 999 ? 1001 : n;
+  };
+
+  const buildAiContact = (): ContactInfo => ({
+    id: 999,
+    name: 'Univoice',
+    type: 'system',
+    status: 'Active',
+    date: new Date().toISOString().split('T')[0],
+    avatar: 'UV',
+    devices: [],
+    isOnline: true,
+    contactPrincipalId: AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID,
+  });
+
+  // Prefer chat-api DM list when email Basic credentials exist; otherwise canister fallback
   const loadContacts = async () => {
     try {
       setLoading(true);
       setError(null);
       
       const userPrincipalId = getUserPrincipalId();
+
+      if (hasUnivoiceChatAuth()) {
+        const sessions = await listDmSessions(userPrincipalId);
+        const mapped: ContactInfo[] = sessions.map((s) => {
+          const display = peerSessionDisplayName(s);
+          const sub =
+            s.peerNickname && s.peerNickname !== display
+              ? s.peerNickname
+              : s.peerUsername && s.peerUsername !== display
+                ? s.peerUsername
+                : undefined;
+          return {
+            id: peerToStableContactId(s.peerUserUid),
+            name: display,
+            type: 'friend' as const,
+            status: 'Active' as const,
+            date: new Date().toISOString().split('T')[0],
+            avatar: avatarInitialsFromDisplay(display),
+            devices: [],
+            isOnline: false,
+            contactPrincipalId: s.peerUserUid,
+            unreadCount: s.unreadCount,
+            nickname: sub,
+          };
+        });
+        setContracts([...mapped, buildAiContact()]);
+        console.log('[Contracts] Loaded DM sessions as contacts:', mapped.length);
+
+        const peerUids = mapped
+          .map((c) => c.contactPrincipalId)
+          .filter((uid): uid is string => !!uid);
+        void (async () => {
+          try {
+            const results = await Promise.all(
+              peerUids.map(async (peerUid) => {
+                try {
+                  const res = await deviceApiService.getDevicesByOwner(peerUid, 0, 100);
+                  if (!res.success || !res.data) {
+                    return [peerUid, { devices: [] as string[], isOnline: false }] as const;
+                  }
+                  return [peerUid, deviceOverviewFromRecords(res.data.devices)] as const;
+                } catch (e) {
+                  console.warn('[Contracts] getDevicesByOwner failed for peer', peerUid, e);
+                  return [peerUid, { devices: [] as string[], isOnline: false }] as const;
+                }
+              })
+            );
+            const byPeer = new Map<string, { devices: string[]; isOnline: boolean }>(results);
+            setContracts((prev) =>
+              prev.map((c) => {
+                if (c.id === 999 || !c.contactPrincipalId) return c;
+                const o = byPeer.get(c.contactPrincipalId);
+                if (!o) return c;
+                return { ...c, devices: o.devices, isOnline: o.isOnline };
+              })
+            );
+            console.log('[Contracts] DM contacts enriched with ICP device overview');
+          } catch (e) {
+            console.warn('[Contracts] enrich DM contacts with devices failed', e);
+          }
+        })();
+        return;
+      }
+
       const contacts = await getContactsByOwner(userPrincipalId);
       const normalized = contacts.map(c =>
         c.id === 999 || c.name === 'Univoice'
@@ -69,47 +167,11 @@ const Contracts = () => {
           : c
       );
       setContracts(normalized);
-      console.log('[Contracts] Loaded contacts:', normalized);
+      console.log('[Contracts] Loaded contacts (canister fallback):', normalized);
     } catch (err) {
       console.error('[Contracts] Error loading contacts:', err);
       setError('Failed to load contacts');
-      
-      // Fallback to default contacts
-      setContracts([
-        { 
-          id: 1, 
-          name: "Friend1", 
-          type: "friend" as const,
-          status: "Active" as const, 
-          date: "2024-01-15",
-          avatar: "F1",
-          devices: ["Device1", "Device2"],
-          isOnline: true,
-          contactPrincipalId: "friend1_principal_id_example"
-        },
-        { 
-          id: 2, 
-          name: "Friend2", 
-          type: "friend" as const,
-          status: "Pending" as const, 
-          date: "2024-01-20",
-          avatar: "F2",
-          devices: ["Device1", "Device3"],
-          isOnline: false,
-          contactPrincipalId: "friend2_principal_id_example"
-        },
-        { 
-          id: 999, 
-          name: "Univoice", 
-          type: "system" as const,
-          status: "Active" as const, 
-          date: new Date().toISOString().split('T')[0],
-          avatar: "UV",
-          devices: [],
-          isOnline: true,
-          contactPrincipalId: AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID
-        }
-      ]);
+      setContracts([buildAiContact()]);
     } finally {
       setLoading(false);
     }
@@ -180,23 +242,6 @@ const Contracts = () => {
     }
   }, [authLoading, user]);
 
-  // Simulate online status updates for demo purposes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setContracts(prev => prev.map(contact => {
-        if (contact.id !== 999) { // Don't change Univoice status
-          return {
-            ...contact,
-            isOnline: Math.random() > 0.3 // 70% chance of being online
-          };
-        }
-        return contact;
-      }));
-    }, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active': return styles['contracts__status--active'];
@@ -241,7 +286,17 @@ const Contracts = () => {
   };
 
   const handleContractClick = (contract: ContactInfo) => {
-    // 构建查询参数
+    if (contract.contactPrincipalId) {
+      const params = new URLSearchParams({
+        contactPrincipalId: contract.contactPrincipalId,
+        contactName: contract.name,
+      });
+      if (contract.nickname) {
+        params.set('contactNickname', contract.nickname);
+      }
+      navigate(`/chat?${params.toString()}`);
+      return;
+    }
     const params = new URLSearchParams({
       contactId: contract.id.toString(),
       contactName: contract.name,
@@ -251,16 +306,9 @@ const Contracts = () => {
       contactDevices: contract.devices.join(','),
       contactIsOnline: contract.isOnline.toString(),
     });
-    
-    // 添加可选参数
     if (contract.nickname) {
       params.set('contactNickname', contract.nickname);
     }
-    if (contract.contactPrincipalId) {
-      params.set('contactPrincipalId', contract.contactPrincipalId);
-    }
-    
-    // 导航到聊天页面
     navigate(`/chat?${params.toString()}`);
   };
 
@@ -470,7 +518,14 @@ const Contracts = () => {
                               </div>
                               <div>
                                 <div className={styles.contracts__item__info}>
-                                  <h3 className={styles.contracts__item__name}>{contract.name}</h3>
+                                  <h3 className={styles.contracts__item__name}>
+                                    {contract.name}
+                                    {contract.unreadCount != null && contract.unreadCount > 0 && (
+                                      <span className="ml-2 inline-flex min-w-[1.25rem] justify-center rounded-full bg-cyan-500/90 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                                        {contract.unreadCount > 99 ? '99+' : contract.unreadCount}
+                                      </span>
+                                    )}
+                                  </h3>
                                   {contract.type === 'friend' && <User className={styles.contracts__item__type__icon} />}
                                   {contract.type === 'system' && <div className={styles.contracts__item__type__dot}></div>}
                                 </div>
@@ -551,12 +606,12 @@ const Contracts = () => {
                 
                 if (qrDialogType === 'share-self') {
                   const userPrincipalId = getUserPrincipalId();
-                  qrValue = String(userPrincipalId); // 直接使用原始 principal ID
+                  qrValue = String(userPrincipalId); // raw principal id
                   displayPrincipalId = userPrincipalId;
                   displayName = 'Your';
                 } else if (qrDialogType === 'share-friend' && selectedFriendForSharing) {
                   const friendPrincipalId = selectedFriendForSharing.contactPrincipalId || selectedFriendForSharing.id;
-                  qrValue = String(friendPrincipalId); // 直接使用原始 principal ID
+                  qrValue = String(friendPrincipalId); // raw principal id
                   displayPrincipalId = String(friendPrincipalId);
                   displayName = selectedFriendForSharing.name;
                 }
@@ -708,6 +763,18 @@ const Contracts = () => {
                     
                     try {
                       const userPrincipalId = getUserPrincipalId();
+                      if (hasUnivoiceChatAuth()) {
+                        await createOrGetDmSession(userPrincipalId, newContactPrincipalId.trim(), {
+                          peerNickname: newContactNickname.trim() || undefined,
+                          userNickname: user?.nickname || user?.name || undefined,
+                        });
+                        await loadContacts();
+                        setShowAddContactDialog(false);
+                        setNewContactPrincipalId('');
+                        setNewContactNickname('');
+                        setError(null);
+                        return;
+                      }
                       const savedContact = await createContactFromPrincipalId(
                         userPrincipalId, 
                         newContactPrincipalId, 

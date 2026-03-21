@@ -7,6 +7,7 @@ import { setPrincipalId, clearPrincipalId } from './principal';
 import { logoutII } from './ii';
 import { generatePrincipalForNonPlug, deriveStablePseudoPrincipal } from './identity';
 import { syncUserInfo, registerUserWithEmail, loginUserWithEmail } from '../services/api/userApi';
+import { saveIcpChatCredentials, clearIcpChatCredentials } from './icpChatCredentials';
 import type { UserInfo, LoginStatus } from '../types/user';
 
 export interface User {
@@ -365,6 +366,7 @@ export const useAuth = () => {
       setUser(userInfo);
       sessionStorage.setItem('alaya_user', JSON.stringify(userInfo));
       setPrincipalId(principalId);
+      saveIcpChatCredentials({ username: email, password });
 
       console.log('[Auth] Email registration successful:', userInfo);
       return userInfo;
@@ -392,6 +394,7 @@ export const useAuth = () => {
       setUser(userInfo);
       sessionStorage.setItem('alaya_user', JSON.stringify(userInfo));
       setPrincipalId(userInfo.principalId);
+      saveIcpChatCredentials({ username: email, password });
 
       console.log('[Auth] Email login successful:', userInfo);
       return userInfo;
@@ -412,12 +415,14 @@ export const useAuth = () => {
       // Clear local state
       setUser(null);
       sessionStorage.removeItem('alaya_user');
+      clearIcpChatCredentials();
       clearPrincipalId();
     } catch (error) {
       console.error('Logout failed:', error);
       // Clear local state even if error occurs
       setUser(null);
       sessionStorage.removeItem('alaya_user');
+      clearIcpChatCredentials();
       clearPrincipalId();
     }
   };
