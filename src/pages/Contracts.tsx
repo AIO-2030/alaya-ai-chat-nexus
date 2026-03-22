@@ -29,6 +29,7 @@ import {
 import { copyWithFeedback } from '../utils/clipboard.js';
 import QRCodeScanner from '../components/QRCodeScanner';
 import { cn } from '../lib/utils';
+import { useUnivoiceDmInboxSse } from '../hooks/useChatSse';
 import { AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID } from '../runtime/AIOProtocolExecutor';
 import { deviceApiService, type DeviceRecord } from '../services/api/deviceApi';
 import styles from '../styles/pages/Contracts.module.css';
@@ -90,9 +91,12 @@ const Contracts = () => {
   });
 
   // Prefer chat-api DM list when email Basic credentials exist; otherwise canister fallback
-  const loadContacts = async () => {
+  const loadContacts = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
       
       const userPrincipalId = getUserPrincipalId();
@@ -173,9 +177,18 @@ const Contracts = () => {
       setError('Failed to load contacts');
       setContracts([buildAiContact()]);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
+
+  /** chat-sse: refresh DM list when any session gets message / read sync (see useUnivoiceDmInboxSse). */
+  const inboxPrincipalId =
+    user && hasUnivoiceChatAuth() ? getUserPrincipalId() : null;
+  useUnivoiceDmInboxSse(inboxPrincipalId, !!user && !authLoading && hasUnivoiceChatAuth(), () => {
+    void loadContacts({ silent: true });
+  });
 
   // Add new contact
   const addNewContact = async () => {

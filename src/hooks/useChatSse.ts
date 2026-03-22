@@ -126,3 +126,85 @@ export function useChatSse(
     };
   }, [principalId, sessionId]);
 }
+
+const INBOX_DEBOUNCE_MS = 400;
+
+/**
+ * Subscribes to the same `/stream` as {@link useChatSse} but does not filter by session.
+ * Use on list views (e.g. Contracts) so `unreadCount` from `GET /dm` stays in sync when peers send messages.
+ * Debounced to avoid hammering chat-api when many SSE events arrive.
+ */
+export function useUnivoiceDmInboxSse(
+  principalId: string | null,
+  enabled: boolean,
+  onRefresh: () => void
+): void {
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+
+  useEffect(() => {
+    if (!principalId || !enabled) return;
+
+    const headers = buildChatAuthHeaders(principalId);
+    if (!headers) {
+      console.warn(`${CHAT_SSE_LOG} inbox skipped: missing ICP chat credentials`);
+      return;
+    }
+
+    const url = `${SSE_BASE}/stream`;
+    console.log(`${CHAT_SSE_LOG} inbox connecting`, {
+      url,
+      principal: principalPreview(principalId),
+      sseBase: SSE_BASE,
+    });
+
+    const es = new EventSourcePolyfill(url, {
+      headers: { ...headers },
+      heartbeatTimeout: 120_000,
+    });
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        onRefreshRef.current();
+      }, INBOX_DEBOUNCE_MS);
+    };
+
+    const onMessageNewEv = (ev: MessageEvent) => {
+      try {
+        JSON.parse(ev.data as string) as SseEventEnvelope;
+      } catch {
+        // still refresh — server may send non-JSON in edge cases
+      }
+      scheduleRefresh();
+    };
+
+    const onSyncHintEv = () => {
+      console.log(`${CHAT_SSE_LOG} inbox sync.hint`);
+      scheduleRefresh();
+    };
+
+    const onReadUpdate = () => {
+      scheduleRefresh();
+    };
+
+    es.addEventListener('message.new', onMessageNewEv as EventListener);
+    es.addEventListener('sync.hint', onSyncHintEv as EventListener);
+    es.addEventListener('read.update', onReadUpdate as EventListener);
+
+    es.onerror = (err: Event) => {
+      console.warn(`${CHAT_SSE_LOG} inbox EventSource error`, { err });
+    };
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      es.removeEventListener('message.new', onMessageNewEv as EventListener);
+      es.removeEventListener('sync.hint', onSyncHintEv as EventListener);
+      es.removeEventListener('read.update', onReadUpdate as EventListener);
+      es.close();
+      console.log(`${CHAT_SSE_LOG} inbox closing`, { principal: principalPreview(principalId) });
+    };
+  }, [principalId, enabled]);
+}
