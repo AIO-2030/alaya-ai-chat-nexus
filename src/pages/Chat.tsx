@@ -8,14 +8,18 @@ import {
   sendGifMessageDm,
   markRead,
   messageItemToChatMessageInfo,
+  checkDevicePairing,
+  createDevicePairing,
   type MessageItem,
 } from '../services/api/univoiceChatApi';
-import { ArrowLeft, Bot, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
+import type { DeviceType } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
+import { ArrowLeft, Bot, Link2, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '../lib/auth';
 import { AppSidebar } from '../components/AppSidebar';
+import { BottomNavigation } from '../components/BottomNavigation';
 import { useToast } from '../hooks/use-toast';
 import { AppHeader } from '../components/AppHeader';
 import { PageLayout } from '../components/PageLayout';
@@ -51,10 +55,42 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styles from '../styles/pages/Chat.module.css';
 
+/** 亲密配对需 canister 设备记录含 productId + deviceName（与 chat-api /device-pairings 一致） */
+function pickFirstBoundDevice(devices: DeviceRecord[]): DeviceRecord | undefined {
+  return devices.find((d) => {
+    const p = d.productId?.trim();
+    const n = d.deviceName?.trim();
+    return !!p && !!n;
+  });
+}
+
+function deviceTypeForPairing(d: DeviceRecord): string {
+  const t = d.deviceType as DeviceType;
+  if ('IoT' in t) return 'iot';
+  if ('Embedded' in t) return 'embedded';
+  if ('Server' in t) return 'server';
+  if ('Desktop' in t) return 'desktop';
+  if ('Mobile' in t) return 'mobile';
+  if ('Other' in t) return String(t.Other || 'device').slice(0, 64);
+  return 'device';
+}
+
+type IntimacyPairUiStatus =
+  | 'idle'
+  | 'checking'
+  | 'need_self'
+  | 'need_peer'
+  | 'need_both'
+  | 'not_paired'
+  | 'paired'
+  | 'pair_other'
+  | 'error';
+
 const AI_CHAT_STORAGE_KEY_PREFIX = 'aio_webchat_chat_';
 /** Guest session count for Univoice AI (per principal, localStorage) */
 const AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX = 'aio_webchat_ai_guest_session_count_';
-const AI_CHAT_GUEST_SESSION_LIMIT = 3;
+/** 测试阶段提高上限；上线前恢复为较小值（如 3） */
+const AI_CHAT_GUEST_SESSION_LIMIT = 3000000;
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -212,6 +248,10 @@ const Chat = () => {
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [pendingGif, setPendingGif] = useState<GifInfo | null>(null);
   const [contactDeviceList, setContactDeviceList] = useState<DeviceRecord[]>([]);
+  /** 当前用户在 canister 上的设备（用于亲密配对 productId/deviceName） */
+  const [userDeviceList, setUserDeviceList] = useState<DeviceRecord[]>([]);
+  const [intimacyPairStatus, setIntimacyPairStatus] = useState<IntimacyPairUiStatus>('idle');
+  const [intimacySubmitting, setIntimacySubmitting] = useState(false);
   const [hasContactDevices, setHasContactDevices] = useState(false);
   const [showContactDetails, setShowContactDetails] = useState(true); // Control visibility of contact details card
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
@@ -536,12 +576,13 @@ const Chat = () => {
     return null;
   };
 
-  // Scroll to latest message
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  // 仅在聊天记录 panel 内滚动到底部，避免 scrollIntoView 带动整页滚动
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior });
     }
-  };
+  }, []);
 
   // Initialize chat when component mounts
   useEffect(() => {
@@ -757,12 +798,12 @@ const Chat = () => {
     }
   }, [searchParams, navigate]);
 
-  // Auto scroll to bottom when messages update (only if not loading more)
+  // Auto scroll to bottom when messages update（仅 panel 内滚动；加载更早消息时不跳到底部）
   useEffect(() => {
     if (!isLoadingMore) {
       scrollToBottom();
     }
-  }, [messages, isLoadingMore]);
+  }, [messages, isLoadingMore, scrollToBottom]);
 
   // Load more messages when scrolling to top
   const loadMoreMessages = useRef<(() => Promise<void>) | null>(null);
@@ -1218,6 +1259,75 @@ const Chat = () => {
     fetchContactDevices();
   }, [contactPrincipalId, user?.principalId]);
 
+  // 当前用户设备（亲密配对需要 canister 中 productId + deviceName）
+  useEffect(() => {
+    if (!user?.principalId) {
+      setUserDeviceList([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await deviceApiService.getDevicesByOwner(user.principalId, 0, 100);
+        if (cancelled) return;
+        if (response.success && response.data) {
+          setUserDeviceList(response.data.devices);
+        } else {
+          setUserDeviceList([]);
+        }
+      } catch {
+        if (!cancelled) setUserDeviceList([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.principalId]);
+
+  // chat-api GET /device-pairings/check：与己方首台「已绑定」设备对齐的亲密状态
+  useEffect(() => {
+    if (!useUnivoiceDm || !contactPrincipalId || !user?.principalId) {
+      setIntimacyPairStatus('idle');
+      return;
+    }
+    setIntimacyPairStatus('checking');
+    let cancelled = false;
+    (async () => {
+      try {
+        const my = pickFirstBoundDevice(userDeviceList);
+        const peer = pickFirstBoundDevice(contactDeviceList);
+        if (!my && !peer) {
+          if (!cancelled) setIntimacyPairStatus('need_both');
+          return;
+        }
+        if (!my) {
+          if (!cancelled) setIntimacyPairStatus('need_self');
+          return;
+        }
+        if (!peer) {
+          if (!cancelled) setIntimacyPairStatus('need_peer');
+          return;
+        }
+        const chk = await checkDevicePairing(my.productId!, my.deviceName!);
+        if (cancelled) return;
+        if (!chk.matched) {
+          setIntimacyPairStatus('not_paired');
+          return;
+        }
+        const peerMatch =
+          chk.peer.productId === peer.productId?.trim() &&
+          chk.peer.deviceName === peer.deviceName?.trim();
+        setIntimacyPairStatus(peerMatch ? 'paired' : 'pair_other');
+      } catch (e) {
+        console.warn('[Chat] intimacy pairing status check failed', e);
+        if (!cancelled) setIntimacyPairStatus('error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [useUnivoiceDm, contactPrincipalId, user?.principalId, userDeviceList, contactDeviceList]);
+
   // Refresh contact device status when page becomes active (only refresh friend's devices, not own devices)
   useEffect(() => {
     if (!contactPrincipalId || contactDeviceList.length === 0) {
@@ -1343,7 +1453,7 @@ const Chat = () => {
         }
         const textToSend = newMessage.trim();
 
-        // Guest limit: 3 sessions when not subscribed to personal AI
+        // Guest limit when not subscribed to personal AI (see AI_CHAT_GUEST_SESSION_LIMIT)
         const subscribed = await isSubscribedToPersonalAi(user.principalId);
         if (!subscribed) {
           const guestCountKey = `${AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX}${user.principalId}`;
@@ -1351,7 +1461,9 @@ const Chat = () => {
           if (count >= AI_CHAT_GUEST_SESSION_LIMIT) {
             toast({
               title: t('chat.aiSessionLimitReached'),
-              description: t('chat.aiSessionLimitReachedDesc'),
+              description: t('chat.aiSessionLimitReachedDesc', {
+                count: AI_CHAT_GUEST_SESSION_LIMIT,
+              }),
               variant: 'destructive',
             });
             setLoading(false);
@@ -1583,6 +1695,77 @@ const Chat = () => {
     navigate('/gallery?from=chat');
   };
 
+  const intimacyStatusPresentation = useMemo(() => {
+    switch (intimacyPairStatus) {
+      case 'idle':
+        return { label: '—', attr: 'muted' as const };
+      case 'checking':
+        return { label: t('chat.intimacyDevice.statusChecking'), attr: 'muted' as const };
+      case 'need_self':
+        return { label: t('chat.intimacyDevice.statusNeedSelf'), attr: 'warn' as const };
+      case 'need_peer':
+        return { label: t('chat.intimacyDevice.statusNeedPeer'), attr: 'warn' as const };
+      case 'need_both':
+        return { label: t('chat.intimacyDevice.statusNeedBoth'), attr: 'warn' as const };
+      case 'not_paired':
+        return { label: t('chat.intimacyDevice.statusNotPaired'), attr: 'muted' as const };
+      case 'paired':
+        return { label: t('chat.intimacyDevice.statusPaired'), attr: 'paired' as const };
+      case 'pair_other':
+        return { label: t('chat.intimacyDevice.statusPairedOther'), attr: 'danger' as const };
+      case 'error':
+        return { label: t('chat.intimacyDevice.statusError'), attr: 'danger' as const };
+      default:
+        return { label: '—', attr: 'muted' as const };
+    }
+  }, [intimacyPairStatus, t]);
+
+  const handleIntimacyDeviceClick = useCallback(async () => {
+    if (!user?.principalId) return;
+    const my = pickFirstBoundDevice(userDeviceList);
+    const peer = pickFirstBoundDevice(contactDeviceList);
+    if (!my || !peer) {
+      toast({
+        title: t('chat.intimacyDevice.tipTitle'),
+        description: t('chat.intimacyDevice.tipBothMustBind'),
+      });
+      return;
+    }
+    setIntimacySubmitting(true);
+    try {
+      await createDevicePairing(user.principalId, {
+        leftProductId: my.productId!.trim(),
+        leftDeviceName: my.deviceName!.trim(),
+        leftDeviceType: deviceTypeForPairing(my),
+        rightProductId: peer.productId!.trim(),
+        rightDeviceName: peer.deviceName!.trim(),
+        rightDeviceType: deviceTypeForPairing(peer),
+      });
+      toast({
+        title: t('chat.intimacyDevice.successTitle'),
+        description: t('chat.intimacyDevice.successDesc'),
+      });
+      setIntimacyPairStatus('paired');
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      if (/409|Conflict|already exists|Pairing already/i.test(raw)) {
+        toast({
+          title: t('chat.intimacyDevice.alreadyTitle'),
+          description: t('chat.intimacyDevice.alreadyDesc'),
+        });
+        setIntimacyPairStatus('paired');
+      } else {
+        toast({
+          title: t('chat.intimacyDevice.errorTitle'),
+          description: raw.slice(0, 220),
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIntimacySubmitting(false);
+    }
+  }, [user?.principalId, userDeviceList, contactDeviceList, t, toast]);
+
   // Helper function to format timestamp
   const formatTimestamp = (timestamp: number): string => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1614,6 +1797,7 @@ const Chat = () => {
 
   return (
     <PageLayout>
+      <>
       <div className={styles.chat__page}>
         {/* Header */}
         <AppHeader />
@@ -1721,6 +1905,38 @@ const Chat = () => {
                         <p><span className={styles.chat__contact__details__label}>Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
                         {currentContact.contactPrincipalId && (
                           <p><span className={styles.chat__contact__details__label}>Principal ID:</span> <code className={styles.chat__contact__details__code}>{currentContact.contactPrincipalId}</code></p>
+                        )}
+                        {useUnivoiceDm && (
+                          <div className={styles.chat__contact__details__intimacy}>
+                            <div className={styles.chat__contact__details__intimacy__row}>
+                              <span className={styles.chat__contact__details__intimacy__title}>
+                                {t('chat.intimacyDevice.sectionTitle')}
+                              </span>
+                              <span
+                                className={styles.chat__contact__details__intimacy__status}
+                                data-state={intimacyStatusPresentation.attr}
+                              >
+                                {intimacyStatusPresentation.label}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={styles.chat__contact__details__intimacy__button}
+                              disabled={
+                                intimacySubmitting ||
+                                intimacyPairStatus === 'checking' ||
+                                intimacyPairStatus === 'paired'
+                              }
+                              onClick={handleIntimacyDeviceClick}
+                            >
+                              <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                              {intimacySubmitting
+                                ? t('chat.intimacyDevice.buttonLoading')
+                                : t('chat.intimacyDevice.button')}
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2253,6 +2469,11 @@ const Chat = () => {
           </>
         )}
       </div>
+
+      <div className={styles.chat__bottom__nav}>
+        <BottomNavigation />
+      </div>
+      </>
     </PageLayout>
   );
 };

@@ -3,13 +3,39 @@
  * Pure black background design
  */
 
-/* Page Container */
+/* Page Container：显式锁一屏高度（dvh 适配移动端地址栏），避免父级仅有 min-height 时随消息撑开 */
 .chat__page {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  /* 旧浏览器回退 */
+  height: 100vh;
+  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   background: #000000 !important;
   position: relative;
-  overflow-x: hidden;
-  padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-lg));
+  overflow: hidden;
+  padding-bottom: calc(
+    var(--bottom-nav-height) + var(--spacing-lg) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+/* 与 Contracts 等页一致：移动端显示固定底栏，桌面端由侧栏主导航 */
+.chat__bottom__nav {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .chat__bottom__nav {
+    display: none;
+  }
+}
+
+.chat__page > header {
+  flex-shrink: 0;
 }
 
 /* Loading State */
@@ -59,12 +85,14 @@
   font-weight: 600;
 }
 
-/* Layout */
+/* Layout：占满标题栏下方剩余高度，由内部 messages 区滚动 */
 .chat__container {
   position: relative;
   z-index: 2;
   display: flex;
-  height: calc(100vh - var(--header-height));
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat__sidebar {
@@ -80,12 +108,16 @@
 .chat__main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .chat__main__inner {
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 0.75rem;
 }
 
@@ -97,6 +129,8 @@
 
 .chat__main__content {
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
   border-radius: 1rem;
   background-color: #1a1a1a;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -362,6 +396,78 @@
   padding-right: 1.5rem;
 }
 
+/* Intimate device pairing (chat-api device-pairings) */
+.chat__contact__details__intimacy {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat__contact__details__intimacy__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.chat__contact__details__intimacy__title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.chat__contact__details__intimacy__status {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat__contact__details__intimacy__status[data-state='paired'] {
+  color: rgba(34, 211, 238, 0.95);
+}
+
+.chat__contact__details__intimacy__status[data-state='warn'] {
+  color: rgba(251, 191, 36, 0.95);
+}
+
+.chat__contact__details__intimacy__status[data-state='muted'] {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.chat__contact__details__intimacy__status[data-state='danger'] {
+  color: rgba(248, 113, 113, 0.95);
+}
+
+.chat__contact__details__intimacy__button {
+  width: 100%;
+  justify-content: center;
+  gap: 0.375rem;
+  background: rgba(30, 58, 95, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.chat__contact__details__intimacy__button:hover:not(:disabled) {
+  background: rgba(30, 58, 95, 0.75) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.chat__contact__details__intimacy__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 @media (min-width: 640px) {
   .chat__contact__details__content {
     font-size: 0.875rem;
@@ -377,11 +483,13 @@
   font-size: 0.75rem;
 }
 
-/* Messages Container */
+/* Messages Container：仅此区域纵向滚动，不撑开外层 */
 .chat__messages__container {
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem 0.5rem;
   background-color: #000000;
   scroll-behavior: smooth;

@@ -473,4 +473,57 @@ export function hasUnivoiceChatAuth(): boolean {
   return !!getIcpChatCredentials();
 }
 
+/** GET /device-pairings/check — 无需 ICP；用于查询某设备是否已与另一设备建立亲密配对 */
+export type DevicePairingCheckResult =
+  | { matched: false }
+  | {
+      matched: true;
+      pairingUid: string;
+      self: { productId: string; deviceName: string; deviceType: string };
+      peer: { productId: string; deviceName: string; deviceType: string };
+    };
+
+export async function checkDevicePairing(
+  productId: string,
+  deviceName: string
+): Promise<DevicePairingCheckResult> {
+  const q = new URLSearchParams({
+    productId: productId.trim(),
+    deviceName: deviceName.trim(),
+  });
+  const res = await fetch(`${API_BASE}/device-pairings/check?${q}`);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+  if (!text) return { matched: false };
+  return JSON.parse(text) as DevicePairingCheckResult;
+}
+
+export interface CreateDevicePairingPayload {
+  leftProductId: string;
+  leftDeviceName: string;
+  leftDeviceType: string;
+  rightProductId: string;
+  rightDeviceName: string;
+  rightDeviceType: string;
+}
+
+/** POST /device-pairings — 需 Basic + X-ICP-Principal-Id，与 e2e-device-integration.mjs 一致 */
+export async function createDevicePairing(
+  principalId: string,
+  payload: CreateDevicePairingPayload
+): Promise<Record<string, unknown>> {
+  const res = await chatApiFetch(
+    `${API_BASE}/device-pairings`,
+    {
+      method: 'POST',
+      headers: authHeaders(principalId),
+      body: JSON.stringify(payload),
+    },
+    principalId
+  );
+  return parseJson<Record<string, unknown>>(res);
+}
+
 export { API_BASE as UNIVOICE_CHAT_API_BASE };

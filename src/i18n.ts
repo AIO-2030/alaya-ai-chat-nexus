@@ -469,7 +469,8 @@ const resources = {
           textSent: 'Message Sent'
         },
         aiSessionLimitReached: 'Session limit reached',
-        aiSessionLimitReachedDesc: 'You have used your 3 free sessions with Univoice AI. Subscribe to Personal AI for unlimited conversations.',
+        aiSessionLimitReachedDesc:
+          'You have used your {{count}} free sessions with Univoice AI. Subscribe to Personal AI for unlimited conversations.',
         goToSubscribe: 'Subscribe',
         withAiAssistant: 'With AI assistant',
         aiSuggestion: {
@@ -478,6 +479,28 @@ const resources = {
           noMessagesDesc: 'Send some messages first to get suggestions.',
           loading: 'Getting suggestion...',
           error: 'Failed to get suggestion'
+        },
+        intimacyDevice: {
+          sectionTitle: 'Intimate device',
+          button: 'Intimacy device',
+          buttonLoading: 'Linking…',
+          statusChecking: 'Checking…',
+          statusNeedSelf: 'Your account has no bound device',
+          statusNeedPeer: 'Contact has no bound device',
+          statusNeedBoth: 'Neither side has a bound device',
+          statusNotPaired: 'Not linked yet',
+          statusPaired: 'Linked',
+          statusPairedOther: 'Your device is linked to another peer',
+          statusError: 'Could not load status',
+          statusNeedAuth: 'Sign in with email to use device pairing',
+          tipTitle: 'Device binding required',
+          tipBothMustBind:
+            'Intimate pairing needs both sides to have a device registered with Product ID and Device Name (Tencent IoT). Please bind devices first.',
+          successTitle: 'Intimate pairing created',
+          successDesc: 'Your devices are now linked for intimate routing.',
+          alreadyTitle: 'Already paired',
+          alreadyDesc: 'This device pair already exists.',
+          errorTitle: 'Pairing failed'
         },
         error: {
           emptyMessage: 'Message is Empty',
@@ -1069,7 +1092,8 @@ const resources = {
           textSent: '消息已发送'
         },
         aiSessionLimitReached: '会话次数已用完',
-        aiSessionLimitReachedDesc: '您与 Univoice AI 的 3 次免费会话已用完。订阅 Personal AI 后可无限畅聊。',
+        aiSessionLimitReachedDesc:
+          '您与 Univoice AI 的 {{count}} 次免费会话已用完。订阅 Personal AI 后可无限畅聊。',
         goToSubscribe: '去订阅',
         withAiAssistant: 'AI 助手',
         aiSuggestion: {
@@ -1078,6 +1102,28 @@ const resources = {
           noMessagesDesc: '先发送几条消息后再获取建议。',
           loading: '正在获取建议...',
           error: '获取建议失败'
+        },
+        intimacyDevice: {
+          sectionTitle: '亲密设备',
+          button: '亲密设备',
+          buttonLoading: '建立配对中…',
+          statusChecking: '检查中…',
+          statusNeedSelf: '您尚未绑定可用设备',
+          statusNeedPeer: '对方尚未绑定可用设备',
+          statusNeedBoth: '双方均未绑定可用设备',
+          statusNotPaired: '尚未建立亲密配对',
+          statusPaired: '已建立亲密配对',
+          statusPairedOther: '您的设备已与其他设备配对',
+          statusError: '状态加载失败',
+          statusNeedAuth: '请使用邮箱登录以使用设备配对',
+          tipTitle: '需先绑定设备',
+          tipBothMustBind:
+            '建立亲密配对需要双方都在平台绑定设备，且具备 Product ID 与 Device Name（腾讯云 IoT）。请先在「我的设备」中完成绑定。',
+          successTitle: '亲密配对已建立',
+          successDesc: '双方设备已在服务端关联，可用于亲密路由。',
+          alreadyTitle: '配对已存在',
+          alreadyDesc: '该设备组合已有配对记录。',
+          errorTitle: '建立配对失败'
         },
         error: {
           emptyMessage: '消息为空',
