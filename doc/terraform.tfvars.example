@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (same directory) and fill real values.
+# terraform.tfvars is gitignored — do not commit secrets.
+# If `terraform init` hangs/timeouts fetching cloudflare/cloudflare, fix GitHub/proxy reachability then retry.
+#
+# cloudflare_api_token: Cloudflare Dashboard → My Profile → API Tokens
+# zone_id: Zone → Overview → Zone ID for univoices.club
+#
+# icp_frontend_canister_id: mainnet asset canister for ICP DNS TXT (_canister-id.*); not secret.
+
+cloudflare_api_token       = "replace-with-cloudflare-api-token"
+zone_id                    = "replace-with-zone-id"
+icp_frontend_canister_id   = "bjlli-qiaaa-aaaau-ab3ha-cai"

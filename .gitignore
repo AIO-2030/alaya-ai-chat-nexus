@@ -26,3 +26,11 @@ env.*
 *.njsproj
 *.sln
 *.sw?
+
+# Terraform — Cloudflare DNS (doc/main.tf); secrets stay local
+doc/terraform.tfvars
+doc/.terraform/
+doc/*.tfstate
+doc/*.tfstate.*
+doc/.crash.log
+doc/.tools/

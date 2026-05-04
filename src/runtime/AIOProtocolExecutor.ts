@@ -2,7 +2,7 @@
 import { AIOProtocolStepInfo, AIOProtocolResult } from './AIOProtocolTypes';
 
 // ============ AIO WebChat Interface (OpenAI-compatible) ============
-/** Production: https://webchat.aio2030.fun/v1/chat/completions */
+/** Production: https://webchat.univoices.club/v1/chat/completions */
 /** Dev: http://127.0.0.1:8002/v1/chat/completions (or VITE_AIO_WEBCHAT_URL) */
 
 /** Univoice AI 联系人唯一标识：contactPrincipalId 为此值时视为 AI 会话，走 execWebChat + localStorage */
@@ -69,7 +69,7 @@ export interface ExecWebChatResult {
   error?: string;
 }
 
-const WEBCHAT_PRODUCTION_URL = 'https://webchat.aio2030.fun/v1/chat/completions';
+const WEBCHAT_PRODUCTION_URL = 'https://webchat.univoices.club/v1/chat/completions';
 
 /** Get WebChat endpoint by environment (prod vs dev). */
 function getWebChatEndpoint(): string {
@@ -183,7 +183,7 @@ async function executeRpc(
     let baseUrl;
     if (isProductionFlag) {
       // Production environment uses remote MCP service directly with HTTPS
-      baseUrl = 'https://mcp.aio2030.fun/api/v1/rpc';
+      baseUrl = 'https://mcp.univoices.club/api/v1/rpc';
       console.log(`[executeRpc] Using production MCP server: ${baseUrl}`);
     } else {
       // Development environment uses environment variables with HTTPS fallback
@@ -272,7 +272,7 @@ async function executeRpc(
 
 /**
  * Execute WebChat completion (AIO Chat Router / OpenAI-compatible).
- * Production: https://webchat.aio2030.fun/v1/chat/completions
+ * Production: https://webchat.univoices.club/v1/chat/completions
  * Dev: http://127.0.0.1:8002/v1/chat/completions (or VITE_AIO_WEBCHAT_URL)
  *
  * @param options model, messages, stream, timeout, optional onChunk for stream mode
@@ -402,7 +402,7 @@ export async function exec_step(
   let baseApiUrl;
   if (isProductionFlag) {
     // Production environment uses remote MCP service directly
-    baseApiUrl = 'https://mcp.aio2030.fun/api/v1/rpc';
+    baseApiUrl = 'https://mcp.univoices.club/api/v1/rpc';
     console.log(`[AIOProtocolExecutor] Using production MCP server: ${baseApiUrl}`);
   } else {
     // Development environment uses environment variables

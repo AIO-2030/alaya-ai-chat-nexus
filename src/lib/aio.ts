@@ -2,7 +2,7 @@
 import { AIORPCRequest, AIORPCResponse, LLMProvider } from '../types/chat';
 
 export class AIOService {
-  private baseUrl = 'https://api.aio2030.fun'; // Replace with actual AIO API endpoint
+  private baseUrl = 'https://api.univoices.club'; // Replace with actual AIO API endpoint
 
   async callLLMProvider(
     provider: LLMProvider,
