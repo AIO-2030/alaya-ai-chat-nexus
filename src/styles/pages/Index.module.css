@@ -164,10 +164,10 @@
   }
 }
 
-/* Profile Avatar */
+/* Profile Avatar (center logo): scaled up by 1/4 proportionally (×1.25 vs original). */
 .index__profile__avatar {
-  width: 390px;
-  height: 600px;
+  width: 487.5px;
+  height: 750px;
   margin: 0 auto !important;
   background-color: transparent !important;
   border: none !important;
@@ -191,8 +191,8 @@
 
 @media (max-width: 640px) {
   .index__profile__avatar {
-    width: 292.5px;
-    height: 450px;
+    width: 365.625px;
+    height: 562.5px;
   }
 }
 
