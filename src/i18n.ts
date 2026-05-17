@@ -480,6 +480,23 @@ const resources = {
           loading: 'Getting suggestion...',
           error: 'Failed to get suggestion'
         },
+        memoryContext: {
+          sectionTitle: 'Context tips',
+          loading: 'Refreshing context...',
+          empty: 'No memory tips yet',
+          aiFocusTitle: 'AI focus',
+          tipRelationship: 'Relation: {{type}}',
+          tipMemory: 'Memory: {{summary}}',
+          focusRelationship: 'Relationship cue: {{type}} (confidence {{confidence}}, strength {{strength}})',
+          focusMemory: 'Memory cue: {{summary}}',
+          relationshipType: {
+            friend: 'friend',
+            family: 'family',
+            colleague: 'colleague',
+            mentor: 'mentor',
+            partner: 'partner'
+          }
+        },
         intimacyDevice: {
           sectionTitle: 'Intimate device',
           button: 'Intimacy device',
@@ -1102,6 +1119,23 @@ const resources = {
           noMessagesDesc: '先发送几条消息后再获取建议。',
           loading: '正在获取建议...',
           error: '获取建议失败'
+        },
+        memoryContext: {
+          sectionTitle: '上下文提示',
+          loading: '正在刷新上下文...',
+          empty: '暂时还没有记忆提示',
+          aiFocusTitle: 'AI 关注',
+          tipRelationship: '关系：{{type}}',
+          tipMemory: '记忆：{{summary}}',
+          focusRelationship: '关系线索：{{type}}（置信度 {{confidence}}，强度 {{strength}}）',
+          focusMemory: '记忆线索：{{summary}}',
+          relationshipType: {
+            friend: '朋友',
+            family: '家人',
+            colleague: '同事',
+            mentor: '导师',
+            partner: '伴侣'
+          }
         },
         intimacyDevice: {
           sectionTitle: '亲密设备',

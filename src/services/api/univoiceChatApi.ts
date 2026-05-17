@@ -4,6 +4,9 @@ import type { ChatMessageInfo, GifInfo } from './chatApi';
 const API_BASE =
   (import.meta.env.VITE_UNIVOICE_CHAT_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
   'http://localhost:3000';
+const MEMORY_CORE_BASE =
+  (import.meta.env.VITE_MEMORY_RELATIONSHIP_CORE_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
+  '';
 
 const CHAT_API_LOG = '[chat-api]';
 
@@ -390,6 +393,68 @@ export async function sendTextMessage(
   text: string
 ): Promise<void> {
   await postDmMessage(principalId, sessionId, clientMsgId, 'text', { text });
+}
+
+export interface MemoryContextSummary {
+  entityId: string;
+  memories: Array<{ id: string; summary: string; memoryType: string }>;
+  relationships: Array<{
+    id: string;
+    relationshipType: string;
+    targetEntityId: string;
+    confidence: number;
+    strength: number;
+  }>;
+}
+
+/** Weak dependency: returns null when memory-core is unavailable or disabled. */
+export async function getMemoryContextWeak(
+  entityId: string,
+  options?: { peerEntityId?: string; queryText?: string; timeoutMs?: number }
+): Promise<MemoryContextSummary | null> {
+  if (!MEMORY_CORE_BASE || !entityId) {
+    return null;
+  }
+  const q = new URLSearchParams();
+  if (options?.peerEntityId) q.set('peer_entity_id', options.peerEntityId);
+  if (options?.queryText) q.set('query_text', options.queryText);
+  const qs = q.toString();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options?.timeoutMs ?? 1500);
+  try {
+    const res = await fetch(
+      `${MEMORY_CORE_BASE}/v1/context/${encodeURIComponent(entityId)}${qs ? `?${qs}` : ''}`,
+      {
+        method: 'GET',
+        signal: controller.signal,
+      }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as Record<string, unknown>;
+    const memoriesRaw = Array.isArray(data.memories) ? (data.memories as Record<string, unknown>[]) : [];
+    const relationshipsRaw = Array.isArray(data.relationships)
+      ? (data.relationships as Record<string, unknown>[])
+      : [];
+    return {
+      entityId,
+      memories: memoriesRaw.map((item) => ({
+        id: String(item.id ?? ''),
+        summary: String(item.summary ?? item.content ?? ''),
+        memoryType: String(item.memory_type ?? item.memoryType ?? ''),
+      })),
+      relationships: relationshipsRaw.map((item) => ({
+        id: String(item.id ?? ''),
+        relationshipType: String(item.relationship_type ?? item.relationshipType ?? ''),
+        targetEntityId: String(item.target_entity_id ?? item.targetEntityId ?? ''),
+        confidence: Number(item.confidence ?? 0),
+        strength: Number(item.strength ?? 0),
+      })),
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function markRead(

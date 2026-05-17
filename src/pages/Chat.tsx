@@ -10,7 +10,9 @@ import {
   messageItemToChatMessageInfo,
   checkDevicePairing,
   createDevicePairing,
+  getMemoryContextWeak,
   type MessageItem,
+  type MemoryContextSummary,
 } from '../services/api/univoiceChatApi';
 import type { DeviceType } from '../../declarations/aio-base-backend/aio-base-backend.did.d.ts';
 import { ArrowLeft, Bot, Link2, Send, Smile, Smartphone, Trash2, X } from 'lucide-react';
@@ -91,6 +93,11 @@ const AI_CHAT_STORAGE_KEY_PREFIX = 'aio_webchat_chat_';
 const AI_CHAT_GUEST_SESSION_COUNT_KEY_PREFIX = 'aio_webchat_ai_guest_session_count_';
 /** 测试阶段提高上限；上线前恢复为较小值（如 3） */
 const AI_CHAT_GUEST_SESSION_LIMIT = 3000000;
+
+function trimText(value: string, max = 44): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
+}
 
 const Chat = () => {
   const { user, loading: authLoading } = useAuth();
@@ -265,6 +272,8 @@ const Chat = () => {
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [aiSuggestionContent, setAiSuggestionContent] = useState('');
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
+  const [memoryContext, setMemoryContext] = useState<MemoryContextSummary | null>(null);
+  const [memoryContextLoading, setMemoryContextLoading] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -274,6 +283,52 @@ const Chat = () => {
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageSize = 20; // Messages per page
   const pagesPerLoad = 5; // Load 5 pages at a time
+
+  const memoryTipTags = useMemo(() => {
+    const tags: string[] = [];
+    if (!memoryContext) return tags;
+    for (const relationship of memoryContext.relationships.slice(0, 2)) {
+      const relType = relationship.relationshipType || 'unknown';
+      tags.push(
+        t('chat.memoryContext.tipRelationship', {
+          type: t(`chat.memoryContext.relationshipType.${relType}`, relType),
+        }) as string
+      );
+    }
+    for (const memory of memoryContext.memories.slice(0, 3)) {
+      if (!memory.summary) continue;
+      tags.push(
+        t('chat.memoryContext.tipMemory', {
+          summary: trimText(memory.summary),
+        }) as string
+      );
+    }
+    return tags.slice(0, 5);
+  }, [memoryContext, t]);
+
+  const memoryFocusLines = useMemo(() => {
+    if (!memoryContext) return [];
+    const lines: string[] = [];
+    for (const relationship of memoryContext.relationships.slice(0, 2)) {
+      const relType = relationship.relationshipType || 'unknown';
+      lines.push(
+        t('chat.memoryContext.focusRelationship', {
+          type: t(`chat.memoryContext.relationshipType.${relType}`, relType),
+          confidence: relationship.confidence.toFixed(2),
+          strength: relationship.strength.toFixed(2),
+        }) as string
+      );
+    }
+    for (const memory of memoryContext.memories.slice(0, 3)) {
+      if (!memory.summary) continue;
+      lines.push(
+        t('chat.memoryContext.focusMemory', {
+          summary: memory.summary,
+        }) as string
+      );
+    }
+    return lines.slice(0, 5);
+  }, [memoryContext, t]);
   
 
   // Handle immediate restoration in useEffect to avoid React error #310
@@ -701,6 +756,34 @@ const Chat = () => {
       console.log('[Chat] Waiting for auth to complete before initializing chat');
     }
   }, [user?.principalId, contactPrincipalId, authLoading, useUnivoiceDm]);
+
+  useEffect(() => {
+    if (!user?.principalId || !contactPrincipalId || isAiContact || !useUnivoiceDm) {
+      setMemoryContext(null);
+      setMemoryContextLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMemoryContextLoading(true);
+    const timer = setTimeout(() => {
+      getMemoryContextWeak(user.principalId, {
+        peerEntityId: contactPrincipalId,
+        timeoutMs: 1400,
+      })
+        .then((result) => {
+          if (cancelled) return;
+          setMemoryContext(result);
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setMemoryContextLoading(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [user?.principalId, contactPrincipalId, isAiContact, useUnivoiceDm, messages.length]);
 
   const onUnivoiceMessageNew = useCallback(
     (m: MessageItem) => {
@@ -1652,7 +1735,17 @@ const Chat = () => {
         partnerDisplayName: contactName || contactNickname || 'partner',
         maxMessages: 10,
       });
+      const memoryFocusPrompt =
+        memoryFocusLines.length > 0
+          ? `\n\nMemory context (weak hints, do not overstate as facts):\n${memoryFocusLines.map((item) => `- ${item}`).join('\n')}`
+          : '';
       const webChatMessages = buildWebChatMessagesForSuggestion(formattedPrompt);
+      if (memoryFocusPrompt && webChatMessages.length > 0) {
+        webChatMessages[0] = {
+          ...webChatMessages[0],
+          content: `${String(webChatMessages[0].content || '')}${memoryFocusPrompt}`,
+        };
+      }
       const result = await execWebChat({
         messages: webChatMessages,
         user: user.principalId,
@@ -1669,7 +1762,7 @@ const Chat = () => {
     } finally {
       setAiSuggestionLoading(false);
     }
-  }, [user?.principalId, user?.nickname, user?.name, messages, contactName, contactNickname, isAiContact, toast, t]);
+  }, [user?.principalId, user?.nickname, user?.name, messages, contactName, contactNickname, isAiContact, toast, t, memoryFocusLines]);
 
   const handleEmojiClick = () => {
     // Contact info check removed - functionality works correctly without this warning
@@ -1905,6 +1998,30 @@ const Chat = () => {
                         <p><span className={styles.chat__contact__details__label}>Online:</span> {currentContact.isOnline ? 'Yes' : 'No'}</p>
                         {currentContact.contactPrincipalId && (
                           <p><span className={styles.chat__contact__details__label}>Principal ID:</span> <code className={styles.chat__contact__details__code}>{currentContact.contactPrincipalId}</code></p>
+                        )}
+                        {useUnivoiceDm && (
+                          <div className={styles.chat__memory__tips}>
+                            <div className={styles.chat__memory__tips__title}>
+                              {t('chat.memoryContext.sectionTitle')}
+                            </div>
+                            {memoryContextLoading ? (
+                              <div className={styles.chat__memory__tips__loading}>
+                                {t('chat.memoryContext.loading')}
+                              </div>
+                            ) : memoryTipTags.length > 0 ? (
+                              <div className={styles.chat__memory__tips__list}>
+                                {memoryTipTags.map((tip, index) => (
+                                  <span key={`${tip}-${index}`} className={styles.chat__memory__tips__tag}>
+                                    {tip}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className={styles.chat__memory__tips__empty}>
+                                {t('chat.memoryContext.empty')}
+                              </div>
+                            )}
+                          </div>
                         )}
                         {useUnivoiceDm && (
                           <div className={styles.chat__contact__details__intimacy}>
@@ -2461,6 +2578,20 @@ const Chat = () => {
                   </div>
                 ) : (
                   <div className={styles.chat__ai_drawer__content}>
+                    {memoryFocusLines.length > 0 && (
+                      <div className={styles.chat__ai_focus}>
+                        <div className={styles.chat__ai_focus__title}>
+                          {t('chat.memoryContext.aiFocusTitle')}
+                        </div>
+                        <div className={styles.chat__ai_focus__list}>
+                          {memoryFocusLines.map((item, index) => (
+                            <span key={`${item}-${index}`} className={styles.chat__ai_focus__tag}>
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiSuggestionContent || '—'}</ReactMarkdown>
                   </div>
                 )}
