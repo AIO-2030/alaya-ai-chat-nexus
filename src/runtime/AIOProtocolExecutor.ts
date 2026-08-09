@@ -74,12 +74,13 @@ const WEBCHAT_PRODUCTION_URL = 'https://webchat.univoices.club/v1/chat/completio
 /** Get WebChat endpoint by environment (prod vs dev). */
 function getWebChatEndpoint(): string {
   const isProduction = window.location.protocol === 'https:';
-  const isProductionFlag = true;
-  if (isProductionFlag) {
+  if (isProduction) {
+    console.log(`[getWebChatEndpoint] Using production WebChat server: ${WEBCHAT_PRODUCTION_URL}`);
     return WEBCHAT_PRODUCTION_URL;
   }
   const devUrl = (import.meta.env.VITE_AIO_WEBCHAT_URL || 'http://127.0.0.1:8002')
     .replace(/\/+$/, '');
+  console.log(`[getWebChatEndpoint] Using development WebChat server: ${devUrl}`);
   return `${devUrl}/v1/chat/completions`;
 }
 
@@ -178,29 +179,11 @@ async function executeRpc(
   try {
     // Check if running in production environment
     const isProduction = import.meta.env.PROD || window.location.protocol === 'https:';
-    const isProductionFlag = true;
+    const isProductionFlag = false;
 
-    let baseUrl;
-    if (isProductionFlag) {
-      // Production environment uses remote MCP service directly with HTTPS
-      baseUrl = 'https://mcp.univoices.club/api/v1/rpc';
-      console.log(`[executeRpc] Using production MCP server: ${baseUrl}`);
-    } else {
-      // Development environment uses environment variables with HTTPS fallback
-      baseUrl = import.meta.env.VITE_AIO_MCP_API_URL?.replace(/\/+$/, '');
-      
-      if (!baseUrl) {
-        throw new Error('VITE_AIO_MCP_API_URL is not defined in environment variables');
-      }
-      
-      // Ensure HTTPS for development environment too
-      if (baseUrl.startsWith('http://')) {
-        baseUrl = baseUrl.replace('http://', 'https://');
-        console.log(`[executeRpc] Converted HTTP to HTTPS for development: ${baseUrl}`);
-      }
-      console.log(`[executeRpc] Using URL: ${baseUrl}`);
-    }
-    
+    let baseUrl = import.meta.env.VITE_AIO_MCP_API_URL;
+    console.log(`[executeRpc] Using URL: ${baseUrl}`);
+
     // Construct endpoint - handle both base URL and full URL with path
     let endpoint;
     if (baseUrl.includes('/api/v1/rpc')) {
