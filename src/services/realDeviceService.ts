@@ -144,8 +144,8 @@ class RealDeviceService {
       const handshake0 = this.createBLUFICommand(0x00, sequence, new Uint8Array(0));
       console.log(`   📤 Writing handshake (seq ${sequence}): ${Array.from(handshake0).map(b => b.toString(16).padStart(2,'0')).join(' ')}`);
 
-      // Register ACK wait before write; device often responds with Type=0x49
-      const ackPromise = this.waitForDeviceAck(deviceId, 'Handshake', 5000, sequence + 1);
+      // Register the standard BLUFI 0x00 ACK wait before writing.
+      const ackPromise = this.waitForDeviceAck(deviceId, 'Handshake', 5000, sequence);
 
       await commandCharacteristic.writeValue(handshake0);
       console.log(`   ✅ Handshake frame written`);
@@ -276,41 +276,59 @@ class RealDeviceService {
   
   // Track WiFi connection success status per device
   private wifiConnectionSuccessStatus = new Map<string, boolean>();
+  private wifiConnectionReportFragments = new Map<string, Uint8Array[]>();
 
 
-  // Handle WiFi connection success (0x3d frame)
+  // Handle the standard BLUFI WiFi connection report (0x3d).
   private handleWiFiConnectionSuccess(deviceId: string, data: Uint8Array): void {
-    console.log(`   🎉 WiFi connection success ACK received (0x3d)!`);
-    console.log(`   📊 Success data: ${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
-    
-    // Mark WiFi connection success for this device
-    this.wifiConnectionSuccessStatus.set(deviceId, true);
-    console.log(`   ✅ WiFi connection success status marked for device ${deviceId}`);
-    
-    // Parse success response data
-    if (data.length >= 4) {
-      const frameType = data[0];
-      const frameControl = data[1];
-      const sequence = data[2];
-      const dataLength = data[3];
-      
-      console.log(`   🔍 Success frame parse: Type=0x${frameType.toString(16)}, FC=0x${frameControl.toString(16)}, Seq=${sequence}, DataLen=${dataLength}`);
-      
-      // If there's additional data, parse connection info
-      if (data.length > 4) {
-        const successData = data.slice(4);
-        console.log(`   📦 Success data payload: ${Array.from(successData).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')}`);
-        
-        // Try to parse IP address and other info (if exists)
-        if (successData.length >= 4) {
-          const ipBytes = successData.slice(0, 4);
-          const ipAddress = Array.from(ipBytes).join('.');
-          console.log(`   🌐 Device IP address: ${ipAddress}`);
-        }
-      }
+    if (data.length < 4 || data[0] !== 0x3d) {
+      console.warn('   ⚠️ Invalid BLUFI WiFi connection report');
+      return;
     }
-    
-    // Trigger WiFi configuration success event
+
+    const dataLength = data[3];
+    if (data.length < 4 + dataLength) {
+      console.warn('   ⚠️ Incomplete BLUFI WiFi connection report');
+      return;
+    }
+
+    const framePayload = data.slice(4, 4 + dataLength);
+    const fragments = this.wifiConnectionReportFragments.get(deviceId) || [];
+    if ((data[1] & 0x10) !== 0) {
+      if (framePayload.length < 2) return;
+      fragments.push(framePayload.slice(2));
+      this.wifiConnectionReportFragments.set(deviceId, fragments);
+      return;
+    }
+
+    fragments.push(framePayload);
+    this.wifiConnectionReportFragments.delete(deviceId);
+    const payloadLength = fragments.reduce((total, fragment) => total + fragment.length, 0);
+    const payload = new Uint8Array(payloadLength);
+    let offset = 0;
+    for (const fragment of fragments) {
+      payload.set(fragment, offset);
+      offset += fragment.length;
+    }
+    if (payload.length < 3) {
+      console.warn('   ⚠️ Incomplete BLUFI WiFi connection payload');
+      return;
+    }
+
+    const opmode = payload[0];
+    const connectionState = payload[1];
+    const softApConnections = payload[2];
+    console.log(`   📊 WiFi report: opmode=${opmode}, state=${connectionState}, softAPClients=${softApConnections}`);
+
+    // ESP_BLUFI_STA_CONN_SUCCESS is 0x00. A 0x3d report may also carry a
+    // failure state, so the frame type by itself must never mean success.
+    if (connectionState !== 0x00) {
+      this.wifiConnectionSuccessStatus.set(deviceId, false);
+      console.warn(`   ❌ Device reported WiFi connection failure (state=${connectionState})`);
+      return;
+    }
+
+    this.wifiConnectionSuccessStatus.set(deviceId, true);
     this.triggerWiFiConnectionSuccess(deviceId);
   }
 
@@ -323,6 +341,35 @@ class RealDeviceService {
   private clearWiFiConnectionSuccessStatus(deviceId: string): void {
     this.wifiConnectionSuccessStatus.delete(deviceId);
     console.log(`   🧹 WiFi connection success status cleared for device ${deviceId}`);
+  }
+
+  private async waitForWiFiConnectionSuccess(
+    deviceId: string,
+    timeoutMs: number = 30000
+  ): Promise<boolean> {
+    if (this.hasReceivedWiFiConnectionSuccess(deviceId)) return true;
+
+    return new Promise((resolve) => {
+      const handleSuccess = (event: Event) => {
+        const detail = (event as CustomEvent<{deviceId: string}>).detail;
+        if (detail?.deviceId !== deviceId) return;
+        clearTimeout(timeout);
+        window.removeEventListener('wifiConnectionSuccess', handleSuccess);
+        resolve(true);
+      };
+      const timeout = setTimeout(() => {
+        window.removeEventListener('wifiConnectionSuccess', handleSuccess);
+        resolve(this.hasReceivedWiFiConnectionSuccess(deviceId));
+      }, timeoutMs);
+
+      window.addEventListener('wifiConnectionSuccess', handleSuccess);
+      // Close the small race between the initial check and listener setup.
+      if (this.hasReceivedWiFiConnectionSuccess(deviceId)) {
+        clearTimeout(timeout);
+        window.removeEventListener('wifiConnectionSuccess', handleSuccess);
+        resolve(true);
+      }
+    });
   }
 
   // Trigger WiFi connection success event
@@ -385,21 +432,18 @@ class RealDeviceService {
       
       console.log(`   📋 Available handlers: ackHandler=${!!handlers.ackHandler}, wifiScanHandler=${!!handlers.wifiScanHandler}, statusHandler=${!!handlers.statusHandler}`);
       
-      // ✅ Priority route ACK: ensure FF02 notification listening is always online throughout the session and route ACK first
-      if (frameType === 0x49) {
-        // ACK/Status frame (Type=0x49) - highest priority
+      // Standard BLUFI ACK is control type 0x00. Error-info is data type 0x49.
+      if (frameType === 0x00) {
         if (handlers.ackHandler) {
-          console.log(`   📨 Routing ACK frame (0x49) to ackHandler - PRIORITY`);
+          console.log(`   📨 Routing BLUFI ACK frame to ackHandler`);
           handlers.ackHandler(data);
-        } else if (handlers.statusHandler) {
-          console.log(`   📨 Routing status frame (0x49) to statusHandler`);
-          handlers.statusHandler(data);
-        } else {
-          console.log(`   ⚠️  ACK frame received but no handler registered - THIS IS THE PROBLEM!`);
         }
+      } else if (frameType === 0x49) {
+        console.warn(`   ❌ BLUFI error-info frame received`);
+        if (handlers.wifiScanHandler) handlers.wifiScanHandler(data);
+        else if (handlers.statusHandler) handlers.statusHandler(data);
       } else if (frameType === 0x3d) {
-        // WiFi connection success ACK (Type=0x3d) - high priority
-        console.log(`   🎉 WiFi connection success ACK received (0x3d)!`);
+        // The report payload, rather than the type alone, carries success/failure.
         this.handleWiFiConnectionSuccess(deviceId, data);
       } else {
         // WiFi scan data or other data frames - low priority
@@ -513,8 +557,9 @@ class RealDeviceService {
     // Data = n bytes
     // Checksum = 2 bytes CRC16-CCITT (if FrameControl bit 1 is set)
     
-    // Frame control byte: 0x02 = with checksum, no encryption, no ACK required, no fragmentation
-    const frameControl = 0x02; // bit 1 set = has checksum
+    // Checksum plus ACK request. ESP-IDF replies with a 0x00 control frame
+    // whose one-byte payload is this phone-to-device sequence number.
+    const frameControl = 0x0A;
     const dataLength = data.length;
     
     // ✅ Fix: BLUFI checksum calculation should verify "sequence number + data length + plaintext data"
@@ -769,7 +814,82 @@ class RealDeviceService {
     });
   }
 
-  // Wait for multi-frame WiFi scan response
+  // Receive and reassemble the ESP-IDF BLUFI WiFi-list response (type 0x45).
+  // A fragmented frame has FC bit 0x10 set and begins its payload with a
+  // little-endian remaining-length field. The final frame has no fragment bit.
+  private async waitForBlufiWiFiScanResponse(
+    deviceId: string,
+    timeoutMs: number
+  ): Promise<{success: boolean, allFrames?: Uint8Array[]}> {
+    return new Promise((resolve) => {
+      const chunks: Uint8Array[] = [];
+      let completed = false;
+
+      const finish = (success: boolean) => {
+        if (completed) return;
+        completed = true;
+        clearTimeout(timeout);
+        this.unregisterNotificationHandler(deviceId, 'wifiScan');
+        if (!success) {
+          resolve({ success: false });
+          return;
+        }
+
+        const totalLength = chunks.reduce((total, chunk) => total + chunk.length, 0);
+        const payload = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+          payload.set(chunk, offset);
+          offset += chunk.length;
+        }
+        resolve({ success: true, allFrames: [payload] });
+      };
+
+      const handleFrame = (frame: Uint8Array) => {
+        if (frame.length < 4) return;
+        const type = frame[0];
+        const frameControl = frame[1];
+        const dataLength = frame[3];
+
+        if (type === 0x49) {
+          const errorCode = dataLength > 0 && frame.length >= 5 ? frame[4] : -1;
+          console.error(`BLUFI WiFi scan failed, error=${errorCode}`);
+          finish(false);
+          return;
+        }
+        if (type !== 0x45) return;
+        if (frame.length < 4 + dataLength) {
+          console.warn('Ignoring incomplete BLUFI WiFi-list frame');
+          return;
+        }
+
+        const framePayload = frame.slice(4, 4 + dataLength);
+        if ((frameControl & 0x10) !== 0) {
+          if (framePayload.length < 2) {
+            console.warn('Ignoring malformed BLUFI WiFi-list fragment');
+            return;
+          }
+          const remainingLength = framePayload[0] | (framePayload[1] << 8);
+          chunks.push(framePayload.slice(2));
+          console.log(`Received BLUFI WiFi-list fragment, remaining=${remainingLength}`);
+          return;
+        }
+
+        chunks.push(framePayload);
+        finish(true);
+      };
+
+      const timeout = setTimeout(() => {
+        console.error(`BLUFI WiFi scan response timeout after ${timeoutMs}ms`);
+        finish(false);
+      }, timeoutMs);
+
+      this.registerNotificationHandler(deviceId, 'wifiScan', handleFrame);
+    });
+  }
+
+  // Legacy response reader retained for older devices; ESP-IDF devices use
+  // waitForBlufiWiFiScanResponse above.
   private async waitForMultiFrameWiFiScanResponse(
     responseCharacteristic: BluetoothRemoteGATTCharacteristic,
     timeoutMs: number,
@@ -2027,7 +2147,7 @@ class RealDeviceService {
       // Frame format: [Type][Frame Control][Sequence][Data Length][Data][Checksum Low][Checksum High]
       // Type byte: Subtype=0 (Negotiate), FrameType=00 (control frame)
       // Type = (0 << 2) | 0 = 0x00
-      // Frame Control = 0x02 (with checksum flag)
+      // Frame Control = 0x0A (checksum + ACK request)
       // Sequence = 0x00 (BLUFI protocol standard starting sequence)
       // Data Length = 0x00 (no data)
       // Data = none
@@ -2165,6 +2285,10 @@ class RealDeviceService {
       // Subtype=9 (get WiFi list), FrameType=00 (control frame)
       // Type = (9 << 2) | 0 = 0x24
       const wifiListCommand = this.createBLUFICommand(0x24, 2, new Uint8Array(0));
+      // Register the FF02 response handler before writing 0x24. A nearby ESP32
+      // can finish the scan before writeValue() returns to the page.
+      if (!deviceId) throw new Error('Device ID is required for BLUFI WiFi scan');
+      const scanResponsePromise = this.waitForBlufiWiFiScanResponse(deviceId, 120000);
       
       console.log('📊 WiFi List Request command (hex):', Array.from(wifiListCommand).map(b => b.toString(16).padStart(2, '0')).join(' '));
       console.log('📋 Command format analysis:');
@@ -2247,11 +2371,7 @@ class RealDeviceService {
       console.log('   3. Device not in correct mode for WiFi scanning');
       
       // Wait for multi-frame response
-      const result = await this.waitForMultiFrameWiFiScanResponse(
-          responseCharacteristic,
-        120000, // 120 second timeout for multi-frame response
-          deviceId
-      );
+      const result = await scanResponsePromise;
       
       if (!result.success || !result.allFrames || result.allFrames.length === 0) {
         console.error('❌ WiFi scan failed - no frames received within timeout');
@@ -2272,7 +2392,7 @@ class RealDeviceService {
         console.log(`Frame data (hex): ${Array.from(frameData).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
         
         // Use improved WiFi network parsing method
-        const frameNetworks = this.parseWiFiNetworksFromPayload(frameData);
+        const frameNetworks = this.parseBlufiWiFiListPayload(frameData);
           allWiFiNetworks.push(...frameNetworks);
           console.log(`Frame ${i + 1} contributed ${frameNetworks.length} networks`);
       }
@@ -2499,6 +2619,39 @@ class RealDeviceService {
   }
   
   // Parse WiFi networks from payload data according to BLUFI protocol
+  // ESP-IDF encodes each AP as [entryLength][RSSI][SSID...], where
+  // entryLength includes the one-byte RSSI field.
+  private parseBlufiWiFiListPayload(payload: Uint8Array): WiFiNetwork[] {
+    const networks: WiFiNetwork[] = [];
+    let offset = 0;
+
+    while (offset < payload.length) {
+      const entryLength = payload[offset++];
+      if (entryLength < 2 || offset + entryLength > payload.length) {
+        console.warn(`Malformed BLUFI WiFi-list entry at offset ${offset - 1}`);
+        break;
+      }
+
+      const rssiByte = payload[offset++];
+      const rssi = rssiByte > 127 ? rssiByte - 256 : rssiByte;
+      const ssidLength = entryLength - 1;
+      const ssid = new TextDecoder('utf-8').decode(payload.slice(offset, offset + ssidLength));
+      offset += ssidLength;
+
+      if (!ssid) continue;
+      networks.push({
+        id: `wifi_${networks.length}_${ssid}`,
+        name: ssid,
+        security: 'Unknown',
+        strength: rssi,
+        frequency: 0,
+        channel: 0
+      });
+    }
+
+    return networks;
+  }
+
   private parseWiFiNetworksFromPayload(payloadData: Uint8Array): WiFiNetwork[] {
     const networks: WiFiNetwork[] = [];
     
@@ -2868,7 +3021,8 @@ class RealDeviceService {
     }
   }
 
-  // Wait for device ACK based on 0x49 + ok + time window/step context
+  // Wait for the standard BLUFI 0x00 ACK. Its payload contains the sequence
+  // number of the phone frame being acknowledged.
   private async waitForDeviceAck(
     deviceId: string,
     stepContext: string, // e.g., "SSID", "Password", "Connect"
@@ -2887,60 +3041,17 @@ class RealDeviceService {
         const hexStr = Array.from(responseData).map(b => b.toString(16).padStart(2, '0')).join(' ');
         console.log(`   📊 Raw data: ${hexStr}`);
         
-        if (responseData.byteLength >= 4) {
-          // ✅ Correct BLUFI frame format parsing
-          // [Type(1)][FrameControl(1)][Sequence(1)][DataLength(1)][Data(n)]
-          const frameType = responseData[0];
-          const frameControl = responseData[1];
-          const sequence = responseData[2];
-          const dataLength = responseData[3];
-          
-          console.log(`   🔍 Frame parse: Type=0x${frameType.toString(16)}, FC=0x${frameControl.toString(16)}, Seq=${sequence}, DataLen=${dataLength}`);
-          if (typeof expectedSeq === 'number') {
-            const seqMatch = sequence === expectedSeq;
-            console.log(`   🔢 ACK sequence check: expected=${expectedSeq}, received=${sequence}, match=${seqMatch}`);
-          }
-          
-          // ✅ Key judgment: 0x49 + ok + time window/step context
-          if (frameType === 0x49) {
-            console.log(`   📨 Device ACK/Status frame (Type=0x49) for ${stepContext}`);
-            
-            // Check if there's actual data
-            const actualDataBytes = responseData.length > 4 ? responseData.slice(4) : [];
-            if (actualDataBytes.length > 0) {
-              console.log(`   📦 Data (${actualDataBytes.length} bytes): ${Array.from(actualDataBytes).map(b => `0x${b.toString(16).padStart(2, '0')}`).join(' ')}`);
-              
-              const errorCode = actualDataBytes[0];
-              console.log(`   📊 Status error code: ${errorCode}`);
-              
-              if (errorCode === 0) {
-                console.log(`   ✅ ACK confirmed for ${stepContext}: error code 0 (success)`);
-                clearTimeout(timeoutHandle);
-                this.unregisterNotificationHandler(deviceId, 'ack');
-                resolved = true;
-                resolve(true);
-                return;
-              } else {
-                console.log(`   ⚠️  ACK with error for ${stepContext}: error code ${errorCode}`);
-                // Even with error, consider it as ACK response, continue to next step
-                clearTimeout(timeoutHandle);
-                this.unregisterNotificationHandler(deviceId, 'ack');
-                resolved = true;
-                resolve(true);
-                return;
-              }
-            } else {
-              // No data part, also consider as ACK
-              console.log(`   ✅ ACK confirmed for ${stepContext}: Type=0x49 without data`);
-              clearTimeout(timeoutHandle);
-              this.unregisterNotificationHandler(deviceId, 'ack');
-              resolved = true;
-              resolve(true);
-              return;
-            }
-          } else {
-            console.log(`   ⚠️  Non-ACK frame received during ${stepContext}: Type=0x${frameType.toString(16)}`);
-          }
+        if (responseData.byteLength >= 5 && responseData[0] === 0x00 && responseData[3] >= 1) {
+          const acknowledgedSequence = responseData[4];
+          const sequenceMatches = expectedSeq === undefined || acknowledgedSequence === expectedSeq;
+          console.log(`   🔢 ACK sequence: expected=${expectedSeq}, received=${acknowledgedSequence}, match=${sequenceMatches}`);
+          if (!sequenceMatches) return;
+
+          clearTimeout(timeoutHandle);
+          this.unregisterNotificationHandler(deviceId, 'ack');
+          resolved = true;
+          resolve(true);
+          return;
         } else {
           console.log(`   ⚠️  Frame too short for ${stepContext}: ${responseData.byteLength} bytes`);
         }
@@ -3022,7 +3133,7 @@ class RealDeviceService {
         console.log(`   ⚙️  Sending Set Opmode (STA) with seq=3`);
         const opmodeFrame = this.createSetOpmodeFrame(3, 0x01);
         console.log(`   🎧 Setting up ACK listener before writing Opmode (seq 3)...`);
-        const ackPromise = this.waitForDeviceAck(deviceId, 'Opmode', 5000, 1);
+        const ackPromise = this.waitForDeviceAck(deviceId, 'Opmode', 5000, 3);
         await new Promise(resolve => setTimeout(resolve, 100));
         await characteristic.writeValue(opmodeFrame);
         console.log(`   ✅ Opmode frame written (seq 3)`);
@@ -3062,9 +3173,8 @@ class RealDeviceService {
         // ✅ CRITICAL FIX: set up ACK listener before writing data
         const stepContext = i === 0 ? 'SSID' : i === 1 ? 'Password' : 'Connect';
         console.log(`   🎧 Setting up ACK listener before writing ${stepContext} (seq ${frameSeq})...`);
-        // Device ACK 0x49 sequence is independent of uplink, actual test shows 1/2/3 corresponding to SSID/Password/Connect
-        // ACK sequence number only for logging: Opmode→1, SSID→2, Password→3, Connect→4
-        const expectedAckSeq = i + 2;
+        // Standard BLUFI ACK payload echoes the uplink frame sequence.
+        const expectedAckSeq = frameSeq;
         // Use reasonable timeout: SSID/Password use 8000ms, Connect use 5000ms
         const timeoutMs = i === 2 ? 5000 : 8000; // Connect step uses shorter timeout
         const ackPromise = this.waitForDeviceAck(deviceId, stepContext, timeoutMs, expectedAckSeq);
@@ -3121,17 +3231,19 @@ class RealDeviceService {
         };
       }
       
-      // Only wait for status response if 0x3d ACK was not received
-      console.log('🔍 No 0x3d ACK received yet, waiting for device status response...');
-      const statusResponse = await this.waitForWiFiStatusResponse(service);
-      
-      if (statusResponse) {
-        console.log('✅ WiFi status response received:', statusResponse);
-        return statusResponse;
-      } else {
-        console.error('❌ No status response received, WiFi configuration failed');
-        throw new Error('WiFi configuration failed: No status response received from device after 30 seconds timeout');
+      console.log('🔍 Waiting for ESP-IDF BLUFI 0x3d connection report...');
+      if (await this.waitForWiFiConnectionSuccess(deviceId, 30000)) {
+        this.clearWiFiConnectionSuccessStatus(deviceId);
+        return {
+          success: true,
+          message: 'WiFi connection established successfully',
+          confirmedBy: 'BLUFI 0x3d report',
+          timestamp: new Date().toISOString()
+        };
       }
+
+      console.error('❌ No successful BLUFI WiFi report received');
+      throw new Error('WiFi configuration failed: device did not obtain an IP address within 30 seconds');
     } catch (error) {
       console.error('Failed to write WiFi configuration to GATT:', error);
       throw new Error('GATT write failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -3907,4 +4019,3 @@ class RealDeviceService {
 }
 
 export const realDeviceService = new RealDeviceService();
-
