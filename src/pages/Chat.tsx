@@ -1570,6 +1570,7 @@ const Chat = () => {
           messages: [...historyForApi, { role: 'user', content: textToSend }],
           user: user.principalId,
           user_nickname: user.nickname || user.name || '',
+          session_id: `ai-present:${user.principalId}`,
           stream: false
         });
         const aiContent = result.success && result.data?.choices?.[0]?.message?.content
@@ -1750,6 +1751,7 @@ const Chat = () => {
         messages: webChatMessages,
         user: user.principalId,
         user_nickname: user.nickname || user.name || '',
+        session_id: `ai-suggestion:${user.principalId}:${dmSessionId || socialPairKey || contactPrincipalId || 'unknown'}`,
         stream: false,
       });
       const text = result.success && result.data?.choices?.[0]?.message?.content
@@ -1762,7 +1764,7 @@ const Chat = () => {
     } finally {
       setAiSuggestionLoading(false);
     }
-  }, [user?.principalId, user?.nickname, user?.name, messages, contactName, contactNickname, isAiContact, toast, t, memoryFocusLines]);
+  }, [user?.principalId, user?.nickname, user?.name, messages, contactName, contactNickname, isAiContact, toast, t, memoryFocusLines, dmSessionId, socialPairKey, contactPrincipalId]);
 
   const handleEmojiClick = () => {
     // Contact info check removed - functionality works correctly without this warning

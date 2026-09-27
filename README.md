@@ -277,7 +277,8 @@ DeviceSend
 | `VITE_II_URL` | Internet Identity（默认 `https://identity.ic0.app`） |
 | `VITE_UNIVOICE_CHAT_API_BASE_URL` | chat-api（默认 `http://localhost:3000`） |
 | `VITE_UNIVOICE_CHAT_SSE_BASE_URL` | chat-sse（默认 `http://localhost:3001`） |
-| `VITE_AIO_WEBCHAT_URL` | 开发环境 WebChat（默认 `http://127.0.0.1:8002`） |
+| `VITE_AI_RUNTIME_URL` | AI-Runtime 地址；本地默认 `http://127.0.0.1:8090`，生产填写指向 AI-Runtime 的 HTTPS 反向代理地址 |
+| `VITE_AI_RUNTIME_TIMEOUT_SECONDS` | AI-Runtime 浏览器请求超时秒数（默认 `600`，即 10 分钟） |
 | `VITE_AIO_MCP_API_URL` | MCP JSON-RPC 网关 |
 | `VITE_MEMORY_RELATIONSHIP_CORE_BASE_URL` | 记忆 / 关系核心服务 |
 | `VITE_ELEVENLABS_API_KEY` | ElevenLabs 语音 |
@@ -2193,5 +2194,3 @@ const createProject = async (pixelArt: PixelArtData, message?: string) => {
 - Backend integration: `src/aio-base-backend/src/pixel_creation_types.rs`
 - Backend API: `src/aio-base-backend/src/lib.rs` (pixel art endpoints)
 - Candid interface: `src/aio-base-backend/aio-base-backend.did`
-
-

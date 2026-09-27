@@ -1,9 +1,9 @@
 // AIO Protocol Executor - Independent implementation for alaya-chat-nexus-frontend
 import { AIOProtocolStepInfo, AIOProtocolResult } from './AIOProtocolTypes';
 
-// ============ AIO WebChat Interface (OpenAI-compatible) ============
-/** Production: https://webchat.univoices.club/v1/chat/completions */
-/** Dev: http://127.0.0.1:8002/v1/chat/completions (or VITE_AIO_WEBCHAT_URL) */
+// ============ AI Runtime Chat Interface (OpenAI-compatible) ============
+/** Production: VITE_AI_RUNTIME_URL (the public reverse proxy for ai-runtime) */
+/** Dev: http://127.0.0.1:8090/v1/chat/completions */
 
 /** Univoice AI 联系人唯一标识：contactPrincipalId 为此值时视为 AI 会话，走 execWebChat + localStorage */
 export const AIO_WEBCHAT_AI_CONTACT_PRINCIPAL_ID = 'aio_webchat_ai';
@@ -20,6 +20,8 @@ export interface WebChatCompletionRequest {
   user?: string;
   /** 用户昵称，用于 AI 个性化交互 */
   user_nickname?: string;
+  /** 稳定的会话标识，用于隔离 AI 对话、建议等不同上下文 */
+  session_id?: string;
   stream?: boolean;
 }
 
@@ -57,6 +59,8 @@ export interface ExecWebChatOptions {
   user?: string;
   /** 用户昵称，用于 AI 个性化交互 */
   user_nickname?: string;
+  /** 稳定的会话标识；未提供时按用户回退到个人 AI 会话 */
+  session_id?: string;
   stream?: boolean;
   timeout?: number;
   /** 流式响应时每收到一个 chunk 的回调 */
@@ -69,19 +73,26 @@ export interface ExecWebChatResult {
   error?: string;
 }
 
-const WEBCHAT_PRODUCTION_URL = 'https://webchat.univoices.club/v1/chat/completions';
+const AI_RUNTIME_DEVELOPMENT_URL = 'http://127.0.0.1:8090';
+// The existing public hostname can be retained as a reverse proxy, but its
+// upstream must be ai-runtime rather than aio-pod's legacy Chat Router.
+const AI_RUNTIME_PRODUCTION_URL = 'https://webchat.univoices.club';
+const configuredAiRuntimeTimeout = Number(import.meta.env.VITE_AI_RUNTIME_TIMEOUT_SECONDS);
+const AI_RUNTIME_TIMEOUT_SECONDS = Number.isFinite(configuredAiRuntimeTimeout) && configuredAiRuntimeTimeout > 0
+  ? configuredAiRuntimeTimeout
+  : 600;
 
-/** Get WebChat endpoint by environment (prod vs dev). */
-function getWebChatEndpoint(): string {
+/** Get the AI Runtime OpenAI-compatible endpoint. */
+function getAiRuntimeEndpoint(): string {
   const isProduction = window.location.protocol === 'https:';
-  if (isProduction) {
-    console.log(`[getWebChatEndpoint] Using production WebChat server: ${WEBCHAT_PRODUCTION_URL}`);
-    return WEBCHAT_PRODUCTION_URL;
-  }
-  const devUrl = (import.meta.env.VITE_AIO_WEBCHAT_URL || 'http://127.0.0.1:8002')
+  const configuredUrl = import.meta.env.VITE_AI_RUNTIME_URL || import.meta.env.VITE_AIO_WEBCHAT_URL;
+  const baseUrl = (configuredUrl || (isProduction ? AI_RUNTIME_PRODUCTION_URL : AI_RUNTIME_DEVELOPMENT_URL))
     .replace(/\/+$/, '');
-  console.log(`[getWebChatEndpoint] Using development WebChat server: ${devUrl}`);
-  return `${devUrl}/v1/chat/completions`;
+  const endpoint = baseUrl.endsWith('/v1/chat/completions')
+    ? baseUrl
+    : `${baseUrl}/v1/chat/completions`;
+  console.log(`[getAiRuntimeEndpoint] Using AI Runtime server: ${endpoint}`);
+  return endpoint;
 }
 
 // Types for RPC communication
@@ -255,30 +266,37 @@ async function executeRpc(
 }
 
 /**
- * Execute WebChat completion (AIO Chat Router / OpenAI-compatible).
- * Production: https://webchat.univoices.club/v1/chat/completions
- * Dev: http://127.0.0.1:8002/v1/chat/completions (or VITE_AIO_WEBCHAT_URL)
+ * Execute an AI Runtime completion (OpenAI-compatible).
+ * Production: VITE_AI_RUNTIME_URL (public reverse proxy)
+ * Dev: http://127.0.0.1:8090/v1/chat/completions
  *
  * @param options model, messages, stream, timeout, optional onChunk for stream mode
  * @returns Promise<ExecWebChatResult> with data (and assembled content when stream)
  */
 export async function execWebChat(options: ExecWebChatOptions): Promise<ExecWebChatResult> {
   const {
-    model = 'openclaw:main',
+    model = 'ai-runtime:ai-present',
     messages,
     user,
     user_nickname,
+    session_id,
     stream = false,
-    timeout = 60,
+    timeout = AI_RUNTIME_TIMEOUT_SECONDS,
     onChunk
   } = options;
 
-  const endpoint = getWebChatEndpoint();
+  const stableUser = user?.trim();
+  if (!stableUser) {
+    return { success: false, error: 'AI Runtime requires a stable user id' };
+  }
+
+  const endpoint = getAiRuntimeEndpoint();
   const requestBody: WebChatCompletionRequest = {
     model,
     messages,
-    user: user != null && user !== '' ? user : `anonymous-${Date.now()}`,
+    user: stableUser,
     ...(user_nickname != null && user_nickname !== '' ? { user_nickname } : {}),
+    session_id: session_id?.trim() || `ai-present:${stableUser}`,
     stream
   };
 
