@@ -1,4 +1,347 @@
-# Alaya Chat Nexus Frontend – Recent Updates
+# Alaya Chat Nexus Frontend
+
+Univoice 品牌下的 AI 社交聊天 + IoT 硬件控制 PWA。集成语音 AI、像素/GIF 创作、Solana 订阅支付与设备消息下发，部署于 Internet Computer（ICP）资产 Canister。
+
+---
+
+## 项目概述
+
+| 维度 | 说明 |
+|------|------|
+| **仓库路径** | `src/alaya-chat-nexus-frontend/` |
+| **运行形态** | Vite + React SPA，可安装为 PWA |
+| **核心能力** | 多路聊天（Canister / Univoice DM / AIO WebChat）、IoT 设备配网与消息下发、ElevenLabs 语音、Solana 订阅 |
+| **后端依赖** | `aio-base-backend`（ICP Canister）、`univoice-chat`（NestJS REST + SSE）、若干外部 AI/IoT 服务 |
+
+---
+
+## 系统架构
+
+### 整体架构
+
+```mermaid
+flowchart TB
+  subgraph Frontend["alaya-chat-nexus-frontend (PWA)"]
+    Pages["pages/ 页面路由"]
+    Hooks["hooks/ 业务 Hook"]
+    Services["services/ + services/api/"]
+    Runtime["runtime/AIOProtocolExecutor"]
+    Lib["lib/ 认证 · 环境 · 钱包"]
+    Contexts["contexts/DeviceContext"]
+  end
+
+  subgraph ICP["Internet Computer"]
+    Backend["aio-base-backend Canister<br/>用户 · 社交聊天 · 设备 · 订阅"]
+    Asset["alaya-chat-nexus-frontend<br/>Asset Canister"]
+  end
+
+  subgraph Univoice["univoice-chat (NestJS)"]
+    ChatAPI["chat-api REST :3000"]
+    ChatSSE["chat-sse SSE :3001"]
+  end
+
+  subgraph External["外部服务"]
+    II["Internet Identity"]
+    Google["Google OAuth"]
+    EL["ElevenLabs"]
+    IoT["腾讯 IoT MQTT / STS"]
+    MCP["AIO MCP / WebChat"]
+    Solana["Solana RPC / Phantom"]
+    Memory["Memory Relationship Core"]
+  end
+
+  Pages --> Hooks --> Services
+  Pages --> Contexts
+  Services --> Backend
+  Services --> ChatAPI
+  Hooks --> ChatSSE
+  Runtime --> MCP
+  Lib --> II
+  Lib --> Google
+  Services --> EL
+  Services --> IoT
+  Services --> Memory
+  Lib --> Solana
+  Asset -.托管.-> Frontend
+```
+
+### Monorepo 定位
+
+| 子工程 | 关系 |
+|--------|------|
+| **`aio-base-backend`** | 核心业务 Canister：用户档案、legacy 社交聊天、设备注册、AI 订阅、任务奖励、像素创作等。前端通过 `@dfinity/agent` + `declarations/aio-base-backend` Candid 绑定调用 |
+| **`aio-base-frontend`** | 同 monorepo 基础前端 Canister（`CANISTER_ID_AIO_BASE_FRONTEND`），与本应用独立部署 |
+| **`univoice-chat`** | 新一代 DM 聊天后端：`chat-api`（REST）+ `chat-sse`（实时推送）。前端适配层见 `src/services/api/univoiceChatApi.ts`、`src/hooks/useChatSse.ts` |
+| **仓库索引** | 根目录 [`AGENTS.md`](../../AGENTS.md)、Univoice 集成说明 [`src/univoice-chat/integration_chat_api_chat_sse_guide.md`](../../univoice-chat/integration_chat_api_chat_sse_guide.md) |
+
+---
+
+## 技术栈
+
+| 类别 | 选型 |
+|------|------|
+| **框架** | React 18、TypeScript、Vite 5（`@vitejs/plugin-react-swc`） |
+| **路由 / 状态** | React Router 6、TanStack React Query、React Context |
+| **UI** | Tailwind CSS、shadcn/ui（Radix）、CSS Modules、Lucide |
+| **国际化** | i18next + react-i18next |
+| **ICP** | `@dfinity/agent`、`auth-client`、`principal`、`candid` |
+| **实时通信** | `event-source-polyfill`（SSE）、`mqtt`（腾讯 IoT） |
+| **AI / 语音** | `@elevenlabs/react`、`AIOProtocolExecutor`（WebChat + MCP JSON-RPC） |
+| **Web3** | Solana（`@solana/web3.js`、Phantom SDK、WalletConnect）、Plug Wallet（ICP） |
+| **PWA** | `manifest.json`、`public/sw.js`、`pwaService` |
+
+---
+
+## 目录结构
+
+```
+alaya-chat-nexus-frontend/
+├── src/
+│   ├── main.tsx              # 入口：Buffer polyfill、i18n、PWA 初始化
+│   ├── App.tsx               # 全局 Provider + 路由表
+│   ├── pages/                # 页面级路由组件
+│   ├── components/           # 业务组件；ui/ 为 shadcn 原子组件
+│   ├── hooks/                # 自定义 Hook（SSE、设备、认证、语音等）
+│   ├── services/             # 业务服务（设备消息、MCP、PWA 等）
+│   │   └── api/              # 外部 API 客户端（ICP Actor / REST）
+│   ├── lib/                  # 共享工具（认证、环境、钱包、像素处理）
+│   ├── runtime/              # AIO 协议执行器（WebChat、MCP exec_step）
+│   ├── contexts/             # React Context（DeviceContext）
+│   ├── types/                # 共享 TS 类型
+│   ├── styles/               # 页面/组件 CSS Modules
+│   └── i18n.ts               # 国际化配置
+├── public/                   # 静态资源、PWA manifest、.ic-assets.json5（IC 部署 CSP）
+├── doc/                      # 基础设施（如 Cloudflare → ICP 自定义域名）
+└── declarations/             # Candid 生成文件（Vite alias → ../declarations）
+```
+
+---
+
+## 应用分层
+
+### 入口与 Provider 链
+
+`main.tsx` 启动应用并初始化 PWA；`App.tsx` 按以下顺序包裹全局能力：
+
+```
+QueryClientProvider → TooltipProvider → SidebarProvider
+  → GoogleAuthProvider → DeviceProvider → BrowserRouter
+```
+
+### 路由（`src/App.tsx`）
+
+| 路径 | 页面 | 职责 |
+|------|------|------|
+| `/` | `Index` | AI 入口、订阅、语音创建 |
+| `/chat` | `Chat` | 社交 / AI 聊天（三路分流，见下文） |
+| `/elevenlabs-chat` | `ElevenLabsChat` | ElevenLabs 语音对话 |
+| `/my-devices` | `MyDevices` | 设备列表 |
+| `/add-device` | `AddDevice` | BLE + WiFi 配网（BLUFI） |
+| `/device-send` | `DeviceSend` | 向设备下发像素 / GIF / 文本 |
+| `/profile` | `Profile` | 用户资料 |
+| `/contracts` | `Contracts` | 合约 |
+| `/shop` | `Shop` | 商城 |
+| `/task-rewards` | `TaskRewards` | 任务奖励 |
+| `/gallery` | `Gallery` | 作品画廊 |
+| `/creation` | `Creation` | 像素 / GIF 创作 |
+| `/wallet-callback` | `WalletCallback` | Solana 钱包回调 |
+| `/env-test` | `EnvironmentTest` | 环境变量调试 |
+
+### Services / API 层（`src/services/api/`）
+
+| 模块 | 后端 | 职责 |
+|------|------|------|
+| `userApi.ts` | ICP Canister | 用户档案同步 |
+| `chatApi.ts` | ICP Canister | Legacy 社交聊天（pair key + 轮询） |
+| `univoiceChatApi.ts` | chat-api REST | DM 会话、消息 CRUD、设备配对、Memory Core |
+| `deviceApi.ts` | ICP Canister | 设备注册与查询 |
+| `aiApi.ts` / `aiSubscriptionApi.ts` | ICP + ElevenLabs | AI 能力与订阅 |
+| `taskRewardsApi.ts` | ICP Canister | 任务奖励 |
+| `pixelCreationApi.ts` | ICP Canister | 像素创作持久化 |
+| `bitpayApi.ts` | 外部 | 支付 |
+
+设备相关服务（非 REST）：
+
+- `deviceInitManager` — Web Bluetooth BLUFI 扫描 / 配网
+- `deviceMessageService` — 腾讯 IoT MQTT + 本地双模消息下发
+- `globalDeviceStatusService` — 全局设备在线状态
+- `alayaMcpService` — 多 MCP 端点 + 腾讯 STS / IoT
+
+### Runtime（`src/runtime/`）
+
+- **`AIOProtocolExecutor.ts`**
+  - `execWebChat` — OpenAI 兼容 WebChat（AI 联系人 `aio_webchat_ai`）
+  - `exec_step` — MCP JSON-RPC 协议步骤执行
+- **`AIOProtocolTypes.ts`** — 协议类型定义
+
+### Lib 核心模块（`src/lib/`）
+
+| 模块 | 职责 |
+|------|------|
+| `environment.ts` | Canister ID、Host、本地 / 主网自动切换 |
+| `auth.ts` / `ii.ts` / `identity.ts` / `principal.ts` | 统一认证与 Principal 桥接 |
+| `icpChatCredentials.ts` | chat-api / chat-sse Basic Auth 凭证 |
+| `solanaWallet.ts` / `solanaUsdt.ts` / `wallet.ts` | Solana + Plug 钱包 |
+| `pixelProcessor.ts` / `pixelToGifConverter.ts` | 像素 / GIF 处理 |
+
+### Context
+
+- **`DeviceContext`** — 全局设备列表、选中设备、统计（`useReducer` + `deviceService`）
+
+---
+
+## 外部集成
+
+| 集成 | 入口 | 说明 |
+|------|------|------|
+| **ICP Canister** | `services/api/*` | `@dfinity/agent` 调用 `aio-base-backend` |
+| **Internet Identity** | `lib/ii.ts` | Google / Email 登录后获取 Principal |
+| **Google OAuth** | `useGoogleAuth.ts` | `VITE_GOOGLE_CLIENT_ID` |
+| **Univoice Chat REST** | `univoiceChatApi.ts` | DM、消息、设备配对 |
+| **Univoice Chat SSE** | `useChatSse.ts` | `GET /stream`，Basic Auth + `X-ICP-Principal-Id` |
+| **AIO WebChat** | `AIOProtocolExecutor.execWebChat` | 本地 AI 聊天，无需 Canister |
+| **AIO MCP** | `exec_step`、`alayaMcpService.ts` | `VITE_AIO_MCP_API_URL` JSON-RPC |
+| **ElevenLabs** | `elevenlabhook-stable.ts` | 语音 Agent、TTS / STT |
+| **腾讯 IoT Cloud** | `deviceMessageService.ts` | MQTT 设备状态 / 消息下发 + STS 临时凭证 |
+| **Solana** | `solanaWallet.ts` | Phantom deeplink、WalletConnect、USDT 订阅 |
+| **Memory Relationship Core** | `univoiceChatApi.ts` | `VITE_MEMORY_RELATIONSHIP_CORE_BASE_URL` |
+
+---
+
+## 核心数据流
+
+### 认证
+
+```
+登录（Google / Email+Password / Plug Wallet / Solana）
+  → ensureIILogin() 获取 Principal
+  → setPrincipalId + sessionStorage['alaya_user']
+  → userApi.syncUserInfo → Canister 用户档案
+  → Email 登录额外 saveIcpChatCredentials → 解锁 Univoice DM
+  → Solana 支付订阅 → aiSubscriptionApi + taskRewardsApi.recordPayment
+```
+
+### 聊天（`/chat` 三路分流）
+
+```
+用户选择联系人
+  │
+  ├─ contactPrincipalId === 'aio_webchat_ai'
+  │    → execWebChat + localStorage（无 Canister）
+  │
+  ├─ hasUnivoiceChatAuth()（邮箱登录凭证存在）
+  │    → createOrGetDmSession → listMessages / sendTextMessage
+  │    → useChatSse 实时收消息 + markRead
+  │
+  └─ 否则（Google / Wallet 仅 II，无 chat 凭证）
+       → chatApi → aio-base-backend Canister（social pair key + 轮询）
+```
+
+附加能力：AI 建议（`formatChatForAiSuggestion` → `execWebChat` 流式回复）；聊天页可经 `deviceMessageService` 向绑定 IoT 设备下发像素 / GIF / 文本。
+
+### 设备管理
+
+```
+AddDevice
+  → deviceInitManager（Web Bluetooth BLUFI 扫描 / 配网）
+  → realDeviceService 写入 productId / deviceName
+  → deviceApi → Canister 注册设备记录
+  → deviceMessageService.initializeTencentIoT()（MQTT 订阅在线状态）
+  → DeviceContext 全局同步列表
+
+DeviceSend
+  → pixelToGifConverter / pixelProcessor
+  → deviceMessageService.sendTextToDevices / sendGifToDevices
+```
+
+---
+
+## 环境变量
+
+环境变量自 monorepo 根目录 `../../.env` 加载（见 `vite.config.js`）。
+
+### ICP / DFX（`vite-plugin-environment` 注入）
+
+| 变量 | 说明 |
+|------|------|
+| `CANISTER_ID_AIO_BASE_BACKEND` | 后端 Canister ID |
+| `CANISTER_ID_ALAYA_CHAT_NEXUS_FRONTEND` | 本前端 Asset Canister ID |
+| `CANISTER_ID_AIO_BASE_FRONTEND` | 基础前端 Canister ID |
+| `DFX_NETWORK` / `DFX_VERSION` | 网络环境 |
+
+### Vite 客户端（`VITE_*`）
+
+| 变量 | 说明 |
+|------|------|
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth |
+| `VITE_II_URL` | Internet Identity（默认 `https://identity.ic0.app`） |
+| `VITE_UNIVOICE_CHAT_API_BASE_URL` | chat-api（默认 `http://localhost:3000`） |
+| `VITE_UNIVOICE_CHAT_SSE_BASE_URL` | chat-sse（默认 `http://localhost:3001`） |
+| `VITE_AIO_WEBCHAT_URL` | 开发环境 WebChat（默认 `http://127.0.0.1:8002`） |
+| `VITE_AIO_MCP_API_URL` | MCP JSON-RPC 网关 |
+| `VITE_MEMORY_RELATIONSHIP_CORE_BASE_URL` | 记忆 / 关系核心服务 |
+| `VITE_ELEVENLABS_API_KEY` | ElevenLabs 语音 |
+| `VITE_TENCENT_IOT_*` | 腾讯 IoT MQTT（productId、broker、region 等） |
+| `VITE_TENCENT_STS_*` | 腾讯 STS 临时凭证 |
+| `VITE_HELIUS_API_KEY` / `VITE_ALCHEMY_SOLANA_RPC` | Solana RPC |
+| `VITE_PHANTOM_APP_ID` | Phantom 移动端 deeplink |
+| `VITE_PLUG_WHITELIST` / `VITE_IC_HOST` | Plug Wallet |
+
+完整说明见 [`ENVIRONMENT_VARIABLES.md`](./ENVIRONMENT_VARIABLES.md)。
+
+---
+
+## 构建与部署
+
+### 本地开发
+
+```bash
+npm install
+npm run dev      # Vite :8080，代理 /api → localhost:4943
+npm run start    # Vite :3000
+```
+
+### 生产构建
+
+```bash
+npm run build    # tsc && vite build
+```
+
+Rollup 手动分包：`vendor`、`router`、`ui`、`dfinity`。
+
+### ICP Canister 部署
+
+```bash
+npm run setup    # dfx canister create → dfx generate → dfx deploy
+```
+
+静态资产通过 **Asset Canister** 托管；CSP / 缓存策略在 `public/.ic-assets.json5`。自定义域名配置见 `doc/main.tf`（Cloudflare CNAME → `*.icp1.io`）。
+
+### PWA
+
+- `public/manifest.json` — standalone、图标、主题色
+- `public/sw.js` + `pwaService.initialize()` — Service Worker 注册
+- `PWAInstallPrompt` — 安装引导
+
+---
+
+## 相关文档
+
+| 文档 | 内容 |
+|------|------|
+| [`ENVIRONMENT_VARIABLES.md`](./ENVIRONMENT_VARIABLES.md) | 环境变量详解 |
+| [`INTEGRATION_GUIDE.md`](./INTEGRATION_GUIDE.md) | 用户档案 Canister 集成 |
+| [`TENCENT_IOT_INTEGRATION.md`](./TENCENT_IOT_INTEGRATION.md) | 腾讯 IoT 集成 |
+| [`ELEVENLABS_CONFIG.md`](./ELEVENLABS_CONFIG.md) | ElevenLabs 配置 |
+| [`src/lib/README.md`](./src/lib/README.md) | 环境配置模块 |
+| [`../../univoice-chat/README.md`](../../univoice-chat/README.md) | Univoice Chat 后端 |
+| [`../../AGENTS.md`](../../AGENTS.md) | Monorepo 工程索引 |
+
+---
+
+# 更新日志（Recent Updates）
+
+以下内容记录各功能模块的实现细节与近期变更，按主题组织。
 
 This document summarizes the latest changes implemented in the Chat Nexus frontend (`src/alaya-chat-nexus-frontend`). It complements the project root `README.md` and focuses on UI, authentication, device initialization, layout improvements, and Tencent IoT Cloud integration.
 

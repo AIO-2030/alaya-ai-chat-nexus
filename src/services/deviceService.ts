@@ -1,6 +1,6 @@
 // Device Service - Handle WiFi, Bluetooth and Device Management
 
-// Product ID constant - hardcoded
+// Tencent ProductID is only needed at the MCP boundary; it is not device identity.
 const PRODUCT_ID = "H3PI4FBTV5";
 
 // Device name prefix constant
@@ -153,8 +153,7 @@ class DeviceService {
       status: 'Connected',
       connectedAt: new Date().toISOString(),
       principalId: principalId,
-      deviceName: deviceName,
-      productId: PRODUCT_ID
+      deviceName: deviceName
     };
   }
 
@@ -174,7 +173,6 @@ class DeviceService {
     try {
       console.log('Submitting device record to backend:', record);
       console.log('Device name:', record.deviceName);
-      console.log('Product ID:', record.productId);
       
       // Validate deviceName before submission
       if (!record.deviceName) {
@@ -190,7 +188,6 @@ class DeviceService {
         id: `device_${Date.now()}`, // Generate unique ID
         name: record.name,
         deviceName: record.deviceName, // Add deviceName field (required)
-        productId: record.productId || PRODUCT_ID, // Add productId field
         deviceType: this.convertStringToDeviceType(record.type),
         owner: record.principalId, // Use principalId as owner
         status: this.convertStringToDeviceStatus(record.status),
@@ -361,7 +358,7 @@ class DeviceService {
       connectedAt: apiDevice.metadata.connectedAt || new Date(apiDevice.createdAt).toISOString(),
       principalId: apiDevice.owner,
       deviceName: apiDevice.deviceName || '',
-      productId: apiDevice.productId || PRODUCT_ID,
+      productId: apiDevice.productId,
     };
   }
 
@@ -386,4 +383,4 @@ class DeviceService {
   }
 }
 
-export const deviceService = new DeviceService(); 
+export const deviceService = new DeviceService();

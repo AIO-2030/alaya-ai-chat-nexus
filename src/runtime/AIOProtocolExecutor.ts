@@ -162,7 +162,7 @@ async function executeRpc(
   method: string,
   params?: any,
   id?: string | number,
-  timeout: number = 30
+  timeout: number = 600
 ): Promise<JsonRpcResponse> {
   const requestId = id || Date.now();
   
@@ -193,6 +193,7 @@ async function executeRpc(
       // If URL is just the base, construct the full path
       endpoint = `${baseUrl}/api/v1/rpc/${fileType}/${encodeURIComponent(filename)}`;
     }
+    endpoint += `${endpoint.includes('?') ? '&' : '?'}timeout=${encodeURIComponent(String(timeout))}`;
     
     console.log('[executeRpc] Calling URL:', endpoint);
     console.log('[executeRpc] Request:', rpcRequest);
@@ -477,4 +478,3 @@ export async function exec_step(
     };
   }
 }
-

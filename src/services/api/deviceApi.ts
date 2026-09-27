@@ -66,7 +66,7 @@ export interface DeviceRecord {
   id: string;
   name: string;
   deviceName?: string;  // Device name for MCP calls (extracted from Bluetooth name)
-  productId?: string;   // Product ID for MCP calls
+  productId?: string;   // Deprecated persisted field; MCP supplies ProductID separately
   deviceType: DeviceType;
   owner: string;
   status: DeviceStatus;
@@ -452,4 +452,4 @@ class DeviceApiService {
   }
 }
 
-export const deviceApiService = new DeviceApiService(); 
+export const deviceApiService = new DeviceApiService();
